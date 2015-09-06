@@ -1,0 +1,3 @@
+[submodule "GraphicsMath"]
+	path = GraphicsMath
+	url = https://github.com/gortega56/GraphicsMath.git
