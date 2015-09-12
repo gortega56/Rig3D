@@ -9,12 +9,13 @@ class WMEventHandler;
 LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
 #pragma region Windows Message Handler
+
 class WMEventHandler : public IEventHandler
 {
 public:
-	static WMEventHandler& SharedInstance();
-	void Update();
-	void NotifyObservers(const IEvent& iEvent) override;
+	static	WMEventHandler& SharedInstance();
+	void	Update();
+	void	NotifyObservers(const IEvent& iEvent) override;
 
 private:
 	MSG mMSG;
@@ -33,10 +34,10 @@ private:
 class WMEvent : public IEvent
 {
 public:
-	HWND hwnd;
-	UINT msg;
-	WPARAM wparam;
-	LPARAM lparam;
+	HWND	hwnd;
+	UINT	msg;
+	WPARAM	wparam;
+	LPARAM	lparam;
 
 	WMEvent(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) : hwnd(hwnd), msg(msg), wparam(wparam), lparam(lparam){};
 	~WMEvent(){};

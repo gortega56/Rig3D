@@ -67,11 +67,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="DX_Renderer.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="WMEventHandler.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="DX_Renderer.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="WMEventHandler.cpp" />

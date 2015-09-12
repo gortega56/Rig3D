@@ -1,5 +1,4 @@
 #include "Engine.h"
-#include "WMEventHandler.h"
 
 #define WNDCLASSNAME L"Rig3DWindow"
 
@@ -8,6 +7,7 @@ using namespace Rig3D;
 Engine::Engine() : mShouldQuit(false)
 {
 	mEventHandler = &WMEventHandler::SharedInstance();
+	mTimer = &Timer::SharedInstance();
 }
 
 Engine::~Engine()
@@ -35,9 +35,7 @@ int Engine::Initialize(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine
 
 	RegisterClassEx(&ex);
 
-	mEventHandler->RegisterObserver(WM_CLOSE, this);
-	mEventHandler->RegisterObserver(WM_QUIT, this);
-	mEventHandler->RegisterObserver(WM_DESTROY, this);
+
 
 	// Create the window 
 
@@ -55,10 +53,15 @@ int Engine::Initialize(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine
 	ShowWindow(mHwnd, SW_SHOW);
 	UpdateWindow(mHwnd);
 
-	// The message loop 
+	mEventHandler->RegisterObserver(WM_CLOSE, this);
+	mEventHandler->RegisterObserver(WM_QUIT, this);
+	mEventHandler->RegisterObserver(WM_DESTROY, this);
 
+	// The message loop 
+	mTimer->Reset();
 	while (!mShouldQuit)
 	{
+		mTimer->Update();
 		mEventHandler->Update();
 	}
 

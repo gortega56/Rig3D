@@ -68,11 +68,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Rig3D_Sample_Framework.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Rig3D\Rig3D.vcxproj">
       <Project>{77b5f1d0-8a48-4f96-aff6-366d6fbaf351}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Rig3D_Sample_Framework.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
