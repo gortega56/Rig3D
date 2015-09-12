@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.40629.0
+VisualStudioVersion = 12.0.30501.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Rig3D", "Rig3D\Rig3D.vcxproj", "{77B5F1D0-8A48-4F96-AFF6-366D6FBAF351}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Rig3DSample", "Rig3DSample\Rig3DSample.vcxproj", "{3C394EA0-5A8B-4A6D-B8B8-F28E73A98A07}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "EventHandler", "EventHandler\EventHandler.vcxproj", "{70FC823A-7C79-4F25-B851-062628395D54}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{77B5F1D0-8A48-4F96-AFF6-366D6FBAF351}.Debug|Win32.Build.0 = Debug|Win32
 		{77B5F1D0-8A48-4F96-AFF6-366D6FBAF351}.Release|Win32.ActiveCfg = Release|Win32
 		{77B5F1D0-8A48-4F96-AFF6-366D6FBAF351}.Release|Win32.Build.0 = Release|Win32
+		{3C394EA0-5A8B-4A6D-B8B8-F28E73A98A07}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3C394EA0-5A8B-4A6D-B8B8-F28E73A98A07}.Debug|Win32.Build.0 = Debug|Win32
+		{3C394EA0-5A8B-4A6D-B8B8-F28E73A98A07}.Release|Win32.ActiveCfg = Release|Win32
+		{3C394EA0-5A8B-4A6D-B8B8-F28E73A98A07}.Release|Win32.Build.0 = Release|Win32
+		{70FC823A-7C79-4F25-B851-062628395D54}.Debug|Win32.ActiveCfg = Debug|Win32
+		{70FC823A-7C79-4F25-B851-062628395D54}.Debug|Win32.Build.0 = Debug|Win32
+		{70FC823A-7C79-4F25-B851-062628395D54}.Release|Win32.ActiveCfg = Release|Win32
+		{70FC823A-7C79-4F25-B851-062628395D54}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
