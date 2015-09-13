@@ -1,6 +1,8 @@
 #pragma once
 #include <chrono>
 
+#pragma warning (disable: 4251)
+
 #ifdef _WINDLL
 #define RIG3D __declspec(dllexport)
 #else
@@ -16,10 +18,10 @@ namespace Rig3D
 	{
 	public:
 		static Timer& SharedInstance();
-		void GetApplicationTime(double* applicationTime);
-		void GetDeltaTime(double *deltaTime);
+		double GetApplicationTime();
+		double GetDeltaTime();
 		void Reset();
-		void Update();
+		void Update(double* deltaTime);
 
 	private:
 		ClockTime mApplicationStartTime;

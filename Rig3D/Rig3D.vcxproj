@@ -49,7 +49,7 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(SolutionDir)Debug\EventHandler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(SolutionDir)Debug\EventHandler.lib;$(SolutionDir)Debug\GraphicsMath.lib;d3d11.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -67,20 +67,34 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="DX_Renderer.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="DX3D11Renderer.h" />
+    <ClInclude Include="dxerr.h" />
     <ClInclude Include="Engine.h" />
+    <ClInclude Include="IRenderer.h" />
+    <ClInclude Include="IScene.h" />
+    <ClInclude Include="rig_defines.h" />
     <ClInclude Include="Timer.h" />
+    <ClInclude Include="Transform.h" />
     <ClInclude Include="WMEventHandler.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="DX_Renderer.cpp" />
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="DX3D11Renderer.cpp" />
+    <ClCompile Include="dxerr.cpp" />
     <ClCompile Include="Engine.cpp" />
+    <ClCompile Include="IRenderer.cpp" />
+    <ClCompile Include="IScene.cpp" />
     <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="Transform.cpp" />
     <ClCompile Include="WMEventHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\EventHandler\EventHandler.vcxproj">
       <Project>{70fc823a-7c79-4f25-b851-062628395d54}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\GraphicsMath\GraphicsMath.vcxproj">
+      <Project>{6b0df065-7618-4147-9fff-aa205d7ef02e}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

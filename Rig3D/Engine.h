@@ -3,6 +3,7 @@
 #include "WMEventHandler.h"
 #include "Timer.h"
 
+
 #ifdef _WINDLL
 #define RIG3D __declspec(dllexport)
 #else
@@ -11,24 +12,29 @@
 
 namespace Rig3D
 {
-	class RIG3D Engine : public IObserver
+	class IRenderer;
+
+	class RIG3D Engine : public virtual IObserver
 	{
 	public:
 		Engine();
 		~Engine();
 
-		int		Initialize(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd);
+		int		Initialize(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmdEngine, int windowWidth, int windowHeight, const char* windowCaption);
 		int		Run();
-		void	HandleEvent(const IEvent& wmEvent) override;
+		void	HandleEvent(const IEvent& iEvent) override;
 
 	protected:
-		HDC mHdc;
-		HWND mHwnd;
+		HDC mHDC;
+		HWND mHWND;
 	
 	private:
 		WMEventHandler* mEventHandler;
 		Timer*			mTimer;
+		IRenderer*		mRenderer;
 		bool			mShouldQuit;
+
+		int InitializeMainWindow(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd, int windowWidth, int windowHeight, const char* windowCaption);
 	};
 }
 

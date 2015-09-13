@@ -20,14 +20,14 @@ Timer::~Timer()
 }
 
 
-void Timer::GetApplicationTime(double* applicationTime)
+double Timer::GetApplicationTime()
 {
-	*applicationTime = Milliseconds(mSystemCurrentTime - mApplicationStartTime).count();
+	return Milliseconds(mSystemCurrentTime - mApplicationStartTime).count();
 }
 
-void Timer::GetDeltaTime(double* deltaTime)
+double Timer::GetDeltaTime()
 {
-	*deltaTime = mDeltaTime;
+	return mDeltaTime;
 }
 
 void Timer::Reset()
@@ -36,10 +36,10 @@ void Timer::Reset()
 	mDeltaTime = 0.0;
 }
 
-void Timer::Update()
+void Timer::Update(double* deltaTime)
 {
 	ClockTime systemTime = std::chrono::high_resolution_clock::now();
-	mDeltaTime = std::fmax((Milliseconds(systemTime - mSystemCurrentTime).count() + DBL_EPSILON), 0.0); //Force Non negative
+	*deltaTime = mDeltaTime = std::fmax((Milliseconds(systemTime - mSystemCurrentTime).count() + DBL_EPSILON), 0.0); //Force Non negative
 	mSystemCurrentTime = systemTime;
 
 	//char str[256];
