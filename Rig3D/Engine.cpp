@@ -1,6 +1,7 @@
 #include "Engine.h"
 #include "rig_defines.h"
 #include "DX3D11Renderer.h"
+#include "IScene.h"
 
 using namespace Rig3D;
 
@@ -33,17 +34,6 @@ int Engine::Initialize(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine
 	mEventHandler->RegisterObserver(WM_CLOSE, this);
 	mEventHandler->RegisterObserver(WM_QUIT, this);
 	mEventHandler->RegisterObserver(WM_DESTROY, this);
-
-	// The message loop
-	double deltaTime = 0.0;
-	mTimer->Reset();
-	while (!mShouldQuit)
-	{
-		mTimer->Update(&deltaTime);
-		mEventHandler->Update();
-		mRenderer->VUpdateScene(deltaTime);
-		mRenderer->VRenderScene();
-	}
 
 	return 0;
 }
@@ -94,6 +84,32 @@ int Engine::InitializeMainWindow(HINSTANCE hInstance, HINSTANCE prevInstance, PS
 	return RIG_SUCCESS;
 }
 
+void Engine::BeginScene()
+{
+	// The message loop
+	double deltaTime = 0.0;
+	mTimer->Reset();
+	while (!mShouldQuit)
+	{
+		mTimer->Update(&deltaTime);
+		mEventHandler->Update();
+		mRenderer->VUpdateScene(deltaTime);
+		mRenderer->VRenderScene();
+	}
+}
+
+void Engine::EndScene()
+{
+
+}
+
+int Engine::Shutdown()
+{
+	mRenderer->VShutdown();
+	return RIG_SUCCESS;
+}
+
+
 void Engine::HandleEvent(const IEvent& iEvent)
 {
 	const WMEvent& wmEvent = (const WMEvent&)iEvent;
@@ -111,4 +127,22 @@ void Engine::HandleEvent(const IEvent& iEvent)
 	default:
 		break;
 	}
+}
+
+void Engine::RunScene(IScene* iScene)
+{
+	iScene->VInitialize();
+
+	// The message loop
+	double deltaTime = 0.0;
+	mTimer->Reset();
+	while (!mShouldQuit)
+	{
+		mTimer->Update(&deltaTime);
+		mEventHandler->Update();
+		iScene->VUpdate(deltaTime);
+		iScene->VRender();
+	}
+
+	Shutdown();
 }

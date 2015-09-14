@@ -1,5 +1,6 @@
 #include "DX3D11Renderer.h"
 #include "rig_defines.h"
+#include "IScene.h"
 #include <WindowsX.h>
 #include <sstream>
 
@@ -20,6 +21,7 @@ DX3D11Renderer::DX3D11Renderer()
 
 DX3D11Renderer::~DX3D11Renderer()
 {
+
 }
 
 int DX3D11Renderer::VInitialize(HINSTANCE hInstance, HWND hwnd, int windowWidth, int windowHeight, const char* windowCaption)
@@ -279,4 +281,49 @@ void DX3D11Renderer::HandleEvent(const IEvent& iEvent)
 	default:
 		break;
 	}
+}
+
+void DX3D11Renderer::VShutdown()
+{
+	ReleaseMacro(mDevice);
+	ReleaseMacro(mDeviceContext);
+	ReleaseMacro(mDepthStencilBuffer);
+	ReleaseMacro(mDepthStencilView);
+	ReleaseMacro(mRenderTargetView);
+	ReleaseMacro(mSwapChain);
+}
+
+ID3D11Device* DX3D11Renderer::GetDevice() const
+{
+	return mDevice;
+}
+
+ID3D11DeviceContext* DX3D11Renderer::GetDeviceContext() const
+{
+	return mDeviceContext;
+}
+
+IDXGISwapChain*	DX3D11Renderer::GetSwapChain()	const
+{
+	return mSwapChain;
+}
+
+ID3D11Texture2D* DX3D11Renderer::GetDepthStencilBuffer() const
+{
+	return mDepthStencilBuffer;
+}
+
+ID3D11RenderTargetView* const* DX3D11Renderer::GetRenderTargetView() const
+{
+	return &mRenderTargetView;
+}
+
+ID3D11DepthStencilView* DX3D11Renderer::GetDepthStencilView()	const
+{
+	return mDepthStencilView;
+}
+
+D3D11_VIEWPORT const& DX3D11Renderer::GetViewport() const
+{
+	return mViewport;
 }

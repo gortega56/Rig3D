@@ -9,16 +9,19 @@
 
 namespace Rig3D 
 {
+	class IScene;
+
 	class RIG3D IRenderer
 	{
 	public:
-		virtual int VInitialize(HINSTANCE hInstance, HWND hwnd, int windowWidth, int windowHeight, const char* windowCaption) = 0;
-		virtual void VOnResize() = 0;
-		virtual void VUpdateScene(const double& milliseconds) = 0;
-		virtual void VRenderScene() = 0;
+		virtual int		VInitialize(HINSTANCE hInstance, HWND hwnd, int windowWidth, int windowHeight, const char* windowCaption) = 0;
+		virtual void	VOnResize() = 0;
+		virtual void	VUpdateScene(const double& milliseconds) = 0;
+		virtual void	VRenderScene() = 0;
+		virtual void	VShutdown() = 0;
 
-		inline void SetWindowCaption(const char* caption) { mWindowCaption = caption; };
-		inline float GetAspectRatio() const { return (float)mWindowWidth / mWindowHeight; };
+		inline void		SetWindowCaption(const char* caption) { mWindowCaption = caption; };
+		inline float	GetAspectRatio() const { return (float)mWindowWidth / mWindowHeight; };
 
 		IRenderer(int windowWidth, int windowHeight, const char* windowCaption) : mWindowWidth(windowWidth), mWindowHeight(windowHeight), mWindowCaption(windowCaption) {};
 		IRenderer();
