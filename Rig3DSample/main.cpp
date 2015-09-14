@@ -30,7 +30,7 @@ public:
 	
 	SampleMatrixBuffer		mMatrixBuffer;
 	SampleVertex			mVertices[VERTEX_COUNT];
-	uint16_t					mIndices[INDEX_COUNT];
+	uint16_t				mIndices[INDEX_COUNT];
 
 	DX3D11Renderer*			mRenderer;
 	ID3D11Device*			mDevice;
@@ -65,81 +65,14 @@ public:
 		InitializeCamera();
 	}
 
-	void VUpdate(double milliseconds) override
-	{
-		mMatrixBuffer.mWorld = mat4f(1.0);
-	}
-
-	void VRender() override
-	{
-		float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-
-		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
-		mDeviceContext->OMSetRenderTargets(1, mRenderer->GetRenderTargetView(), mRenderer->GetDepthStencilView());
-		mDeviceContext->ClearRenderTargetView(*mRenderer->GetRenderTargetView(), color);
-		mDeviceContext->ClearDepthStencilView(
-			mRenderer->GetDepthStencilView(),
-			D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
-			1.0f,
-			0);
-
-		// Set up the input assembler
-		mDeviceContext->IASetInputLayout(mInputLayout);
-		mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		// Set the current vertex and pixel shaders
-		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
-		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
-
-		// Update the GPU-side constant buffer with our single CPU-side structure
-		mDeviceContext->UpdateSubresource(
-			mConstantBuffer,
-			0,
-			NULL,
-			&mMatrixBuffer,
-			0,
-			0);
-
-		// Set the constant buffer to be used by the Vertex Shader
-		mDeviceContext->VSSetConstantBuffers(
-			0,	// Corresponds to the constant buffer's register in the vertex shader
-			1,
-			&mConstantBuffer);
-
-		// Set buffers in the input assembler
-		UINT stride = sizeof(SampleVertex);
-		UINT offset = 0;
-		mDeviceContext->IASetVertexBuffers(0, 1, &mVertexBuffer, &stride, &offset);
-		mDeviceContext->IASetIndexBuffer(mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
-
-		// Finally do the actual drawing
-		mDeviceContext->DrawIndexed(
-			INDEX_COUNT,
-			0,
-			0);
-
-		mRenderer->GetSwapChain()->Present(0, 0);
-	}
-
-	void VHandleInput() override
-	{
-
-	}
-
-	void InitializeCamera()
-	{
-		mMatrixBuffer.mProjection	= mat4f::perspective(0.25f * 3.1415926535f, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
-		mMatrixBuffer.mView			= mat4f::lookAt(vec3f(0.0, 0.0, 0.0), vec3f(0.0, 0.0, -5.0), vec3f(0.0, 1.0, 0.0)).transpose();
-	}
-
 	void InitializeGeometry()
 	{
-		mVertices[0].mPosition = { 0.0, 1.0, 0.0 };
-		mVertices[0].mColor = { 1.0, 0.0, 0.0 };
-		mVertices[1].mPosition = { 1.0, 0.0, 0.0 };
-		mVertices[1].mColor = { 0.0, 1.0, 0.0 };
-		mVertices[2].mPosition = { -1.0, 0.0, 0.0 };
-		mVertices[2].mColor = { 0.0, 0.0, 1.0 };
+		mVertices[0].mPosition	= { +0.0f, +0.5f, +0.0f };
+		mVertices[0].mColor		= { +1.0f, +0.0f, +0.0f };
+		mVertices[1].mPosition	= { +0.45f, -0.5f, +0.0f };
+		mVertices[1].mColor		= { +0.0f, +1.0f, +0.0f };
+		mVertices[2].mPosition	= { -0.45f, -0.5f, +0.0f};
+		mVertices[2].mColor		= { +0.0f, +0.0f, +1.0f };
 
 		D3D11_BUFFER_DESC vbd;
 		vbd.Usage = D3D11_USAGE_IMMUTABLE;
@@ -227,6 +160,73 @@ public:
 
 		mDevice->CreateBuffer(&cBufferTransformDesc, NULL, &mConstantBuffer);
 	}
+
+	void InitializeCamera()
+	{
+		mMatrixBuffer.mProjection = mat4f::perspective(0.25f * 3.1415926535f, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
+		mMatrixBuffer.mView = mat4f::lookAt(vec3f(0.0, 0.0, 0.0), vec3f(0.0, 0.0, 5.0), vec3f(0.0, 1.0, 0.0)).transpose();
+	}
+
+	void VUpdate(double milliseconds) override
+	{
+		mMatrixBuffer.mWorld = mat4f(1.0);
+	}
+
+	void VRender() override
+	{
+		float color[4] = { 0.5f, 1.0f, 1.0f, 1.0f };
+
+		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
+		mDeviceContext->OMSetRenderTargets(1, mRenderer->GetRenderTargetView(), mRenderer->GetDepthStencilView());
+		mDeviceContext->ClearRenderTargetView(*mRenderer->GetRenderTargetView(), color);
+		mDeviceContext->ClearDepthStencilView(
+			mRenderer->GetDepthStencilView(),
+			D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
+			1.0f,
+			0);
+
+		// Set up the input assembler
+		mDeviceContext->IASetInputLayout(mInputLayout);
+		mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		// Set the current vertex and pixel shaders
+		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
+		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
+
+		// Update the GPU-side constant buffer with our single CPU-side structure
+		mDeviceContext->UpdateSubresource(
+			mConstantBuffer,
+			0,
+			NULL,
+			&mMatrixBuffer,
+			0,
+			0);
+
+		// Set the constant buffer to be used by the Vertex Shader
+		mDeviceContext->VSSetConstantBuffers(
+			0,	// Corresponds to the constant buffer's register in the vertex shader
+			1,
+			&mConstantBuffer);
+
+		// Set buffers in the input assembler
+		UINT stride = sizeof(SampleVertex);
+		UINT offset = 0;
+		mDeviceContext->IASetVertexBuffers(0, 1, &mVertexBuffer, &stride, &offset);
+		mDeviceContext->IASetIndexBuffer(mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+
+		// Finally do the actual drawing
+		mDeviceContext->DrawIndexed(
+			INDEX_COUNT,
+			0,
+			0);
+
+		mRenderer->GetSwapChain()->Present(0, 0);
+	}
+
+	void VHandleInput() override
+	{
+
+	}
 };
 
 
@@ -234,6 +234,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
 {
 	Rig3DSampleScene sampleScene;
 	Rig3D::Engine Rig3DEngine = Rig3D::Engine();
-	Rig3DEngine.Initialize(hInstance, prevInstance, cmdLine, showCmd, 300, 300, "Test");
+	Rig3DEngine.Initialize(hInstance, prevInstance, cmdLine, showCmd, sampleScene.mWindowWidth, sampleScene.mWindowHeight, sampleScene.mWindowCaption);
 	Rig3DEngine.RunScene(&sampleScene);
 }
