@@ -164,12 +164,12 @@ public:
 	void InitializeCamera()
 	{
 		mMatrixBuffer.mProjection = mat4f::perspective(0.25f * 3.1415926535f, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
-		mMatrixBuffer.mView = mat4f::lookAt(vec3f(0.0, 0.0, 0.0), vec3f(0.0, 0.0, 5.0), vec3f(0.0, 1.0, 0.0)).transpose();
+		mMatrixBuffer.mView = mat4f::lookAtLH(vec3f(0.0, 0.0, 0.0), vec3f(0.0, 0.0, -10.0), vec3f(0.0, 1.0, 0.0)).transpose();
 	}
 
 	void VUpdate(double milliseconds) override
 	{
-		mMatrixBuffer.mWorld = mat4f(1.0);
+		mMatrixBuffer.mWorld = mat4f::translate(vec3f(0.0f, 0.0f, 0.0f)).transpose();
 	}
 
 	void VRender() override
