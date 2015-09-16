@@ -1,7 +1,7 @@
 #include "Engine.h"
 #include "rig_defines.h"
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
-#include "Rig3D\Graphics\DirectX11\IScene.h"
+#include "Rig3D\Graphics\Interface\IScene.h"
 
 using namespace Rig3D;
 

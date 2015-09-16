@@ -1,6 +1,6 @@
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "rig_defines.h"
-#include "IScene.h"
+#include "Rig3D\Graphics\Interface\IScene.h"
 #include <WindowsX.h>
 #include <sstream>
 
