@@ -1,4 +1,5 @@
 #pragma once
+#include <Windows.h>
 
 #ifdef _WINDLL
 #define RIG3D __declspec(dllexport)
@@ -25,16 +26,23 @@ namespace Rig3D
 	};
 }
 
-// Leaving this here for now. Will integrate later.
-//#define DECLARE_MAIN(a)                             \
-//Rig3D::Rig3D_Sample_Framework *app = 0;             \
-//int CALLBACK WinMain(HINSTANCE hInstance,           \
-//                     HINSTANCE hPrevInstance,       \
-//                     LPSTR lpCmdLine,               \
-//                     int nCmdShow)                  \
-//{                                                   \
-//    a *app = new a;                                 \
-//    app->Run();										\
-//    delete app;                                     \
-//    return 0;                                       \
-//}	
+#define DECLARE_MAIN(a)									\
+Rig3D::IScene *gRig3DScene = 0;							\
+int CALLBACK WinMain(HINSTANCE hInstance,				\
+                     HINSTANCE hPrevInstance,			\
+                     PSTR cmdLine,						\
+                     int showCmd)						\
+{														\
+    a *gRig3DScene = new a;                             \
+    Rig3D::Engine engine = Rig3D::Engine();				\
+	engine.Initialize(hInstance,						\
+						hPrevInstance,					\
+						cmdLine,						\
+						showCmd,						\
+						gRig3DScene->mWindowWidth,		\
+						gRig3DScene->mWindowHeight,		\
+						gRig3DScene->mWindowCaption);	\
+	engine.RunScene(gRig3DScene);						\
+    delete gRig3DScene;									\
+    return 0;											\
+}	

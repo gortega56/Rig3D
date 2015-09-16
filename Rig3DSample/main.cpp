@@ -229,11 +229,4 @@ public:
 	}
 };
 
-
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd)
-{
-	Rig3DSampleScene sampleScene;
-	Rig3D::Engine Rig3DEngine = Rig3D::Engine();
-	Rig3DEngine.Initialize(hInstance, prevInstance, cmdLine, showCmd, sampleScene.mWindowWidth, sampleScene.mWindowHeight, sampleScene.mWindowCaption);
-	Rig3DEngine.RunScene(&sampleScene);
-}
+DECLARE_MAIN(Rig3DSampleScene);
