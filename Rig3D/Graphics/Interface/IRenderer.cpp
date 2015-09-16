@@ -6,7 +6,7 @@ IRenderer::IRenderer()
 {
 }
 
-
 IRenderer::~IRenderer()
 {
+
 }

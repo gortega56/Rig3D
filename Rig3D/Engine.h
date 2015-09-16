@@ -13,16 +13,23 @@
 namespace Rig3D
 {
 	class IRenderer;
+	class IScene;
 
 	class RIG3D Engine : public virtual IObserver
 	{
 	public:
+		IScene*		mScene;
+
 		Engine();
 		~Engine();
 
 		int		Initialize(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmdEngine, int windowWidth, int windowHeight, const char* windowCaption);
-		int		Run();
+		void	BeginScene();
+		void	EndScene();
+		int		Shutdown();
 		void	HandleEvent(const IEvent& iEvent) override;
+
+		void	RunScene(IScene* iScene);
 
 	protected:
 		HDC mHDC;

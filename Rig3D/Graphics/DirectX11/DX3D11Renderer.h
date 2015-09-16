@@ -18,14 +18,14 @@
 // on a failed HRESULT and then quitting (only in debug builds)
 #if defined(DEBUG) | defined(_DEBUG)
 #ifndef HR
-#define HR(x)												\
+#define HR(x)																\
 				{															\
-		HRESULT hr = (x);										\
-		if(FAILED(hr))											\
-						{														\
-			DXTrace(__FILEW__, (DWORD)__LINE__, hr, L#x, true);	\
-			PostQuitMessage(0);									\
-						}														\
+		HRESULT hr = (x);													\
+		if(FAILED(hr))														\
+						{													\
+			DXTrace(__FILEW__, (DWORD)__LINE__, hr, L#x, true);				\
+			PostQuitMessage(0);												\
+						}													\
 				}														
 #endif
 #else
@@ -45,9 +45,19 @@ namespace Rig3D
 		void	VUpdateScene(const double& milliseconds) override;
 		void	VRenderScene() override;
 		void	VOnResize() override;
+		void	VShutdown() override;
 		void	HandleEvent(const IEvent& iEvent) override;
 
-		int		InitializeD3D11();
+		int						InitializeD3D11();
+		ID3D11Device*			GetDevice()				const;
+		ID3D11DeviceContext*	GetDeviceContext()		const;
+		IDXGISwapChain*			GetSwapChain()			const;
+		ID3D11Texture2D*		GetDepthStencilBuffer() const;
+		ID3D11RenderTargetView* const* GetRenderTargetView()	const;
+		ID3D11DepthStencilView* GetDepthStencilView()	const;
+		D3D11_VIEWPORT const&	GetViewport()			const;
+
+
 	private:
 		HINSTANCE				mHINSTANCE;
 		HWND					mHWND;
