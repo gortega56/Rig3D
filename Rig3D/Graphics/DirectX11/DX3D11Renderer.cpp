@@ -1,4 +1,4 @@
-#include "DX3D11Renderer.h"
+#include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "rig_defines.h"
 #include <WindowsX.h>
 #include <sstream>

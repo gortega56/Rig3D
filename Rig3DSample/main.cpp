@@ -1,6 +1,6 @@
 #include <Windows.h>
 #include "Rig3D\Engine.h"
-#include "Rig3D\IScene.h"
+#include "Rig3D\Graphics\Interface\IScene.h"
 
 using namespace Rig3D;
 

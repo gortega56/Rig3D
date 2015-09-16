@@ -1,7 +1,7 @@
 #pragma once
 #include <Windows.h>
-#include "WMEventHandler.h"
-#include "Timer.h"
+#include "Rig3D\Common\WMEventHandler.h"
+#include "Rig3D\Common\Timer.h"
 
 
 #ifdef _WINDLL

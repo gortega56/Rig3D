@@ -1,5 +1,5 @@
 #pragma once
-#include "Transform.h"
+#include "Rig3D\Common\Transform.h"
 
 #ifdef _WINDLL
 #define RIG3D __declspec(dllexport)

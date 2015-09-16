@@ -1,8 +1,8 @@
 #pragma once
-#include "IRenderer.h"
-#include "WMEventHandler.h"
+#include "Rig3D\Graphics\Interface\IRenderer.h"
+#include "Rig3D\Common\WMEventHandler.h"
 #include <d3d11.h>
-#include "dxerr.h"
+#include "Rig3D\Graphics\DirectX11\dxerr.h"
 #include <assert.h>
 
 #ifdef _WINDLL
