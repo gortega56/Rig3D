@@ -65,11 +65,14 @@ int Engine::InitializeMainWindow(HINSTANCE hInstance, HINSTANCE prevInstance, PS
 	int width = R.right - R.left;
 	int height = R.bottom - R.top;
 
+	LPCWSTR wideWindowCaption;
+	CSTR2WSTR(windowCaption, wideWindowCaption);
+
 	// Create the window 
 
 	mHWND = CreateWindowEx(NULL,
 		WND_CLASS_NAME,
-		L"Rig3D",
+		wideWindowCaption,
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		width, height,

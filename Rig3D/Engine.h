@@ -18,8 +18,6 @@ namespace Rig3D
 	class RIG3D Engine : public virtual IObserver
 	{
 	public:
-		IScene*		mScene;
-
 		Engine();
 		~Engine();
 
