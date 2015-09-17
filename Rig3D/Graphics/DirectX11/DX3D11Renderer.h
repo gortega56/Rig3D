@@ -1,7 +1,7 @@
 #pragma once
 #include "Rig3D\Graphics\Interface\IRenderer.h"
 #include "Rig3D\Common\WMEventHandler.h"
-#include <d3d11.h>
+#include "Rig3D\rig_graphics_api_conversions.h"
 #include "Rig3D\Graphics\DirectX11\dxerr.h"
 #include <assert.h>
 
@@ -48,6 +48,9 @@ namespace Rig3D
 		void	VShutdown() override;
 		void	HandleEvent(const IEvent& iEvent) override;
 
+		void	VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count);
+
+
 		int						InitializeD3D11();
 		ID3D11Device*			GetDevice()				const;
 		ID3D11DeviceContext*	GetDeviceContext()		const;
@@ -56,7 +59,6 @@ namespace Rig3D
 		ID3D11RenderTargetView* const* GetRenderTargetView()	const;
 		ID3D11DepthStencilView* GetDepthStencilView()	const;
 		D3D11_VIEWPORT const&	GetViewport()			const;
-
 
 	private:
 		HINSTANCE				mHINSTANCE;

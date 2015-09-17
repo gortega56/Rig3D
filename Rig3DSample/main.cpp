@@ -44,7 +44,7 @@ public:
 	ID3D11PixelShader*		mPixelShader;
 
 	float					mAnimationTime;
-	bool					mShouldPlay;
+	short					mShouldPlay;
 
 	Rig3DSampleScene()
 	{
@@ -258,7 +258,7 @@ public:
 
 		mMatrixBuffer.mWorld = (mat4f::rotateY(yaw) * mat4f::translate(position)).transpose();
 
-		mAnimationTime += milliseconds;
+		mAnimationTime += (float)milliseconds;
 	}
 
 	void VRender() override

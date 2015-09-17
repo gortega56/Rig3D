@@ -139,6 +139,15 @@ void DX3D11Renderer::VRenderScene()
 
 }
 
+void DX3D11Renderer::VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count)
+{
+	mDeviceContext->IASetPrimitiveTopology(GD3D11_Primitive_Type_Map(type));
+	mDeviceContext->DrawIndexed(
+		count,
+		startIndex,
+		0);
+}
+
 void DX3D11Renderer::VOnResize()
 {
 	// Release the views, since we'll be destroying

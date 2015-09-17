@@ -1,5 +1,7 @@
 #pragma once
 #include <Windows.h>
+#include <stdint.h>
+#include "Rig3D\rig_defines.h"
 
 #ifdef _WINDLL
 #define RIG3D __declspec(dllexport)
@@ -19,6 +21,8 @@ namespace Rig3D
 		virtual void	VUpdateScene(const double& milliseconds) = 0;
 		virtual void	VRenderScene() = 0;
 		virtual void	VShutdown() = 0;
+
+		virtual void	VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count) = 0;
 
 		inline void		SetWindowCaption(const char* caption) { mWindowCaption = caption; };
 		inline float	GetAspectRatio() const { return (float)mWindowWidth / mWindowHeight; };
