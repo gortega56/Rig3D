@@ -8,8 +8,9 @@
 
 using namespace Rig3D;
 
-static const int VERTEX_COUNT	= 3;
-static const int INDEX_COUNT	= 3;
+static const int VERTEX_COUNT			= 8;
+static const int INDEX_COUNT			= 36;
+static const float ANIMATION_DURATION	= 20000.0f; // 20 Seconds
 
 class Rig3DSampleScene : public IScene
 {
@@ -42,11 +43,16 @@ public:
 	ID3D11VertexShader*		mVertexShader;
 	ID3D11PixelShader*		mPixelShader;
 
+	float					mAnimationTime;
+	bool					mShouldPlay;
+
 	Rig3DSampleScene()
 	{
 		mWindowCaption	= "Rig3D Sample";
 		mWindowWidth	= 800;
 		mWindowHeight	= 600;
+		mAnimationTime	= 0.0f;
+		mShouldPlay		= false;
 	}
 
 	~Rig3DSampleScene()
@@ -67,12 +73,29 @@ public:
 
 	void InitializeGeometry()
 	{
-		mVertices[0].mPosition	= { +0.0f, +0.5f, +0.0f };
-		mVertices[0].mColor		= { +1.0f, +0.0f, +0.0f };
-		mVertices[1].mPosition	= { +0.45f, -0.5f, +0.0f };
-		mVertices[1].mColor		= { +0.0f, +1.0f, +0.0f };
-		mVertices[2].mPosition	= { -0.45f, -0.5f, +0.0f};
-		mVertices[2].mColor		= { +0.0f, +0.0f, +1.0f };
+		mVertices[0].mPosition	= { -0.5f, +0.5f, +0.5f };	// Front Top Left
+		mVertices[0].mColor		= { +1.0f, +1.0f, +0.0f };
+
+		mVertices[1].mPosition	= { +0.5f, +0.5f, +0.5f };  // Front Top Right
+		mVertices[1].mColor		= { +1.0f, +1.0f, +1.0f };
+
+		mVertices[2].mPosition	= { +0.5f, -0.5f, +0.5f };  // Front Bottom Right
+		mVertices[2].mColor		= { +1.0f, +0.0f, +1.0f };
+
+		mVertices[3].mPosition	= { -0.5f, -0.5f, +0.5f };   // Front Bottom Left
+		mVertices[3].mColor		= { +1.0f, +0.0f, +0.0f };
+
+		mVertices[4].mPosition	= { -0.5f, +0.5f, -0.5f };;  // Back Top Left
+		mVertices[4].mColor		= { +0.0f, +1.0f, +0.0f };
+
+		mVertices[5].mPosition	= { +0.5f, +0.5f, -0.5f };  // Back Top Right
+		mVertices[5].mColor		= { +0.0f, +1.0f, +1.0f };
+
+		mVertices[6].mPosition	= { +0.5f, -0.5f, -0.5f };  // Back Bottom Right
+		mVertices[6].mColor		= { +1.0f, +0.0f, +1.0f };
+
+		mVertices[7].mPosition	= { -0.5f, -0.5f, -0.5f };  // Back Bottom Left
+		mVertices[7].mColor		= { +0.0f, +0.0f, +0.0f };
 
 		D3D11_BUFFER_DESC vbd;
 		vbd.Usage = D3D11_USAGE_IMMUTABLE;
@@ -86,9 +109,59 @@ public:
 		vertexData.pSysMem = mVertices;
 		mDevice->CreateBuffer(&vbd, &vertexData, &mVertexBuffer);
 
+		// Front Face
 		mIndices[0] = 0;
 		mIndices[1] = 1;
 		mIndices[2] = 2;
+
+		mIndices[3] = 2;
+		mIndices[4] = 3;
+		mIndices[5] = 0;
+		
+		// Right Face
+		mIndices[6] = 1;
+		mIndices[7] = 5;
+		mIndices[8] = 6;
+
+		mIndices[9] = 6;
+		mIndices[10] = 2;
+		mIndices[11] = 1;
+
+		// Back Face
+		mIndices[12] = 5;
+		mIndices[13] = 4;
+		mIndices[14] = 7;
+
+		mIndices[15] = 7;
+		mIndices[16] = 6;
+		mIndices[17] = 5;
+
+		// Left Face
+		mIndices[18] = 4;
+		mIndices[19] = 0;
+		mIndices[20] = 3;
+
+		mIndices[21] = 3;
+		mIndices[22] = 7;
+		mIndices[23] = 4;
+
+		// Top Face
+		mIndices[24] = 4;
+		mIndices[25] = 5;
+		mIndices[26] = 1;
+
+		mIndices[27] = 1;
+		mIndices[28] = 0;
+		mIndices[29] = 4;
+
+		// Bottom Face
+		mIndices[30] = 3;
+		mIndices[31] = 2;
+		mIndices[32] = 6;
+
+		mIndices[33] = 6;
+		mIndices[34] = 7;
+		mIndices[35] = 3;
 
 		D3D11_BUFFER_DESC ibd;
 		ibd.Usage = D3D11_USAGE_IMMUTABLE;
@@ -169,7 +242,23 @@ public:
 
 	void VUpdate(double milliseconds) override
 	{
-		mMatrixBuffer.mWorld = mat4f::translate(vec3f(0.0f, 0.0f, 0.0f)).transpose();
+		mShouldPlay = GetAsyncKeyState(VK_RIGHT);
+		if (!mShouldPlay) {
+			return;
+		}
+
+		static vec3f startPosition = { -2.5f, -2.5f, 0.0f };
+		static vec3f endPosition = { 2.5f, 2.5f, 0.0f };
+		static float startYaw = 0.0f;
+		static float endYaw = (3.1415926535f * 2.0f);
+		float t = min(mAnimationTime / ANIMATION_DURATION, 1.0f);
+
+		vec3f position = (1 - t) * startPosition + t * endPosition;
+		float yaw = (1 - t) * startYaw + t * endYaw;
+
+		mMatrixBuffer.mWorld = (mat4f::rotateY(yaw) * mat4f::translate(position)).transpose();
+
+		mAnimationTime += milliseconds;
 	}
 
 	void VRender() override
