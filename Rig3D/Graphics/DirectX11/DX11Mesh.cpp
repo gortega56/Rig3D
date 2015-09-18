@@ -3,7 +3,7 @@
 
 using namespace Rig3D;
 
-DX11Mesh::DX11Mesh()
+DX11Mesh::DX11Mesh() : IMesh()
 {
 
 }
@@ -21,11 +21,11 @@ void DX11Mesh::VSetVertexBuffer(void* vertices, const size_t& size, const size_t
 	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	vbd.CPUAccessFlags = 0;
 	vbd.MiscFlags = 0;
-	vbd.StructureByteStride = stride;
+	vbd.StructureByteStride = 0;	// Not used for Vertex Input
 
 	D3D11_SUBRESOURCE_DATA vertexData;
 	vertexData.pSysMem = vertices;
-	DX3D11Renderer::SharedInstance().GetDevice->CreateBuffer(&vbd, &vertexData, &mVertexBuffer);
+	DX3D11Renderer::SharedInstance().GetDevice()->CreateBuffer(&vbd, &vertexData, &mVertexBuffer);
 
 	mVertexStride = stride;
 }
@@ -42,18 +42,18 @@ void DX11Mesh::VSetIndexBuffer(uint16_t* indices, const uint32_t& count, const G
 
 	D3D11_SUBRESOURCE_DATA indexData;
 	indexData.pSysMem = indices;
-	DX3D11Renderer::SharedInstance().GetDevice->CreateBuffer(&ibd, &indexData, &mIndexBuffer);
+	DX3D11Renderer::SharedInstance().GetDevice()->CreateBuffer(&ibd, &indexData, &mIndexBuffer);
 
 	mIndexCount = count;
 }
 
 void DX11Mesh::VBindVertexBuffer()
 {
-	uint16_t offset = 0;
-	DX3D11Renderer::SharedInstance().GetDeviceContext->IASetVertexBuffers(0, 1, &mVertexBuffer, &mVertexStride, &offset);
+	uint32_t offset = 0;
+	DX3D11Renderer::SharedInstance().GetDeviceContext()->IASetVertexBuffers(0, 1, &mVertexBuffer, &mVertexStride, &offset);
 }
 
 void DX11Mesh::VBindIndexBuffer()
 {
-	DX3D11Renderer::SharedInstance().GetDeviceContext->IASetIndexBuffer(mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+	DX3D11Renderer::SharedInstance().GetDeviceContext()->IASetIndexBuffer(mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
 }

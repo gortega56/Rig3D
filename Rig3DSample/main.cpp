@@ -2,6 +2,8 @@
 #include "Rig3D\Engine.h"
 #include "Rig3D\Graphics\Interface\IScene.h"
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
+#include "Rig3D\Graphics\Interface\IMesh.h"
+#include "Rig3D\Graphics\DirectX11\DX11Mesh.h"
 #include "Rig3D\Common\Transform.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -33,6 +35,8 @@ public:
 	SampleVertex			mVertices[VERTEX_COUNT];
 	uint16_t				mIndices[INDEX_COUNT];
 
+	IMesh*					mMesh;
+
 	DX3D11Renderer*			mRenderer;
 	ID3D11Device*			mDevice;
 	ID3D11DeviceContext*	mDeviceContext;
@@ -51,6 +55,7 @@ public:
 		mWindowCaption	= "Rig3D Sample";
 		mWindowWidth	= 800;
 		mWindowHeight	= 600;
+		mGraphicsAPI    = GRAPHICS_API_DIRECTX11;
 		mAnimationTime	= 0.0f;
 		mShouldPlay		= false;
 	}
@@ -97,17 +102,17 @@ public:
 		mVertices[7].mPosition	= { -0.5f, -0.5f, -0.5f };  // Back Bottom Left
 		mVertices[7].mColor		= { +0.0f, +0.0f, +0.0f };
 
-		D3D11_BUFFER_DESC vbd;
-		vbd.Usage = D3D11_USAGE_IMMUTABLE;
-		vbd.ByteWidth = sizeof(SampleVertex) * VERTEX_COUNT;
-		vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-		vbd.CPUAccessFlags = 0;
-		vbd.MiscFlags = 0;
-		vbd.StructureByteStride = 0;
+		//D3D11_BUFFER_DESC vbd;
+		//vbd.Usage = D3D11_USAGE_IMMUTABLE;
+		//vbd.ByteWidth = sizeof(SampleVertex) * VERTEX_COUNT;
+		//vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		//vbd.CPUAccessFlags = 0;
+		//vbd.MiscFlags = 0;
+		//vbd.StructureByteStride = 0;
 
-		D3D11_SUBRESOURCE_DATA vertexData;
-		vertexData.pSysMem = mVertices;
-		mDevice->CreateBuffer(&vbd, &vertexData, &mVertexBuffer);
+		//D3D11_SUBRESOURCE_DATA vertexData;
+		//vertexData.pSysMem = mVertices;
+		//mDevice->CreateBuffer(&vbd, &vertexData, &mVertexBuffer);
 
 		// Front Face
 		mIndices[0] = 0;
@@ -163,17 +168,21 @@ public:
 		mIndices[34] = 7;
 		mIndices[35] = 3;
 
-		D3D11_BUFFER_DESC ibd;
-		ibd.Usage = D3D11_USAGE_IMMUTABLE;
-		ibd.ByteWidth = sizeof(uint16_t) * INDEX_COUNT;
-		ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-		ibd.CPUAccessFlags = 0;
-		ibd.MiscFlags = 0;
-		ibd.StructureByteStride = 0;
+		//D3D11_BUFFER_DESC ibd;
+		//ibd.Usage = D3D11_USAGE_IMMUTABLE;
+		//ibd.ByteWidth = sizeof(uint16_t) * INDEX_COUNT;
+		//ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		//ibd.CPUAccessFlags = 0;
+		//ibd.MiscFlags = 0;
+		//ibd.StructureByteStride = 0;
 
-		D3D11_SUBRESOURCE_DATA indexData;
-		indexData.pSysMem = mIndices;
-		mDevice->CreateBuffer(&ibd, &indexData, &mIndexBuffer);
+		//D3D11_SUBRESOURCE_DATA indexData;
+		//indexData.pSysMem = mIndices;
+		//mDevice->CreateBuffer(&ibd, &indexData, &mIndexBuffer);
+
+		mMesh = new DX11Mesh();
+		mMesh->VSetVertexBuffer(mVertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
+		mMesh->VSetIndexBuffer(mIndices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
 	}
 
 	void InitializeShaders()
@@ -276,7 +285,7 @@ public:
 
 		// Set up the input assembler
 		mDeviceContext->IASetInputLayout(mInputLayout);
-		mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
 
 		// Set the current vertex and pixel shaders
 		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
@@ -297,18 +306,10 @@ public:
 			1,
 			&mConstantBuffer);
 
-		// Set buffers in the input assembler
-		UINT stride = sizeof(SampleVertex);
-		UINT offset = 0;
-		mDeviceContext->IASetVertexBuffers(0, 1, &mVertexBuffer, &stride, &offset);
-		mDeviceContext->IASetIndexBuffer(mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+		mMesh->VBindVertexBuffer();
+		mMesh->VBindIndexBuffer();
 
-		// Finally do the actual drawing
-		mDeviceContext->DrawIndexed(
-			INDEX_COUNT,
-			0,
-			0);
-
+		mRenderer->VDrawIndexed(0, mMesh->GetIndexCount());
 		mRenderer->GetSwapChain()->Present(0, 0);
 	}
 

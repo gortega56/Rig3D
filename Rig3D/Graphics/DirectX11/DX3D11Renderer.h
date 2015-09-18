@@ -48,8 +48,9 @@ namespace Rig3D
 		void	VShutdown() override;
 		void	HandleEvent(const IEvent& iEvent) override;
 
-		void	VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count);
-
+		inline void	VSetPrimitiveType(GPU_PRIMITIVE_TYPE type) override;
+		inline void	VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count) override;
+		inline void	VDrawIndexed(uint32_t startIndex, uint32_t count) override;
 
 		int						InitializeD3D11();
 		ID3D11Device*			GetDevice()				const;

@@ -8,11 +8,16 @@ using namespace Rig3D;
 static const float DEFAULT_WINDOW_SIZE = 800.0f;
 static const wchar_t* WND_CLASS_NAME = L"Rig3D Window Class";
 
-Engine::Engine() : mShouldQuit(false)
+Engine::Engine(GRAPHICS_API graphicsAPI) : mShouldQuit(false)
 {
-	mRenderer = &DX3D11Renderer::SharedInstance();
+	mRenderer = (graphicsAPI == GRAPHICS_API_DIRECTX11) ? &DX3D11Renderer::SharedInstance() : NULL; // TO DO: OpenGL Renderer
 	mEventHandler = &WMEventHandler::SharedInstance();
 	mTimer = &Timer::SharedInstance();
+}
+
+Engine::Engine() : Engine(GRAPHICS_API_DIRECTX11)
+{
+	
 }
 
 Engine::~Engine()
