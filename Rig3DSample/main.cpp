@@ -18,6 +18,8 @@ class Rig3DSampleScene : public IScene
 {
 public:
 
+	typedef cliqCity::graphicsMath::Vector2 vec2f;
+
 	struct SampleVertex
 	{
 		vec3f mPosition;
@@ -30,23 +32,45 @@ public:
 		mat4f mView;
 		mat4f mProjection;
 	};
+
+	struct BlurBuffer
+	{
+		vec2f uvOffsets[4];
+		vec2f x[4];
+	};
 	
 	SampleMatrixBuffer		mMatrixBuffer;
-	SampleVertex			mVertices[VERTEX_COUNT];
-	uint16_t				mIndices[INDEX_COUNT];
 
-	IMesh*					mMesh;
+	IMesh*					mCubeMesh;
+	IMesh*					mQuadMesh;
 
 	DX3D11Renderer*			mRenderer;
 	ID3D11Device*			mDevice;
 	ID3D11DeviceContext*	mDeviceContext;
-	ID3D11Buffer*			mVertexBuffer;
-	ID3D11Buffer*			mIndexBuffer;
 	ID3D11Buffer*			mConstantBuffer;
 	ID3D11InputLayout*		mInputLayout;
 	ID3D11VertexShader*		mVertexShader;
 	ID3D11PixelShader*		mPixelShader;
 
+	// Use for blur
+	ID3D11RenderTargetView*		mSceneRTV;
+	ID3D11ShaderResourceView*	mSceneSRV;
+	ID3D11Texture2D*			mSceneTexture2D;
+
+	ID3D11RenderTargetView*		mBlurRTV;
+	ID3D11ShaderResourceView*	mBlurSceneSRV;
+	ID3D11Texture2D*			mBlurTexture2D;
+
+	ID3D11SamplerState*			mSamplerState;
+
+	ID3D11VertexShader*			mQuadVertexShader;
+	ID3D11PixelShader*			mQuadBlurPixelShader;
+
+	BlurBuffer					mBlurH;
+	BlurBuffer					mBlurV;
+	ID3D11Buffer*				mBlurBuffer;
+
+	vec2f					mPixelSize;
 	float					mAnimationTime;
 	short					mShouldPlay;
 
@@ -62,14 +86,74 @@ public:
 
 	~Rig3DSampleScene()
 	{
+		delete mCubeMesh;
+		delete mQuadMesh;
 
+		ReleaseMacro(mBlurRTV);
+		ReleaseMacro(mBlurSceneSRV);
+		ReleaseMacro(mBlurTexture2D);
+
+		ReleaseMacro(mSceneRTV);
+		ReleaseMacro(mSceneSRV);
+		ReleaseMacro(mSceneTexture2D);
+
+		ReleaseMacro(mVertexShader);
+		ReleaseMacro(mPixelShader);
+		ReleaseMacro(mQuadVertexShader);
+		ReleaseMacro(mQuadVertexShader);
+
+		ReleaseMacro(mConstantBuffer);
+		ReleaseMacro(mInputLayout);
 	}
 
 	void VInitialize() override
 	{
 		mRenderer = &DX3D11Renderer::SharedInstance();
 		mDevice = mRenderer->GetDevice();
-		mDeviceContext = mRenderer->GetDeviceContext();
+		mDeviceContext = mRenderer->GetDeviceContext(); 
+
+		D3D11_TEXTURE2D_DESC textureDesc;
+		textureDesc.Width				= mWindowWidth;
+		textureDesc.Height				= mWindowHeight;
+		textureDesc.ArraySize			= 1;
+		textureDesc.BindFlags			= D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+		textureDesc.CPUAccessFlags		= 0;
+		textureDesc.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
+		textureDesc.MipLevels			= 1;
+		textureDesc.MiscFlags			= 0;
+		textureDesc.SampleDesc.Count	= 1;
+		textureDesc.SampleDesc.Quality	= 0;
+		textureDesc.Usage				= D3D11_USAGE_DEFAULT;
+
+		mDevice->CreateTexture2D(&textureDesc, 0, &mBlurTexture2D);
+		mDevice->CreateTexture2D(&textureDesc, 0, &mSceneTexture2D);
+
+		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
+		rtvDesc.Format				= textureDesc.Format;
+		rtvDesc.ViewDimension		= D3D11_RTV_DIMENSION_TEXTURE2D;
+		rtvDesc.Texture2D.MipSlice	= 0;
+
+		mRenderer->GetDevice()->CreateRenderTargetView(mBlurTexture2D, 0, &mBlurRTV);
+		mRenderer->GetDevice()->CreateRenderTargetView(mSceneTexture2D, 0, &mSceneRTV);
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+		srvDesc.Format						= textureDesc.Format;
+		srvDesc.ViewDimension				= D3D11_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels			= 1;
+		srvDesc.Texture2D.MostDetailedMip	= 0;
+
+		mDevice->CreateShaderResourceView(mBlurTexture2D, &srvDesc, &mBlurSceneSRV);
+		mDevice->CreateShaderResourceView(mSceneTexture2D, &srvDesc, &mSceneSRV);
+
+		D3D11_SAMPLER_DESC samplerDesc;
+		ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
+		samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+		samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+		samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+		samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+		mDevice->CreateSamplerState(&samplerDesc, &mSamplerState);
 
 		InitializeGeometry();
 		InitializeShaders();
@@ -78,112 +162,116 @@ public:
 
 	void InitializeGeometry()
 	{
-		mVertices[0].mPosition	= { -0.5f, +0.5f, +0.5f };	// Front Top Left
-		mVertices[0].mColor		= { +1.0f, +1.0f, +0.0f };
+		SampleVertex vertices[VERTEX_COUNT];
+		vertices[0].mPosition	= { -0.5f, +0.5f, +0.5f };	// Front Top Left
+		vertices[0].mColor		= { +1.0f, +1.0f, +0.0f };
 
-		mVertices[1].mPosition	= { +0.5f, +0.5f, +0.5f };  // Front Top Right
-		mVertices[1].mColor		= { +1.0f, +1.0f, +1.0f };
+		vertices[1].mPosition	= { +0.5f, +0.5f, +0.5f };  // Front Top Right
+		vertices[1].mColor		= { +1.0f, +1.0f, +1.0f };
 
-		mVertices[2].mPosition	= { +0.5f, -0.5f, +0.5f };  // Front Bottom Right
-		mVertices[2].mColor		= { +1.0f, +0.0f, +1.0f };
+		vertices[2].mPosition	= { +0.5f, -0.5f, +0.5f };  // Front Bottom Right
+		vertices[2].mColor		= { +1.0f, +0.0f, +1.0f };
 
-		mVertices[3].mPosition	= { -0.5f, -0.5f, +0.5f };   // Front Bottom Left
-		mVertices[3].mColor		= { +1.0f, +0.0f, +0.0f };
+		vertices[3].mPosition	= { -0.5f, -0.5f, +0.5f };   // Front Bottom Left
+		vertices[3].mColor		= { +1.0f, +0.0f, +0.0f };
 
-		mVertices[4].mPosition	= { -0.5f, +0.5f, -0.5f };;  // Back Top Left
-		mVertices[4].mColor		= { +0.0f, +1.0f, +0.0f };
+		vertices[4].mPosition	= { -0.5f, +0.5f, -0.5f };;  // Back Top Left
+		vertices[4].mColor		= { +0.0f, +1.0f, +0.0f };
 
-		mVertices[5].mPosition	= { +0.5f, +0.5f, -0.5f };  // Back Top Right
-		mVertices[5].mColor		= { +0.0f, +1.0f, +1.0f };
+		vertices[5].mPosition	= { +0.5f, +0.5f, -0.5f };  // Back Top Right
+		vertices[5].mColor		= { +0.0f, +1.0f, +1.0f };
 
-		mVertices[6].mPosition	= { +0.5f, -0.5f, -0.5f };  // Back Bottom Right
-		mVertices[6].mColor		= { +1.0f, +0.0f, +1.0f };
+		vertices[6].mPosition	= { +0.5f, -0.5f, -0.5f };  // Back Bottom Right
+		vertices[6].mColor		= { +1.0f, +0.0f, +1.0f };
 
-		mVertices[7].mPosition	= { -0.5f, -0.5f, -0.5f };  // Back Bottom Left
-		mVertices[7].mColor		= { +0.0f, +0.0f, +0.0f };
+		vertices[7].mPosition	= { -0.5f, -0.5f, -0.5f };  // Back Bottom Left
+		vertices[7].mColor		= { +0.0f, +0.0f, +0.0f };
 
-		//D3D11_BUFFER_DESC vbd;
-		//vbd.Usage = D3D11_USAGE_IMMUTABLE;
-		//vbd.ByteWidth = sizeof(SampleVertex) * VERTEX_COUNT;
-		//vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-		//vbd.CPUAccessFlags = 0;
-		//vbd.MiscFlags = 0;
-		//vbd.StructureByteStride = 0;
-
-		//D3D11_SUBRESOURCE_DATA vertexData;
-		//vertexData.pSysMem = mVertices;
-		//mDevice->CreateBuffer(&vbd, &vertexData, &mVertexBuffer);
-
+		uint16_t indices[INDEX_COUNT];
 		// Front Face
-		mIndices[0] = 0;
-		mIndices[1] = 1;
-		mIndices[2] = 2;
+		indices[0] = 0;
+		indices[1] = 1;
+		indices[2] = 2;
 
-		mIndices[3] = 2;
-		mIndices[4] = 3;
-		mIndices[5] = 0;
+		indices[3] = 2;
+		indices[4] = 3;
+		indices[5] = 0;
 		
 		// Right Face
-		mIndices[6] = 1;
-		mIndices[7] = 5;
-		mIndices[8] = 6;
+		indices[6] = 1;
+		indices[7] = 5;
+		indices[8] = 6;
 
-		mIndices[9] = 6;
-		mIndices[10] = 2;
-		mIndices[11] = 1;
+		indices[9] = 6;
+		indices[10] = 2;
+		indices[11] = 1;
 
 		// Back Face
-		mIndices[12] = 5;
-		mIndices[13] = 4;
-		mIndices[14] = 7;
+		indices[12] = 5;
+		indices[13] = 4;
+		indices[14] = 7;
 
-		mIndices[15] = 7;
-		mIndices[16] = 6;
-		mIndices[17] = 5;
+		indices[15] = 7;
+		indices[16] = 6;
+		indices[17] = 5;
 
 		// Left Face
-		mIndices[18] = 4;
-		mIndices[19] = 0;
-		mIndices[20] = 3;
+		indices[18] = 4;
+		indices[19] = 0;
+		indices[20] = 3;
 
-		mIndices[21] = 3;
-		mIndices[22] = 7;
-		mIndices[23] = 4;
+		indices[21] = 3;
+		indices[22] = 7;
+		indices[23] = 4;
 
 		// Top Face
-		mIndices[24] = 4;
-		mIndices[25] = 5;
-		mIndices[26] = 1;
+		indices[24] = 4;
+		indices[25] = 5;
+		indices[26] = 1;
 
-		mIndices[27] = 1;
-		mIndices[28] = 0;
-		mIndices[29] = 4;
+		indices[27] = 1;
+		indices[28] = 0;
+		indices[29] = 4;
 
 		// Bottom Face
-		mIndices[30] = 3;
-		mIndices[31] = 2;
-		mIndices[32] = 6;
+		indices[30] = 3;
+		indices[31] = 2;
+		indices[32] = 6;
 
-		mIndices[33] = 6;
-		mIndices[34] = 7;
-		mIndices[35] = 3;
+		indices[33] = 6;
+		indices[34] = 7;
+		indices[35] = 3;
 
-		//D3D11_BUFFER_DESC ibd;
-		//ibd.Usage = D3D11_USAGE_IMMUTABLE;
-		//ibd.ByteWidth = sizeof(uint16_t) * INDEX_COUNT;
-		//ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-		//ibd.CPUAccessFlags = 0;
-		//ibd.MiscFlags = 0;
-		//ibd.StructureByteStride = 0;
+		mCubeMesh = new DX11Mesh();
+		mCubeMesh->VSetVertexBuffer(vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
+		mCubeMesh->VSetIndexBuffer(indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
 
-		//D3D11_SUBRESOURCE_DATA indexData;
-		//indexData.pSysMem = mIndices;
-		//mDevice->CreateBuffer(&ibd, &indexData, &mIndexBuffer);
+		SampleVertex qVertices[4];
+		qVertices[0].mPosition	= { -1.0f, 1.0f, 0.0f };
+		qVertices[0].mColor		= { 0.0f, 0.0f, 0.0f};
 
-		mMesh = new DX11Mesh();
-		mMesh->VSetVertexBuffer(mVertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
-		mMesh->VSetIndexBuffer(mIndices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
-	}
+		qVertices[1].mPosition = { 1.0f, 1.0f, 0.0f };
+		qVertices[1].mColor = { 1.0f, 0.0f, 0.0f };
+
+		qVertices[2].mPosition = { 1.0f, -1.0f, 0.0f };
+		qVertices[2].mColor = { 1.0f, 1.0f, 0.0f };
+
+		qVertices[3].mPosition = { -1.0f, -1.0f, 0.0f };
+		qVertices[3].mColor = { 0.0f, 1.0f, 0.0f };
+
+		uint16_t qIndices[6];
+		qIndices[0] = 0;
+		qIndices[1] = 1;
+		qIndices[2] = 2;
+
+		qIndices[3] = 2;
+		qIndices[4] = 3;
+		qIndices[5] = 0;
+
+		mQuadMesh = new DX11Mesh();
+		mQuadMesh->VSetVertexBuffer(qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
+		mQuadMesh->VSetIndexBuffer(qIndices, 6, GPU_MEMORY_USAGE_STATIC);
+}
 
 	void InitializeShaders()
 	{
@@ -241,6 +329,46 @@ public:
 		cBufferTransformDesc.StructureByteStride = 0;
 
 		mDevice->CreateBuffer(&cBufferTransformDesc, NULL, &mConstantBuffer);
+
+		// Blur Shaders
+		D3DReadFileToBlob(L"QuadVertexShader.cso", &vsBlob);
+
+		mDevice->CreateVertexShader(
+			vsBlob->GetBufferPointer(),
+			vsBlob->GetBufferSize(),
+			NULL,
+			&mQuadVertexShader);
+
+		if (inputDescription) {
+			mDevice->CreateInputLayout(
+				inputDescription,					// Reference to Description
+				2,									// Number of elments inside of Description
+				vsBlob->GetBufferPointer(),
+				vsBlob->GetBufferSize(),
+				&mInputLayout);
+		}
+
+		vsBlob->Release();
+
+		D3DReadFileToBlob(L"QuadPixelShader.cso", &psBlob);
+
+		mDevice->CreatePixelShader(
+			psBlob->GetBufferPointer(),
+			psBlob->GetBufferSize(),
+			NULL,
+			&mQuadBlurPixelShader);
+
+		psBlob->Release();
+
+		D3D11_BUFFER_DESC bufferDesc;
+		bufferDesc.ByteWidth = sizeof(BlurBuffer);
+		bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		bufferDesc.CPUAccessFlags = 0;
+		bufferDesc.MiscFlags = 0;
+		bufferDesc.StructureByteStride = 0;
+
+		mDevice->CreateBuffer(&bufferDesc, NULL, &mBlurBuffer);
 	}
 
 	void InitializeCamera()
@@ -251,6 +379,16 @@ public:
 
 	void VUpdate(double milliseconds) override
 	{
+		mPixelSize = { 1.0f / mWindowWidth, 1.0f / mWindowHeight };
+		
+		mBlurH.uvOffsets[0] = { 0.0f, 0.0f };
+		mBlurH.uvOffsets[1] = { -mPixelSize.x, 0.0f };
+		mBlurH.uvOffsets[2] = { +mPixelSize.x, 0.0f };
+
+		mBlurV.uvOffsets[0] = { 0.0f, 0.0f };
+		mBlurV.uvOffsets[1] = { 0.0f, -mPixelSize.y };
+		mBlurV.uvOffsets[2] = { 0.0f, +mPixelSize.y };
+
 		mShouldPlay = GetAsyncKeyState(VK_RIGHT);
 		if (!mShouldPlay) {
 			return;
@@ -274,6 +412,77 @@ public:
 	{
 		float color[4] = { 0.5f, 1.0f, 1.0f, 1.0f };
 
+		// Set up the input assembler
+		mDeviceContext->IASetInputLayout(mInputLayout);
+		mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
+
+		// Render scene to texture.
+		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
+
+		mDeviceContext->OMSetRenderTargets(1, &mSceneRTV, mRenderer->GetDepthStencilView());
+		mDeviceContext->ClearRenderTargetView(mSceneRTV, color);
+		mDeviceContext->ClearDepthStencilView(
+			mRenderer->GetDepthStencilView(),
+			D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
+			1.0f,
+			0);
+
+		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
+		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
+
+		mDeviceContext->UpdateSubresource(
+			mConstantBuffer,
+			0,
+			NULL,
+			&mMatrixBuffer,
+			0,
+			0);
+
+		mDeviceContext->VSSetConstantBuffers(
+			0,	
+			1,
+			&mConstantBuffer);
+
+		mCubeMesh->VBindVertexBuffer();
+		mCubeMesh->VBindIndexBuffer();
+
+		mRenderer->VDrawIndexed(0, mCubeMesh->GetIndexCount());
+
+		// Horizontal pass gets rendered to the vertical
+		mDeviceContext->OMSetRenderTargets(1, &mBlurRTV, mRenderer->GetDepthStencilView());
+		mDeviceContext->ClearRenderTargetView(mBlurRTV, color);
+		mDeviceContext->ClearDepthStencilView(
+			mRenderer->GetDepthStencilView(),
+			D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
+			1.0f,
+			0);
+
+		mDeviceContext->VSSetShader(mQuadVertexShader, NULL, 0);
+		mDeviceContext->PSSetShader(mQuadBlurPixelShader, NULL, 0);
+
+		// Bind mSceneTexture2D
+		mDeviceContext->UpdateSubresource(
+			mBlurBuffer,
+			0,
+			NULL,
+			&mBlurH,
+			0,
+			0);
+
+		mDeviceContext->PSSetConstantBuffers(
+			0,
+			1,
+			&mBlurBuffer);
+
+		mDeviceContext->PSSetShaderResources(0, 1, &mSceneSRV);
+		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
+
+		mQuadMesh->VBindVertexBuffer();
+		mQuadMesh->VBindIndexBuffer();
+
+		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
+
+		// Final Pass
 		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
 		mDeviceContext->OMSetRenderTargets(1, mRenderer->GetRenderTargetView(), mRenderer->GetDepthStencilView());
 		mDeviceContext->ClearRenderTargetView(*mRenderer->GetRenderTargetView(), color);
@@ -283,33 +492,31 @@ public:
 			1.0f,
 			0);
 
-		// Set up the input assembler
-		mDeviceContext->IASetInputLayout(mInputLayout);
-		mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
+		// Bind Blur Texture
+		mDeviceContext->PSSetShaderResources(0, 1, &mBlurSceneSRV);
+		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
-		// Set the current vertex and pixel shaders
-		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
-		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
-
-		// Update the GPU-side constant buffer with our single CPU-side structure
 		mDeviceContext->UpdateSubresource(
-			mConstantBuffer,
+			mBlurBuffer,
 			0,
 			NULL,
-			&mMatrixBuffer,
+			&mBlurV,
 			0,
 			0);
 
-		// Set the constant buffer to be used by the Vertex Shader
-		mDeviceContext->VSSetConstantBuffers(
-			0,	// Corresponds to the constant buffer's register in the vertex shader
+		mDeviceContext->PSSetConstantBuffers(
+			0,
 			1,
-			&mConstantBuffer);
+			&mBlurBuffer);
 
-		mMesh->VBindVertexBuffer();
-		mMesh->VBindIndexBuffer();
+		mQuadMesh->VBindVertexBuffer();
+		mQuadMesh->VBindIndexBuffer();
 
-		mRenderer->VDrawIndexed(0, mMesh->GetIndexCount());
+		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
+
+		ID3D11ShaderResourceView* nullSRV[1] = { 0 };
+		mDeviceContext->PSSetShaderResources(0, 1, nullSRV);
+		
 		mRenderer->GetSwapChain()->Present(0, 0);
 	}
 
