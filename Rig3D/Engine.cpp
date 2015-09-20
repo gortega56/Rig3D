@@ -1,18 +1,23 @@
 #include "Engine.h"
 #include "rig_defines.h"
-#include "DX3D11Renderer.h"
-#include "IScene.h"
+#include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
+#include "Rig3D\Graphics\Interface\IScene.h"
 
 using namespace Rig3D;
 
 static const float DEFAULT_WINDOW_SIZE = 800.0f;
 static const wchar_t* WND_CLASS_NAME = L"Rig3D Window Class";
 
-Engine::Engine() : mShouldQuit(false)
+Engine::Engine(GRAPHICS_API graphicsAPI) : mShouldQuit(false)
 {
-	mRenderer = &DX3D11Renderer::SharedInstance();
+	mRenderer = (graphicsAPI == GRAPHICS_API_DIRECTX11) ? &DX3D11Renderer::SharedInstance() : NULL; // TO DO: OpenGL Renderer
 	mEventHandler = &WMEventHandler::SharedInstance();
 	mTimer = &Timer::SharedInstance();
+}
+
+Engine::Engine() : Engine(GRAPHICS_API_DIRECTX11)
+{
+	
 }
 
 Engine::~Engine()
@@ -65,11 +70,14 @@ int Engine::InitializeMainWindow(HINSTANCE hInstance, HINSTANCE prevInstance, PS
 	int width = R.right - R.left;
 	int height = R.bottom - R.top;
 
+	LPCWSTR wideWindowCaption;
+	CSTR2WSTR(windowCaption, wideWindowCaption);
+
 	// Create the window 
 
 	mHWND = CreateWindowEx(NULL,
 		WND_CLASS_NAME,
-		L"Rig3D",
+		wideWindowCaption,
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		width, height,

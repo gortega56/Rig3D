@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -13,18 +13,19 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{77B5F1D0-8A48-4F96-AFF6-366D6FBAF351}</ProjectGuid>
     <RootNamespace>Rig3D</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.10240.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -44,7 +45,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -67,27 +68,32 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Camera.h" />
-    <ClInclude Include="DX3D11Renderer.h" />
-    <ClInclude Include="dxerr.h" />
+    <ClInclude Include="Common\Timer.h" />
+    <ClInclude Include="Common\Transform.h" />
+    <ClInclude Include="Common\WMEventHandler.h" />
     <ClInclude Include="Engine.h" />
-    <ClInclude Include="IRenderer.h" />
-    <ClInclude Include="IScene.h" />
+    <ClInclude Include="Graphics\Camera.h" />
+    <ClInclude Include="Graphics\DirectX11\DX11Mesh.h" />
+    <ClInclude Include="Graphics\DirectX11\DX3D11Renderer.h" />
+    <ClInclude Include="Graphics\DirectX11\dxerr.h" />
+    <ClInclude Include="Graphics\Interface\IMesh.h" />
+    <ClInclude Include="Graphics\Interface\IRenderer.h" />
+    <ClInclude Include="Graphics\Interface\IScene.h" />
     <ClInclude Include="rig_defines.h" />
-    <ClInclude Include="Timer.h" />
-    <ClInclude Include="Transform.h" />
-    <ClInclude Include="WMEventHandler.h" />
+    <ClInclude Include="rig_graphics_api_conversions.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="DX3D11Renderer.cpp" />
-    <ClCompile Include="dxerr.cpp" />
+    <ClCompile Include="Common\Timer.cpp" />
+    <ClCompile Include="Common\Transform.cpp" />
+    <ClCompile Include="Common\WMEventHandler.cpp" />
     <ClCompile Include="Engine.cpp" />
-    <ClCompile Include="IRenderer.cpp" />
-    <ClCompile Include="IScene.cpp" />
-    <ClCompile Include="Timer.cpp" />
-    <ClCompile Include="Transform.cpp" />
-    <ClCompile Include="WMEventHandler.cpp" />
+    <ClCompile Include="Graphics\Camera.cpp" />
+    <ClCompile Include="Graphics\DirectX11\DX11Mesh.cpp" />
+    <ClCompile Include="Graphics\DirectX11\DX3D11Renderer.cpp" />
+    <ClCompile Include="Graphics\DirectX11\dxerr.cpp" />
+    <ClCompile Include="Graphics\Interface\IMesh.cpp" />
+    <ClCompile Include="Graphics\Interface\IRenderer.cpp" />
+    <ClCompile Include="Graphics\Interface\IScene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\EventHandler\EventHandler.vcxproj">

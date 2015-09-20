@@ -1,8 +1,8 @@
 #pragma once
 #include <Windows.h>
-#include "WMEventHandler.h"
-#include "Timer.h"
-
+#include "Rig3D\Common\WMEventHandler.h"
+#include "Rig3D\Common\Timer.h"
+#include "Rig3D\rig_defines.h"
 
 #ifdef _WINDLL
 #define RIG3D __declspec(dllexport)
@@ -18,9 +18,8 @@ namespace Rig3D
 	class RIG3D Engine : public virtual IObserver
 	{
 	public:
-		IScene*		mScene;
-
 		Engine();
+		Engine(GRAPHICS_API graphicsAPI);
 		~Engine();
 
 		int		Initialize(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmdEngine, int windowWidth, int windowHeight, const char* windowCaption);
