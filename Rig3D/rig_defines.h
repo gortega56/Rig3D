@@ -12,6 +12,12 @@ out = wtext;								\
 
 namespace Rig3D
 {
+	enum GRAPHICS_API
+	{
+		GRAPHICS_API_DIRECTX11,
+		GRAPHICS_API_OPENGL4
+	};
+
 	enum GPU_MEMORY_USAGE
 	{
 		GPU_MEMORY_USAGE_DEFAULT,			// GPU read write, CPU read 

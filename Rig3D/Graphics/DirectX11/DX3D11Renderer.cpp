@@ -16,6 +16,7 @@ DX3D11Renderer& DX3D11Renderer::SharedInstance()
 
 DX3D11Renderer::DX3D11Renderer()
 {
+	mGraphicsAPI = GRAPHICS_API_DIRECTX11;
 }
 
 
@@ -139,9 +140,22 @@ void DX3D11Renderer::VRenderScene()
 
 }
 
+void DX3D11Renderer::VSetPrimitiveType(GPU_PRIMITIVE_TYPE type)
+{
+	mDeviceContext->IASetPrimitiveTopology(GD3D11_Primitive_Type_Map(type));
+}
+
 void DX3D11Renderer::VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count)
 {
 	mDeviceContext->IASetPrimitiveTopology(GD3D11_Primitive_Type_Map(type));
+	mDeviceContext->DrawIndexed(
+		count,
+		startIndex,
+		0);
+}
+
+void DX3D11Renderer::VDrawIndexed(uint32_t startIndex, uint32_t count)
+{
 	mDeviceContext->DrawIndexed(
 		count,
 		startIndex,
