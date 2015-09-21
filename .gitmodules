@@ -4,3 +4,6 @@
 [submodule "EventHandler"]
 	path = EventHandler
 	url = https://github.com/gortega56/EventHandler.git
+[submodule "Memory"]
+	path = Memory
+	url = https://github.com/gortega56/Memory.git
