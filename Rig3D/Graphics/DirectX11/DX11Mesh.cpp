@@ -10,7 +10,8 @@ DX11Mesh::DX11Mesh() : IMesh()
 
 DX11Mesh::~DX11Mesh()
 {
-
+	ReleaseMacro(mVertexBuffer);
+	ReleaseMacro(mIndexBuffer);
 }
 
 void DX11Mesh::VSetVertexBuffer(void* vertices, const size_t& size, const size_t& stride, const GPU_MEMORY_USAGE& usage)

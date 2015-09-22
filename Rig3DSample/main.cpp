@@ -5,6 +5,7 @@
 #include "Rig3D\Graphics\Interface\IMesh.h"
 #include "Rig3D\Graphics\DirectX11\DX11Mesh.h"
 #include "Rig3D\Common\Transform.h"
+#include "Memory\Memory\LinearAllocator.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
@@ -19,6 +20,7 @@ class Rig3DSampleScene : public IScene
 public:
 
 	typedef cliqCity::graphicsMath::Vector2 vec2f;
+	typedef cliqCity::memory::LinearAllocator LinearAllocator;
 
 	struct SampleVertex
 	{
@@ -39,10 +41,13 @@ public:
 		vec2f x[4];
 	};
 	
+
 	SampleMatrixBuffer		mMatrixBuffer;
 
 	IMesh*					mCubeMesh;
 	IMesh*					mQuadMesh;
+
+	LinearAllocator			mAllocator;
 
 	DX3D11Renderer*			mRenderer;
 	ID3D11Device*			mDevice;
@@ -74,7 +79,7 @@ public:
 	float					mAnimationTime;
 	short					mShouldPlay;
 
-	Rig3DSampleScene()
+	Rig3DSampleScene() : mAllocator(1024)
 	{
 		mWindowCaption	= "Rig3D Sample";
 		mWindowWidth	= 800;
@@ -242,7 +247,7 @@ public:
 		indices[34] = 7;
 		indices[35] = 3;
 
-		mCubeMesh = new DX11Mesh();
+		mCubeMesh = new(mAllocator.Allocate(sizeof(DX11Mesh), alignof(DX11Mesh), 0)) DX11Mesh();
 		mCubeMesh->VSetVertexBuffer(vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
 		mCubeMesh->VSetIndexBuffer(indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
 
@@ -268,7 +273,7 @@ public:
 		qIndices[4] = 3;
 		qIndices[5] = 0;
 
-		mQuadMesh = new DX11Mesh();
+		mQuadMesh = new(mAllocator.Allocate(sizeof(DX11Mesh), alignof(DX11Mesh), 0)) DX11Mesh();
 		mQuadMesh->VSetVertexBuffer(qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
 		mQuadMesh->VSetIndexBuffer(qIndices, 6, GPU_MEMORY_USAGE_STATIC);
 }
@@ -523,6 +528,13 @@ public:
 	void VHandleInput() override
 	{
 
+	}
+
+	void VShutdown() override
+	{
+		mQuadMesh->~IMesh();
+		mCubeMesh->~IMesh();
+		mAllocator.Free();
 	}
 };
 

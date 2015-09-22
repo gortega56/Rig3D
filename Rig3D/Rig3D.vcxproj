@@ -102,6 +102,9 @@
     <ProjectReference Include="..\GraphicsMath\GraphicsMath.vcxproj">
       <Project>{6b0df065-7618-4147-9fff-aa205d7ef02e}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\Memory\Memory\Memory.vcxproj">
+      <Project>{09a0a24c-6be9-44ba-9fb9-6e8d5121f404}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
