@@ -91,9 +91,6 @@ public:
 
 	~Rig3DSampleScene()
 	{
-		delete mCubeMesh;
-		delete mQuadMesh;
-
 		ReleaseMacro(mBlurRTV);
 		ReleaseMacro(mBlurSceneSRV);
 		ReleaseMacro(mBlurTexture2D);
@@ -527,7 +524,9 @@ public:
 
 	void VHandleInput() override
 	{
+		auto input = &Input::SharedInstance();
 
+		input->GetKey(KEYCODE_1);
 	}
 
 	void VShutdown() override

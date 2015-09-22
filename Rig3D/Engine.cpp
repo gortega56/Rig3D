@@ -13,6 +13,7 @@ Engine::Engine(GRAPHICS_API graphicsAPI) : mShouldQuit(false)
 	mRenderer = (graphicsAPI == GRAPHICS_API_DIRECTX11) ? &DX3D11Renderer::SharedInstance() : NULL; // TO DO: OpenGL Renderer
 	mEventHandler = &WMEventHandler::SharedInstance();
 	mTimer = &Timer::SharedInstance();
+	mInput = &Input::SharedInstance();
 }
 
 Engine::Engine() : Engine(GRAPHICS_API_DIRECTX11)
@@ -32,6 +33,12 @@ int Engine::Initialize(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine
 	}
 
 	if (mRenderer->VInitialize(hInstance, mHWND, windowWidth, windowHeight, windowCaption) == RIG_ERROR)
+	{
+		return RIG_ERROR;
+	}
+
+
+	if (mInput->Initialize() == RIG_ERROR)
 	{
 		return RIG_ERROR;
 	}
@@ -149,7 +156,10 @@ void Engine::RunScene(IScene* iScene)
 		mTimer->Update(&deltaTime);
 		mEventHandler->Update();
 		iScene->VUpdate(deltaTime);
+		iScene->VHandleInput();
 		iScene->VRender();
+
+		mInput->Flush();
 	}
 
 	iScene->VShutdown();
