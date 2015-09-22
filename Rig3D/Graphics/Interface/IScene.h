@@ -25,6 +25,7 @@ namespace Rig3D
 		virtual void VUpdate(double milliseconds) = 0;
 		virtual void VRender() = 0;
 		virtual void VHandleInput() = 0;
+		virtual void VShutdown() = 0;
 	};
 }
 

@@ -152,5 +152,6 @@ void Engine::RunScene(IScene* iScene)
 		iScene->VRender();
 	}
 
+	iScene->VShutdown();
 	Shutdown();
 }
