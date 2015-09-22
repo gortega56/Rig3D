@@ -89,5 +89,8 @@
     <ClCompile Include="Graphics\DirectX11\DX11Mesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Options.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

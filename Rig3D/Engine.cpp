@@ -8,14 +8,7 @@ using namespace Rig3D;
 static const float DEFAULT_WINDOW_SIZE = 800.0f;
 static const wchar_t* WND_CLASS_NAME = L"Rig3D Window Class";
 
-Engine::Engine(GRAPHICS_API graphicsAPI) : mShouldQuit(false)
-{
-	mRenderer = (graphicsAPI == GRAPHICS_API_DIRECTX11) ? &DX3D11Renderer::SharedInstance() : NULL; // TO DO: OpenGL Renderer
-	mEventHandler = &WMEventHandler::SharedInstance();
-	mTimer = &Timer::SharedInstance();
-}
-
-Engine::Engine() : Engine(GRAPHICS_API_DIRECTX11)
+Engine::Engine() : mShouldQuit(false)
 {
 	
 }
@@ -24,26 +17,31 @@ Engine::~Engine()
 {
 }
 
-int Engine::Initialize(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd, int windowWidth, int windowHeight, const char* windowCaption)
+int Engine::Initialize(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd, Options options)
 {
-	if (InitializeMainWindow(hInstance, prevInstance, cmdLine, showCmd, windowWidth, windowHeight, windowCaption) == RIG_ERROR)
-	{
-		return RIG_ERROR;
-	}
-
-	if (mRenderer->VInitialize(hInstance, mHWND, windowWidth, windowHeight, windowCaption) == RIG_ERROR)
-	{
-		return RIG_ERROR;
-	}
-
+	// Event Handler needs to be initialized before creating window.
+	mEventHandler = &WMEventHandler::SharedInstance();
 	mEventHandler->RegisterObserver(WM_CLOSE, this);
 	mEventHandler->RegisterObserver(WM_QUIT, this);
 	mEventHandler->RegisterObserver(WM_DESTROY, this);
 
+	if (InitializeMainWindow(hInstance, prevInstance, cmdLine, showCmd, options) == RIG_ERROR)
+	{
+		return RIG_ERROR;
+	}
+
+	mRenderer = (options.mGraphicsAPI == GRAPHICS_API_DIRECTX11) ? &DX3D11Renderer::SharedInstance() : NULL; // TO DO: OpenGL Renderer
+	if (mRenderer->VInitialize(hInstance, mHWND, options) == RIG_ERROR)
+	{
+		return RIG_ERROR;
+	}
+
+	mTimer = &Timer::SharedInstance();
+
 	return 0;
 }
 
-int Engine::InitializeMainWindow(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd, int windowWidth, int windowHeight, const char* windowCaption)
+int Engine::InitializeMainWindow(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd, Options options)
 {
 	WNDCLASSEX ex;
 	ex.cbSize = sizeof(WNDCLASSEX);
@@ -65,13 +63,13 @@ int Engine::InitializeMainWindow(HINSTANCE hInstance, HINSTANCE prevInstance, PS
 	}
 
 	// Compute window rectangle dimensions based on requested client area dimensions.
-	RECT R = { 0, 0, windowWidth, windowHeight };
+	RECT R = { 0, 0, options.mWindowWidth, options.mWindowHeight };
 	AdjustWindowRect(&R, WS_OVERLAPPEDWINDOW, false);
 	int width = R.right - R.left;
 	int height = R.bottom - R.top;
 
 	LPCWSTR wideWindowCaption;
-	CSTR2WSTR(windowCaption, wideWindowCaption);
+	CSTR2WSTR(options.mWindowCaption, wideWindowCaption);
 
 	// Create the window 
 

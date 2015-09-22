@@ -1,4 +1,5 @@
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
+#include "Rig3D\Engine.h"
 #include "rig_defines.h"
 #include "Rig3D\Graphics\Interface\IScene.h"
 #include <WindowsX.h>
@@ -25,22 +26,22 @@ DX3D11Renderer::~DX3D11Renderer()
 
 }
 
-int DX3D11Renderer::VInitialize(HINSTANCE hInstance, HWND hwnd, int windowWidth, int windowHeight, const char* windowCaption)
+int DX3D11Renderer::VInitialize(HINSTANCE hInstance, HWND hwnd, Options options)
 {
-	mHINSTANCE = hInstance;
-	mHWND = hwnd;
-	mWindowWidth = windowWidth;
-	mWindowHeight = windowHeight;
-	mWindowCaption = windowCaption;
-	mDriverType = D3D_DRIVER_TYPE_HARDWARE;
-	mEnable4xMsaa = false;
-	mMSAA4xQuality = 0;
-	mDevice = 0;
-	mDeviceContext = 0;
-	mDepthStencilBuffer = 0;
-	mDepthStencilView = 0;
-	mRenderTargetView = 0;
-	mSwapChain = 0;
+	mHINSTANCE				= hInstance;
+	mHWND					= hwnd;
+	mWindowWidth			= options.mWindowWidth;
+	mWindowHeight			= options.mWindowHeight;
+	mWindowCaption			= options.mWindowCaption;
+	mDriverType				= D3D_DRIVER_TYPE_HARDWARE;
+	mEnable4xMsaa			= false;
+	mMSAA4xQuality			= 0;
+	mDevice					= 0;
+	mDeviceContext			= 0;
+	mDepthStencilBuffer		= 0;
+	mDepthStencilView		= 0;
+	mRenderTargetView		= 0;
+	mSwapChain				= 0;
 
 	ZeroMemory(&mViewport, sizeof(D3D11_VIEWPORT));
 
