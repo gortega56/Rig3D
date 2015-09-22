@@ -96,6 +96,7 @@
     <ClCompile Include="Graphics\Interface\IMesh.cpp" />
     <ClCompile Include="Graphics\Interface\IRenderer.cpp" />
     <ClCompile Include="Graphics\Interface\IScene.cpp" />
+    <ClCompile Include="Options.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\EventHandler\EventHandler.vcxproj">

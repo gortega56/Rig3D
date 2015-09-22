@@ -1,7 +1,7 @@
 #pragma once
 #include <Windows.h>
 #include <stdint.h>
-#include "Rig3D\rig_defines.h"
+#include "Rig3D\Options.h"
 
 #ifdef _WINDLL
 #define RIG3D __declspec(dllexport)
@@ -11,7 +11,7 @@
 
 namespace Rig3D 
 {
-	class IScene;
+	class	IScene;
 
 	class RIG3D IRenderer
 	{
@@ -19,7 +19,7 @@ namespace Rig3D
 		IRenderer();
 		virtual ~IRenderer();
 		
-		virtual int		VInitialize(HINSTANCE hInstance, HWND hwnd, int windowWidth, int windowHeight, const char* windowCaption) = 0;
+		virtual int		VInitialize(HINSTANCE hInstance, HWND hwnd, Options options) = 0;
 		virtual void	VOnResize() = 0;
 		virtual void	VUpdateScene(const double& milliseconds) = 0;
 		virtual void	VRenderScene() = 0;

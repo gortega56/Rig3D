@@ -81,10 +81,11 @@ public:
 
 	Rig3DSampleScene() : mAllocator(1024)
 	{
-		mWindowCaption	= "Rig3D Sample";
-		mWindowWidth	= 800;
-		mWindowHeight	= 600;
-		mGraphicsAPI    = GRAPHICS_API_DIRECTX11;
+		mOptions.mWindowCaption	= "Rig3D Sample";
+		mOptions.mWindowWidth	= 800;
+		mOptions.mWindowHeight	= 600;
+		mOptions.mGraphicsAPI   = GRAPHICS_API_DIRECTX11;
+		mOptions.mFullScreen	= false;
 		mAnimationTime	= 0.0f;
 		mShouldPlay		= false;
 	}
@@ -115,8 +116,8 @@ public:
 		mDeviceContext = mRenderer->GetDeviceContext(); 
 
 		D3D11_TEXTURE2D_DESC textureDesc;
-		textureDesc.Width				= mWindowWidth;
-		textureDesc.Height				= mWindowHeight;
+		textureDesc.Width				= mOptions.mWindowWidth;
+		textureDesc.Height				= mOptions.mWindowHeight;
 		textureDesc.ArraySize			= 1;
 		textureDesc.BindFlags			= D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 		textureDesc.CPUAccessFlags		= 0;
@@ -381,7 +382,7 @@ public:
 
 	void VUpdate(double milliseconds) override
 	{
-		mPixelSize = { 1.0f / mWindowWidth, 1.0f / mWindowHeight };
+		mPixelSize = { 1.0f / mOptions.mWindowWidth, 1.0f / mOptions.mWindowHeight };
 		
 		mBlurH.uvOffsets[0] = { 0.0f, 0.0f };
 		mBlurH.uvOffsets[1] = { -mPixelSize.x, 0.0f };

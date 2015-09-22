@@ -1,6 +1,6 @@
 #pragma once
 #include <Windows.h>
-#include "Rig3D\rig_defines.h"
+#include "Rig3D\Options.h"
 
 #ifdef _WINDLL
 #define RIG3D __declspec(dllexport)
@@ -13,10 +13,7 @@ namespace Rig3D
 	class RIG3D IScene
 	{
 	public:
-		int				mWindowWidth;
-		int				mWindowHeight;
-		const char*		mWindowCaption;
-		GRAPHICS_API	mGraphicsAPI;
+		Options	mOptions;
 
 		IScene();
 		~IScene();
@@ -36,15 +33,13 @@ int CALLBACK WinMain(HINSTANCE hInstance,								\
                      PSTR cmdLine,										\
                      int showCmd)										\
 {																		\
-    a *gRig3DScene = new a;												\
-    Rig3D::Engine engine = Rig3D::Engine(gRig3DScene->mGraphicsAPI);	\
+	a *gRig3DScene = new a;												\
+    Rig3D::Engine engine = Rig3D::Engine();								\
 	engine.Initialize(hInstance,										\
 						hPrevInstance,									\
 						cmdLine,										\
 						showCmd,										\
-						gRig3DScene->mWindowWidth,						\
-						gRig3DScene->mWindowHeight,						\
-						gRig3DScene->mWindowCaption);					\
+						gRig3DScene->mOptions);							\
 	engine.RunScene(gRig3DScene);										\
     delete gRig3DScene;													\
     return 0;															\

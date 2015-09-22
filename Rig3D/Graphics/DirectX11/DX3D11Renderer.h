@@ -41,7 +41,7 @@ namespace Rig3D
 	public:
 		static DX3D11Renderer& SharedInstance();
 
-		int		VInitialize(HINSTANCE hInstance, HWND hwnd, int windowWidth, int windowHeight, const char* windowCaption) override;
+		int		VInitialize(HINSTANCE hInstance, HWND hwnd, Options options) override;
 		void	VUpdateScene(const double& milliseconds) override;
 		void	VRenderScene() override;
 		void	VOnResize() override;
