@@ -33,6 +33,7 @@ int DX3D11Renderer::VInitialize(HINSTANCE hInstance, HWND hwnd, Options options)
 	mWindowWidth			= options.mWindowWidth;
 	mWindowHeight			= options.mWindowHeight;
 	mWindowCaption			= options.mWindowCaption;
+	mFullScreen				= options.mFullScreen;
 	mDriverType				= D3D_DRIVER_TYPE_HARDWARE;
 	mEnable4xMsaa			= false;
 	mMSAA4xQuality			= 0;
@@ -80,7 +81,7 @@ int DX3D11Renderer::InitializeD3D11()
 	swapChainDesc.OutputWindow = mHWND;
 	swapChainDesc.Windowed = true;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-	swapChainDesc.Flags = 0;
+	swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;	// Enables Alt + Enter Windowed / Full Screen Toggle.
 	if (mEnable4xMsaa)
 	{
 		// Set up 4x MSAA
@@ -124,6 +125,7 @@ int DX3D11Renderer::InitializeD3D11()
 		&mMSAA4xQuality));
 	assert(mMSAA4xQuality > 0); // Potential problem if quality is 0
 
+	HR(mSwapChain->SetFullscreenState(mFullScreen, NULL));
 	// The remaining steps also need to happen each time the window
 	// is resized, so just run the OnResize method
 	VOnResize();

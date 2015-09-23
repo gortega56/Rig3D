@@ -11,7 +11,7 @@
 
 namespace Rig3D 
 {
-	class	IScene;
+	class IScene;
 
 	class RIG3D IRenderer
 	{
@@ -31,7 +31,8 @@ namespace Rig3D
 
 		inline void		SetWindowCaption(const char* caption) { mWindowCaption = caption; };
 		inline float	GetAspectRatio() const { return (float)mWindowWidth / mWindowHeight; };
-
+		inline const int& GetWindowWidth() const { return mWindowWidth; };
+		inline const int& GetWindowHeight() const { return mWindowHeight; };
 		inline GRAPHICS_API GetGraphicsAPI() const { return mGraphicsAPI; };
 	
 	protected:
@@ -39,6 +40,7 @@ namespace Rig3D
 		int				mWindowHeight;
 		const char*		mWindowCaption;		
 		GRAPHICS_API	mGraphicsAPI;
+		bool			mFullScreen;
 	};
 }
 

@@ -58,10 +58,13 @@ int Engine::InitializeMainWindow(HINSTANCE hInstance, HINSTANCE prevInstance, PS
 	ex.hInstance = hInstance;
 	ex.hIcon = LoadIcon(NULL, IDI_APPLICATION);
 	ex.hCursor = LoadCursor(NULL, IDC_ARROW);
-	ex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 	ex.lpszMenuName = NULL;
 	ex.lpszClassName = WND_CLASS_NAME;
 	ex.hIconSm = NULL;
+
+	if (options.mFullScreen == false) {
+		ex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+	}
 
 	if (!RegisterClassEx(&ex)) {
 		MessageBox(0, L"RegisterClass Failed.", 0, 0);
