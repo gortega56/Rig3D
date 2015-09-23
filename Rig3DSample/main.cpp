@@ -74,6 +74,8 @@ public:
 	BlurBuffer					mBlurH;
 	BlurBuffer					mBlurV;
 	ID3D11Buffer*				mBlurBuffer;
+	ID3D11Texture2D*			mBlurDepthBuffer;
+	ID3D11DepthStencilView*		mBlurDSV;
 
 	vec2f					mPixelSize;
 	float					mAnimationTime;
@@ -111,6 +113,9 @@ public:
 		ReleaseMacro(mBlurBuffer);
 		ReleaseMacro(mSamplerState);
 		ReleaseMacro(mQuadBlurPixelShader);
+
+		ReleaseMacro(mBlurDSV);
+		ReleaseMacro(mBlurDepthBuffer);
 	}
 
 	void VInitialize() override
@@ -118,6 +123,20 @@ public:
 		mRenderer = &DX3D11Renderer::SharedInstance();
 		mDevice = mRenderer->GetDevice();
 		mDeviceContext = mRenderer->GetDeviceContext(); 
+
+		D3D11_TEXTURE2D_DESC depthStencilDesc;
+		depthStencilDesc.Width = mOptions.mWindowWidth;
+		depthStencilDesc.Height = mOptions.mWindowHeight;
+		depthStencilDesc.MipLevels = 1;
+		depthStencilDesc.ArraySize = 1;
+		depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		depthStencilDesc.Usage = D3D11_USAGE_DEFAULT;
+		depthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+		depthStencilDesc.CPUAccessFlags = 0;
+		depthStencilDesc.MiscFlags = 0;
+
+		mDevice->CreateTexture2D(&depthStencilDesc, 0, &mBlurDepthBuffer);
+		mDevice->CreateDepthStencilView(mBlurDepthBuffer, 0, &mBlurDSV);
 
 		D3D11_TEXTURE2D_DESC textureDesc;
 		textureDesc.Width				= mOptions.mWindowWidth;
@@ -388,7 +407,10 @@ public:
 
 	void VUpdate(double milliseconds) override
 	{
-		mPixelSize = { 1.0f / mOptions.mWindowWidth, 1.0f / mOptions.mWindowHeight };
+		mMatrixBuffer.mProjection = mat4f::perspective(0.25f * 3.1415926535f, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
+		mMatrixBuffer.mView = mat4f::lookAtLH(vec3f(0.0, 0.0, 0.0), vec3f(0.0, 0.0, -10.0), vec3f(0.0, 1.0, 0.0)).transpose();
+
+		mPixelSize = { 1.0f / mRenderer->GetWindowWidth(), 1.0f / mRenderer->GetWindowHeight() };
 		
 		mBlurH.uvOffsets[0] = { 0.0f, 0.0f };
 		mBlurH.uvOffsets[1] = { -mPixelSize.x, 0.0f };
@@ -428,7 +450,7 @@ public:
 		// Render scene to texture.
 		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
 
-		mDeviceContext->OMSetRenderTargets(1, &mSceneRTV, mRenderer->GetDepthStencilView());
+		mDeviceContext->OMSetRenderTargets(1, &mSceneRTV, mBlurDSV);
 		mDeviceContext->ClearRenderTargetView(mSceneRTV, color);
 		mDeviceContext->ClearDepthStencilView(
 			mRenderer->GetDepthStencilView(),
@@ -458,7 +480,7 @@ public:
 		mRenderer->VDrawIndexed(0, mCubeMesh->GetIndexCount());
 
 		// Horizontal pass gets rendered to the vertical
-		mDeviceContext->OMSetRenderTargets(1, &mBlurRTV, mRenderer->GetDepthStencilView());
+		mDeviceContext->OMSetRenderTargets(1, &mBlurRTV, mBlurDSV);
 		mDeviceContext->ClearRenderTargetView(mBlurRTV, color);
 		mDeviceContext->ClearDepthStencilView(
 			mRenderer->GetDepthStencilView(),
