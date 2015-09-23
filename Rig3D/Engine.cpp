@@ -156,7 +156,6 @@ void Engine::RunScene(IScene* iScene)
 		mTimer->Update(&deltaTime);
 		mEventHandler->Update();
 		iScene->VUpdate(deltaTime);
-		iScene->VHandleInput();
 		iScene->VRender();
 
 		mInput->Flush();

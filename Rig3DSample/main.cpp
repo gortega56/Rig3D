@@ -15,7 +15,7 @@ static const int VERTEX_COUNT			= 8;
 static const int INDEX_COUNT			= 36;
 static const float ANIMATION_DURATION	= 20000.0f; // 20 Seconds
 
-class Rig3DSampleScene : public IScene
+class Rig3DSampleScene : public IScene, public virtual IRendererDelegate
 {
 public:
 
@@ -74,8 +74,6 @@ public:
 	BlurBuffer					mBlurH;
 	BlurBuffer					mBlurV;
 	ID3D11Buffer*				mBlurBuffer;
-	ID3D11Texture2D*			mBlurDepthBuffer;
-	ID3D11DepthStencilView*		mBlurDSV;
 
 	vec2f					mPixelSize;
 	float					mAnimationTime;
@@ -113,63 +111,17 @@ public:
 		ReleaseMacro(mBlurBuffer);
 		ReleaseMacro(mSamplerState);
 		ReleaseMacro(mQuadBlurPixelShader);
-
-		ReleaseMacro(mBlurDSV);
-		ReleaseMacro(mBlurDepthBuffer);
 	}
 
 	void VInitialize() override
 	{
 		mRenderer = &DX3D11Renderer::SharedInstance();
+		mRenderer->SetDelegate(this);
+
 		mDevice = mRenderer->GetDevice();
 		mDeviceContext = mRenderer->GetDeviceContext(); 
 
-		D3D11_TEXTURE2D_DESC depthStencilDesc;
-		depthStencilDesc.Width = mOptions.mWindowWidth;
-		depthStencilDesc.Height = mOptions.mWindowHeight;
-		depthStencilDesc.MipLevels = 1;
-		depthStencilDesc.ArraySize = 1;
-		depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-		depthStencilDesc.Usage = D3D11_USAGE_DEFAULT;
-		depthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-		depthStencilDesc.CPUAccessFlags = 0;
-		depthStencilDesc.MiscFlags = 0;
-
-		mDevice->CreateTexture2D(&depthStencilDesc, 0, &mBlurDepthBuffer);
-		mDevice->CreateDepthStencilView(mBlurDepthBuffer, 0, &mBlurDSV);
-
-		D3D11_TEXTURE2D_DESC textureDesc;
-		textureDesc.Width				= mOptions.mWindowWidth;
-		textureDesc.Height				= mOptions.mWindowHeight;
-		textureDesc.ArraySize			= 1;
-		textureDesc.BindFlags			= D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-		textureDesc.CPUAccessFlags		= 0;
-		textureDesc.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
-		textureDesc.MipLevels			= 1;
-		textureDesc.MiscFlags			= 0;
-		textureDesc.SampleDesc.Count	= 1;
-		textureDesc.SampleDesc.Quality	= 0;
-		textureDesc.Usage				= D3D11_USAGE_DEFAULT;
-
-		mDevice->CreateTexture2D(&textureDesc, 0, &mBlurTexture2D);
-		mDevice->CreateTexture2D(&textureDesc, 0, &mSceneTexture2D);
-
-		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
-		rtvDesc.Format				= textureDesc.Format;
-		rtvDesc.ViewDimension		= D3D11_RTV_DIMENSION_TEXTURE2D;
-		rtvDesc.Texture2D.MipSlice	= 0;
-
-		mRenderer->GetDevice()->CreateRenderTargetView(mBlurTexture2D, 0, &mBlurRTV);
-		mRenderer->GetDevice()->CreateRenderTargetView(mSceneTexture2D, 0, &mSceneRTV);
-
-		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-		srvDesc.Format						= textureDesc.Format;
-		srvDesc.ViewDimension				= D3D11_SRV_DIMENSION_TEXTURE2D;
-		srvDesc.Texture2D.MipLevels			= 1;
-		srvDesc.Texture2D.MostDetailedMip	= 0;
-
-		mDevice->CreateShaderResourceView(mBlurTexture2D, &srvDesc, &mBlurSceneSRV);
-		mDevice->CreateShaderResourceView(mSceneTexture2D, &srvDesc, &mSceneSRV);
+		VOnResize();
 
 		D3D11_SAMPLER_DESC samplerDesc;
 		ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
@@ -420,7 +372,7 @@ public:
 		mBlurV.uvOffsets[1] = { 0.0f, -mPixelSize.y };
 		mBlurV.uvOffsets[2] = { 0.0f, +mPixelSize.y };
 
-		mShouldPlay = GetAsyncKeyState(VK_RIGHT);
+		mShouldPlay = Input::SharedInstance().GetKey(KEYCODE_RIGHT);
 		if (!mShouldPlay) {
 			return;
 		}
@@ -450,7 +402,7 @@ public:
 		// Render scene to texture.
 		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
 
-		mDeviceContext->OMSetRenderTargets(1, &mSceneRTV, mBlurDSV);
+		mDeviceContext->OMSetRenderTargets(1, &mSceneRTV, mRenderer->GetDepthStencilView());
 		mDeviceContext->ClearRenderTargetView(mSceneRTV, color);
 		mDeviceContext->ClearDepthStencilView(
 			mRenderer->GetDepthStencilView(),
@@ -480,7 +432,7 @@ public:
 		mRenderer->VDrawIndexed(0, mCubeMesh->GetIndexCount());
 
 		// Horizontal pass gets rendered to the vertical
-		mDeviceContext->OMSetRenderTargets(1, &mBlurRTV, mBlurDSV);
+		mDeviceContext->OMSetRenderTargets(1, &mBlurRTV, mRenderer->GetDepthStencilView());
 		mDeviceContext->ClearRenderTargetView(mBlurRTV, color);
 		mDeviceContext->ClearDepthStencilView(
 			mRenderer->GetDepthStencilView(),
@@ -551,11 +503,46 @@ public:
 		mRenderer->GetSwapChain()->Present(0, 0);
 	}
 
-	void VHandleInput() override
+	void VOnResize() override
 	{
-		auto input = &Input::SharedInstance();
+		ReleaseMacro(mBlurTexture2D);
+		ReleaseMacro(mSceneTexture2D);
+		ReleaseMacro(mBlurRTV);
+		ReleaseMacro(mSceneRTV);
+		ReleaseMacro(mBlurSceneSRV);
 
-		input->GetKey(KEYCODE_1);
+		D3D11_TEXTURE2D_DESC textureDesc;
+		textureDesc.Width = mRenderer->GetWindowWidth();
+		textureDesc.Height = mRenderer->GetWindowHeight();
+		textureDesc.ArraySize = 1;
+		textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+		textureDesc.CPUAccessFlags = 0;
+		textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		textureDesc.MipLevels = 1;
+		textureDesc.MiscFlags = 0;
+		textureDesc.SampleDesc.Count = 1;
+		textureDesc.SampleDesc.Quality = 0;
+		textureDesc.Usage = D3D11_USAGE_DEFAULT;
+
+		mDevice->CreateTexture2D(&textureDesc, 0, &mBlurTexture2D);
+		mDevice->CreateTexture2D(&textureDesc, 0, &mSceneTexture2D);
+
+		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
+		rtvDesc.Format = textureDesc.Format;
+		rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+		rtvDesc.Texture2D.MipSlice = 0;
+
+		mRenderer->GetDevice()->CreateRenderTargetView(mBlurTexture2D, 0, &mBlurRTV);
+		mRenderer->GetDevice()->CreateRenderTargetView(mSceneTexture2D, 0, &mSceneRTV);
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+		srvDesc.Format = textureDesc.Format;
+		srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels = 1;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+
+		mDevice->CreateShaderResourceView(mBlurTexture2D, &srvDesc, &mBlurSceneSRV);
+		mDevice->CreateShaderResourceView(mSceneTexture2D, &srvDesc, &mSceneSRV);
 	}
 
 	void VShutdown() override
