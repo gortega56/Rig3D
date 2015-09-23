@@ -228,6 +228,10 @@ void DX3D11Renderer::VOnResize()
 	mViewport.MinDepth = 0.0f;
 	mViewport.MaxDepth = 1.0f;
 	mDeviceContext->RSSetViewports(1, &mViewport);
+
+	if (mDelegate) {
+		mDelegate->VOnResize();
+	}
 }
 
 void DX3D11Renderer::HandleEvent(const IEvent& iEvent)

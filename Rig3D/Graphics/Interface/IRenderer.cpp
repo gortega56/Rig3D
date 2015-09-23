@@ -5,6 +5,7 @@ using namespace Rig3D;
 
 IRenderer::IRenderer()
 {
+	mDelegate = nullptr;
 }
 
 IRenderer::~IRenderer()

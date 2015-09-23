@@ -13,6 +13,15 @@ namespace Rig3D
 {
 	class IScene;
 
+	class RIG3D IRendererDelegate
+	{
+	public:
+		virtual void VOnResize() = 0;
+
+		IRendererDelegate() {};
+		~IRendererDelegate() {};
+	};
+
 	class RIG3D IRenderer
 	{
 	public:
@@ -29,18 +38,21 @@ namespace Rig3D
 		virtual void	VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count) = 0;
 		virtual void    VDrawIndexed(uint32_t startIndex, uint32_t count) = 0;
 
-		inline void		SetWindowCaption(const char* caption) { mWindowCaption = caption; };
-		inline float	GetAspectRatio() const { return (float)mWindowWidth / mWindowHeight; };
-		inline const int& GetWindowWidth() const { return mWindowWidth; };
-		inline const int& GetWindowHeight() const { return mWindowHeight; };
+		inline void			SetWindowCaption(const char* caption) { mWindowCaption = caption; };
+		inline float		GetAspectRatio() const { return (float)mWindowWidth / mWindowHeight; };
+		inline const int&	GetWindowWidth() const { return mWindowWidth; };
+		inline const int&	GetWindowHeight() const { return mWindowHeight; };
 		inline GRAPHICS_API GetGraphicsAPI() const { return mGraphicsAPI; };
 	
+		inline void SetDelegate(IRendererDelegate* renderDelegate) { mDelegate = renderDelegate; };
+
 	protected:
-		int				mWindowWidth;
-		int				mWindowHeight;
-		const char*		mWindowCaption;		
-		GRAPHICS_API	mGraphicsAPI;
-		bool			mFullScreen;
+		int					mWindowWidth;
+		int					mWindowHeight;
+		GRAPHICS_API		mGraphicsAPI;
+		IRendererDelegate*	mDelegate;
+		const char*			mWindowCaption;		
+		bool				mFullScreen;
 	};
 }
 
