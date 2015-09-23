@@ -92,9 +92,6 @@ public:
 
 	~Rig3DSampleScene()
 	{
-		delete mCubeMesh;
-		delete mQuadMesh;
-
 		ReleaseMacro(mBlurRTV);
 		ReleaseMacro(mBlurSceneSRV);
 		ReleaseMacro(mBlurTexture2D);
@@ -110,6 +107,10 @@ public:
 
 		ReleaseMacro(mConstantBuffer);
 		ReleaseMacro(mInputLayout);
+
+		ReleaseMacro(mBlurBuffer);
+		ReleaseMacro(mSamplerState);
+		ReleaseMacro(mQuadBlurPixelShader);
 	}
 
 	void VInitialize() override
@@ -300,6 +301,7 @@ public:
 
 		// Before cleaning up the data, create the input layout
 		if (inputDescription) {
+			if (mInputLayout != NULL) ReleaseMacro(mInputLayout);
 			mDevice->CreateInputLayout(
 				inputDescription,					// Reference to Description
 				2,									// Number of elments inside of Description
@@ -346,6 +348,7 @@ public:
 			&mQuadVertexShader);
 
 		if (inputDescription) {
+			if (mInputLayout != NULL) ReleaseMacro(mInputLayout);
 			mDevice->CreateInputLayout(
 				inputDescription,					// Reference to Description
 				2,									// Number of elments inside of Description
@@ -528,7 +531,9 @@ public:
 
 	void VHandleInput() override
 	{
+		auto input = &Input::SharedInstance();
 
+		input->GetKey(KEYCODE_1);
 	}
 
 	void VShutdown() override

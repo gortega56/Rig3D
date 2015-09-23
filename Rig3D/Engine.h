@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include "Rig3D\Common\WMEventHandler.h"
 #include "Rig3D\Common\Timer.h"
+#include "Rig3D\Common\Input.h"
 #include "Rig3D\rig_defines.h"
 #include "Rig3D\Options.h"
 
@@ -37,6 +38,7 @@ namespace Rig3D
 	private:
 		WMEventHandler* mEventHandler;
 		Timer*			mTimer;
+		Input*			mInput;
 		IRenderer*		mRenderer;
 		bool			mShouldQuit;
 

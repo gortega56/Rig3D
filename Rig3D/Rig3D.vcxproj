@@ -68,6 +68,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Common\Input.h" />
     <ClInclude Include="Common\Timer.h" />
     <ClInclude Include="Common\Transform.h" />
     <ClInclude Include="Common\WMEventHandler.h" />
@@ -83,6 +84,7 @@
     <ClInclude Include="rig_graphics_api_conversions.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Common\Input.cpp" />
     <ClCompile Include="Common\Timer.cpp" />
     <ClCompile Include="Common\Transform.cpp" />
     <ClCompile Include="Common\WMEventHandler.cpp" />

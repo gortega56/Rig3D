@@ -36,6 +36,12 @@ int Engine::Initialize(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine
 		return RIG_ERROR;
 	}
 
+	mInput = &Input::SharedInstance();
+	if (mInput->Initialize() == RIG_ERROR)
+	{
+		return RIG_ERROR;
+	}
+
 	mTimer = &Timer::SharedInstance();
 
 	return 0;
@@ -147,7 +153,10 @@ void Engine::RunScene(IScene* iScene)
 		mTimer->Update(&deltaTime);
 		mEventHandler->Update();
 		iScene->VUpdate(deltaTime);
+		iScene->VHandleInput();
 		iScene->VRender();
+
+		mInput->Flush();
 	}
 
 	iScene->VShutdown();
