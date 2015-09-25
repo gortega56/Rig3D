@@ -62,9 +62,6 @@ namespace Rig3D
 		D3D11_VIEWPORT const&	GetViewport()			const;
 
 	private:
-		HINSTANCE				mHINSTANCE;
-		HWND					mHWND;
-
 		UINT					mMSAA4xQuality;
 		ID3D11Device*			mDevice;
 		ID3D11DeviceContext*	mDeviceContext;

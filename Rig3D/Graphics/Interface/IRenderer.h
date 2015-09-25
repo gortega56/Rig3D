@@ -38,7 +38,8 @@ namespace Rig3D
 		virtual void	VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count) = 0;
 		virtual void    VDrawIndexed(uint32_t startIndex, uint32_t count) = 0;
 
-		inline void			SetWindowCaption(const char* caption) { mWindowCaption = caption; };
+		void SetWindowCaption(const char* caption);
+		
 		inline float		GetAspectRatio() const { return (float)mWindowWidth / mWindowHeight; };
 		inline const int&	GetWindowWidth() const { return mWindowWidth; };
 		inline const int&	GetWindowHeight() const { return mWindowHeight; };
@@ -47,6 +48,8 @@ namespace Rig3D
 		inline void SetDelegate(IRendererDelegate* renderDelegate) { mDelegate = renderDelegate; };
 
 	protected:
+		HINSTANCE			mHINSTANCE;
+		HWND				mHWND;
 		int					mWindowWidth;
 		int					mWindowHeight;
 		GRAPHICS_API		mGraphicsAPI;
