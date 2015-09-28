@@ -1,20 +1,20 @@
-struct SampleVertex
+struct Vertex
 {
 	float3 mPosition	: POSITION;
-	float3 mColor		: COLOR;
+	float3 mUV			: TEXCOORD;
 };
 
-struct SamplePixel
+struct Pixel
 {
 	float4 mPositionH	: SV_POSITION;
-	float2 mColor		: COLOR;		// Keep this as color for right now
+	float3 mUV			: TEXCOORD;
 };
 
-SamplePixel main(SampleVertex vertex)
+Pixel main(Vertex vertex)
 {
-	SamplePixel pixel;
+	Pixel pixel;
 	pixel.mPositionH = float4(vertex.mPosition, 1.0f);
-	pixel.mColor = vertex.mColor.xy;
+	pixel.mUV = vertex.mUV;
 
 	return pixel;
 }

@@ -1,7 +1,7 @@
-struct SamplePixel
+struct Pixel
 {
 	float4 mPositionH	: SV_POSITION;
-	float2 mColor		: COLOR;
+	float3 mUV			: TEXCOORD;
 };
 
 cbuffer blurParameters : register(b0)
@@ -12,14 +12,14 @@ cbuffer blurParameters : register(b0)
 Texture2D sceneTexture		: register(t0);
 SamplerState sceneSampler	: register(s0);
 
-float4 main(SamplePixel pixel) : SV_TARGET
+float4 main(Pixel pixel) : SV_TARGET
 {
 	//return sceneTexture.Sample(sceneSampler, pixel.mColor.xy);
 
 	float4 pixelColor = float4(0, 0, 0, 0);
-	pixelColor += sceneTexture.Sample(sceneSampler, pixel.mColor.xy + uvOffsets[0]);
-	pixelColor += sceneTexture.Sample(sceneSampler, pixel.mColor.xy + uvOffsets[1]);
-	pixelColor += sceneTexture.Sample(sceneSampler, pixel.mColor.xy - uvOffsets[1]);
+	pixelColor += sceneTexture.Sample(sceneSampler, pixel.mUV.xy + uvOffsets[0]);
+	pixelColor += sceneTexture.Sample(sceneSampler, pixel.mUV.xy + uvOffsets[1]);
+	pixelColor += sceneTexture.Sample(sceneSampler, pixel.mUV.xy - uvOffsets[1]);
 
 	pixelColor /= 3;
 

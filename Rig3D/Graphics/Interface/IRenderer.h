@@ -12,6 +12,7 @@
 namespace Rig3D 
 {
 	class IScene;
+	class IMesh;
 
 	class RIG3D IRendererDelegate
 	{
@@ -37,6 +38,10 @@ namespace Rig3D
 		virtual void	VSetPrimitiveType(GPU_PRIMITIVE_TYPE type) = 0;
 		virtual void	VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count) = 0;
 		virtual void    VDrawIndexed(uint32_t startIndex, uint32_t count) = 0;
+
+		virtual void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPU_MEMORY_USAGE& usage) = 0;
+		virtual void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPU_MEMORY_USAGE& usage) = 0;
+		virtual void    VBindMesh(IMesh* mesh) = 0;
 
 		void SetWindowCaption(const char* caption);
 		

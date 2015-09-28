@@ -6,8 +6,13 @@
 #include "Rig3D\Graphics\DirectX11\DX11Mesh.h"
 #include "Rig3D\Common\Transform.h"
 #include "Memory\Memory\LinearAllocator.h"
+#include "Rig3D\Graphics\DirectX11\DirectXTK\Inc\WICTextureLoader.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>
+
+#define PI				3.1415926535f
+#define CAMERA_SPEED	0.1f
+#define RADIAN			3.1415926535f / 180.0f
 
 using namespace Rig3D;
 
@@ -25,7 +30,7 @@ public:
 	struct SampleVertex
 	{
 		vec3f mPosition;
-		vec3f mColor;
+		vec2f mUV;
 	};
 
 	struct SampleMatrixBuffer
@@ -41,13 +46,23 @@ public:
 		vec2f x[4];
 	};
 	
+	struct SceneNode
+	{
+		Transform mTransform;
+		IMesh*	  mMesh;
+	};
 
+	SceneNode				mFloorNode;
+	Transform				mCamera;
 	SampleMatrixBuffer		mMatrixBuffer;
 
 	IMesh*					mCubeMesh;
 	IMesh*					mQuadMesh;
+	IMesh*					mFloorMesh;
 
 	LinearAllocator			mAllocator;
+	float					mMouseX;
+	float					mMouseY;
 
 	DX3D11Renderer*			mRenderer;
 	ID3D11Device*			mDevice;
@@ -65,6 +80,9 @@ public:
 	ID3D11RenderTargetView*		mBlurRTV;
 	ID3D11ShaderResourceView*	mBlurSceneSRV;
 	ID3D11Texture2D*			mBlurTexture2D;
+
+	ID3D11ShaderResourceView*	mFloorSRV;
+	ID3D11Texture2D*			mFloorTexture2D;
 
 	ID3D11SamplerState*			mSamplerState;
 
@@ -111,6 +129,9 @@ public:
 		ReleaseMacro(mBlurBuffer);
 		ReleaseMacro(mSamplerState);
 		ReleaseMacro(mQuadBlurPixelShader);
+
+		ReleaseMacro(mFloorTexture2D);
+		ReleaseMacro(mFloorSRV);
 	}
 
 	void VInitialize() override
@@ -122,6 +143,8 @@ public:
 		mDeviceContext = mRenderer->GetDeviceContext(); 
 
 		VOnResize();
+		size_t s = 0;
+		DirectX::CreateWICTextureFromFile(mDevice, L"Textures\\road.jpg", nullptr, &mFloorSRV);
 
 		D3D11_SAMPLER_DESC samplerDesc;
 		ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
@@ -133,6 +156,9 @@ public:
 
 		mDevice->CreateSamplerState(&samplerDesc, &mSamplerState);
 
+		mMouseX = 0.0f;
+		mMouseY = 0.0f;
+
 		InitializeGeometry();
 		InitializeShaders();
 		InitializeCamera();
@@ -142,28 +168,28 @@ public:
 	{
 		SampleVertex vertices[VERTEX_COUNT];
 		vertices[0].mPosition	= { -0.5f, +0.5f, +0.5f };	// Front Top Left
-		vertices[0].mColor		= { +1.0f, +1.0f, +0.0f };
+		vertices[0].mUV			= { +0.0f, +0.0f };
 
 		vertices[1].mPosition	= { +0.5f, +0.5f, +0.5f };  // Front Top Right
-		vertices[1].mColor		= { +1.0f, +1.0f, +1.0f };
+		vertices[1].mUV			= { +1.0f, +0.0f};
 
 		vertices[2].mPosition	= { +0.5f, -0.5f, +0.5f };  // Front Bottom Right
-		vertices[2].mColor		= { +1.0f, +0.0f, +1.0f };
+		vertices[2].mUV			= { +1.0f, +1.0f};
 
 		vertices[3].mPosition	= { -0.5f, -0.5f, +0.5f };   // Front Bottom Left
-		vertices[3].mColor		= { +1.0f, +0.0f, +0.0f };
+		vertices[3].mUV			= { +0.0f, +1.0f};
 
 		vertices[4].mPosition	= { -0.5f, +0.5f, -0.5f };;  // Back Top Left
-		vertices[4].mColor		= { +0.0f, +1.0f, +0.0f };
+		vertices[4].mUV			= { +1.0f, +0.0f};
 
 		vertices[5].mPosition	= { +0.5f, +0.5f, -0.5f };  // Back Top Right
-		vertices[5].mColor		= { +0.0f, +1.0f, +1.0f };
+		vertices[5].mUV			= { +0.0f, +0.0f };
 
 		vertices[6].mPosition	= { +0.5f, -0.5f, -0.5f };  // Back Bottom Right
-		vertices[6].mColor		= { +1.0f, +0.0f, +1.0f };
+		vertices[6].mUV			= { +0.0f, +1.0f };
 
 		vertices[7].mPosition	= { -0.5f, -0.5f, -0.5f };  // Back Bottom Left
-		vertices[7].mColor		= { +0.0f, +0.0f, +0.0f };
+		vertices[7].mUV			= { +1.0f, +1.0f};
 
 		uint16_t indices[INDEX_COUNT];
 		// Front Face
@@ -221,21 +247,21 @@ public:
 		indices[35] = 3;
 
 		mCubeMesh = new(mAllocator.Allocate(sizeof(DX11Mesh), alignof(DX11Mesh), 0)) DX11Mesh();
-		mCubeMesh->VSetVertexBuffer(vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
-		mCubeMesh->VSetIndexBuffer(indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
+		mRenderer->VSetMeshVertexBufferData(mCubeMesh, vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
+		mRenderer->VSetMeshIndexBufferData(mCubeMesh, indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
 
 		SampleVertex qVertices[4];
 		qVertices[0].mPosition	= { -1.0f, 1.0f, 0.0f };
-		qVertices[0].mColor		= { 0.0f, 0.0f, 0.0f};
+		qVertices[0].mUV		= { 0.0f, 0.0f};
 
-		qVertices[1].mPosition = { 1.0f, 1.0f, 0.0f };
-		qVertices[1].mColor = { 1.0f, 0.0f, 0.0f };
+		qVertices[1].mPosition	= { 1.0f, 1.0f, 0.0f };
+		qVertices[1].mUV		= { 1.0f, 0.0f};
 
-		qVertices[2].mPosition = { 1.0f, -1.0f, 0.0f };
-		qVertices[2].mColor = { 1.0f, 1.0f, 0.0f };
+		qVertices[2].mPosition	= { 1.0f, -1.0f, 0.0f };
+		qVertices[2].mUV		= { 1.0f, 1.0f };
 
-		qVertices[3].mPosition = { -1.0f, -1.0f, 0.0f };
-		qVertices[3].mColor = { 0.0f, 1.0f, 0.0f };
+		qVertices[3].mPosition	= { -1.0f, -1.0f, 0.0f };
+		qVertices[3].mUV		= { 0.0f, 1.0f};
 
 		uint16_t qIndices[6];
 		qIndices[0] = 0;
@@ -247,21 +273,31 @@ public:
 		qIndices[5] = 0;
 
 		mQuadMesh = new(mAllocator.Allocate(sizeof(DX11Mesh), alignof(DX11Mesh), 0)) DX11Mesh();
-		mQuadMesh->VSetVertexBuffer(qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
-		mQuadMesh->VSetIndexBuffer(qIndices, 6, GPU_MEMORY_USAGE_STATIC);
+		mRenderer->VSetMeshVertexBufferData(mQuadMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
+		mRenderer->VSetMeshIndexBufferData(mQuadMesh, qIndices, 6, GPU_MEMORY_USAGE_STATIC);
+
+		mFloorMesh = new(mAllocator.Allocate(sizeof(DX11Mesh), alignof(DX11Mesh), 0)) DX11Mesh();
+		mRenderer->VSetMeshVertexBufferData(mFloorMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
+		mRenderer->VSetMeshIndexBufferData(mFloorMesh, qIndices, 6, GPU_MEMORY_USAGE_STATIC);
+
+		//mFloorNode.mTransform.mRotation = { -0.5f * PI, 0.0f , 0.5f * PI };
+		mFloorNode.mTransform.mScale = vec3f(5.0f);
+		mFloorNode.mMesh = mFloorMesh;
+
+		mCamera.mPosition = { 0.0f, 0.0, -10.0f };
 }
 
 	void InitializeShaders()
 	{
 		D3D11_INPUT_ELEMENT_DESC inputDescription[] =
 		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,	0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,		0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 		};
 
 		// Load Vertex Shader --------------------------------------
 		ID3DBlob* vsBlob;
-		D3DReadFileToBlob(L"SampleVertexShader.cso", &vsBlob);
+		D3DReadFileToBlob(L"VertexShader.cso", &vsBlob);
 
 		// Create the shader on the device
 		mDevice->CreateVertexShader(
@@ -286,7 +322,7 @@ public:
 
 		// Load Pixel Shader ---------------------------------------
 		ID3DBlob* psBlob;
-		D3DReadFileToBlob(L"SamplePixelShader.cso", &psBlob);
+		D3DReadFileToBlob(L"PixelShader.cso", &psBlob);
 
 		// Create the shader on the device
 		mDevice->CreatePixelShader(
@@ -353,14 +389,13 @@ public:
 
 	void InitializeCamera()
 	{
-		mMatrixBuffer.mProjection = mat4f::perspective(0.25f * 3.1415926535f, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
-		mMatrixBuffer.mView = mat4f::lookAtLH(vec3f(0.0, 0.0, 0.0), vec3f(0.0, 0.0, -10.0), vec3f(0.0, 1.0, 0.0)).transpose();
+		mMatrixBuffer.mProjection = mat4f::perspective(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
+		mMatrixBuffer.mView = mCamera.GetWorldMatrix().inverse().transpose();
 	}
 
 	void VUpdate(double milliseconds) override
 	{
-		mMatrixBuffer.mProjection = mat4f::perspective(0.25f * 3.1415926535f, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
-		mMatrixBuffer.mView = mat4f::lookAtLH(vec3f(0.0, 0.0, 0.0), vec3f(0.0, 0.0, -10.0), vec3f(0.0, 1.0, 0.0)).transpose();
+		InitializeCamera();
 
 		mPixelSize = { 1.0f / mRenderer->GetWindowWidth(), 1.0f / mRenderer->GetWindowHeight() };
 		
@@ -372,21 +407,44 @@ public:
 		mBlurV.uvOffsets[1] = { 0.0f, -mPixelSize.y };
 		mBlurV.uvOffsets[2] = { 0.0f, +mPixelSize.y };
 
-		mShouldPlay = Input::SharedInstance().GetKey(KEYCODE_RIGHT);
-		if (!mShouldPlay) {
-			return;
+		if (Input::SharedInstance().GetKeyUp(KEYCODE_UP)) {
+			mFloorNode.mTransform.RotatePitch(0.25f * PI);
 		}
 
-		static vec3f startPosition = { -2.5f, -2.5f, 0.0f };
-		static vec3f endPosition = { 2.5f, 2.5f, 0.0f };
-		static float startYaw = 0.0f;
-		static float endYaw = (3.1415926535f * 2.0f);
-		float t = min(mAnimationTime / ANIMATION_DURATION, 1.0f);
+		if (Input::SharedInstance().GetKeyUp(KEYCODE_RIGHT)) {
+			mFloorNode.mTransform.RotateRoll(0.25f * PI);
+		}
 
-		vec3f position = (1 - t) * startPosition + t * endPosition;
-		float yaw = (1 - t) * startYaw + t * endYaw;
+		if (Input::SharedInstance().GetKeyUp(KEYCODE_DOWN)) {
+			mFloorNode.mTransform.RotateYaw(0.25f * PI);
+		}
 
-		mMatrixBuffer.mWorld = (mat4f::rotateY(yaw) * mat4f::translate(position)).transpose();
+		ScreenPoint mousePosition = Input::SharedInstance().mousePosition;
+		if (Input::SharedInstance().GetMouseButton(MOUSEBUTTON_LEFT)) {
+			mCamera.RotatePitch(-(mousePosition.y - mMouseY) * RADIAN);
+			mCamera.RotateYaw(-(mousePosition.x - mMouseX) * RADIAN);	
+		}
+
+		mMouseX = mousePosition.x;
+		mMouseY = mousePosition.y;
+
+		if (Input::SharedInstance().GetKey(KEYCODE_W)) {
+			mCamera.mPosition += mCamera.GetForward() * CAMERA_SPEED;
+		}
+
+		if (Input::SharedInstance().GetKey(KEYCODE_A)) {
+			mCamera.mPosition += mCamera.GetRight() * -CAMERA_SPEED;
+		}
+
+		if (Input::SharedInstance().GetKey(KEYCODE_D)) {
+			mCamera.mPosition += mCamera.GetRight() * CAMERA_SPEED;
+		}
+
+		if (Input::SharedInstance().GetKey(KEYCODE_S)) {
+			mCamera.mPosition += mCamera.GetForward() * -CAMERA_SPEED;
+		}
+		
+		mMatrixBuffer.mWorld = mFloorNode.mTransform.GetWorldMatrix().transpose();
 
 		mAnimationTime += (float)milliseconds;
 	}
@@ -426,10 +484,12 @@ public:
 			1,
 			&mConstantBuffer);
 
-		mCubeMesh->VBindVertexBuffer();
-		mCubeMesh->VBindIndexBuffer();
+		mDeviceContext->PSSetShaderResources(0, 1, &mFloorSRV);
+		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
-		mRenderer->VDrawIndexed(0, mCubeMesh->GetIndexCount());
+		mRenderer->VBindMesh(mFloorMesh);
+
+		mRenderer->VDrawIndexed(0, mFloorMesh->GetIndexCount());
 
 		// Horizontal pass gets rendered to the vertical
 		mDeviceContext->OMSetRenderTargets(1, &mBlurRTV, mRenderer->GetDepthStencilView());
@@ -460,8 +520,7 @@ public:
 		mDeviceContext->PSSetShaderResources(0, 1, &mSceneSRV);
 		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
-		mQuadMesh->VBindVertexBuffer();
-		mQuadMesh->VBindIndexBuffer();
+		mRenderer->VBindMesh(mQuadMesh);
 
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
@@ -492,8 +551,7 @@ public:
 			1,
 			&mBlurBuffer);
 
-		mQuadMesh->VBindVertexBuffer();
-		mQuadMesh->VBindIndexBuffer();
+		mRenderer->VBindMesh(mQuadMesh);
 
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 

@@ -212,8 +212,8 @@ public:
 		indices[35] = 3;
 
 		mCubeMesh = new(mAllocator.Allocate(sizeof(DX11Mesh), alignof(DX11Mesh), 0)) DX11Mesh();
-		mCubeMesh->VSetVertexBuffer(vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
-		mCubeMesh->VSetIndexBuffer(indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
+		mRenderer->VSetMeshVertexBufferData(mCubeMesh, vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
+		mRenderer->VSetMeshIndexBufferData(mCubeMesh, indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
 	}
 
 	void InitializeShaders()
@@ -370,8 +370,7 @@ public:
 			1,
 			&mConstantBuffer);
 
-		mCubeMesh->VBindVertexBuffer();
-		mCubeMesh->VBindIndexBuffer();
+		mRenderer->VBindMesh(mCubeMesh);
 
 		mRenderer->VDrawIndexed(0, mCubeMesh->GetIndexCount());
 		mRenderer->GetSwapChain()->Present(0, 0);
