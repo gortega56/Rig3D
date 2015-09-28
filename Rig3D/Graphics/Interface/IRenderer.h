@@ -12,6 +12,7 @@
 namespace Rig3D 
 {
 	class IScene;
+	class IMesh;
 
 	class RIG3D IRendererDelegate
 	{
@@ -38,7 +39,12 @@ namespace Rig3D
 		virtual void	VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count) = 0;
 		virtual void    VDrawIndexed(uint32_t startIndex, uint32_t count) = 0;
 
-		inline void			SetWindowCaption(const char* caption) { mWindowCaption = caption; };
+		virtual void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPU_MEMORY_USAGE& usage) = 0;
+		virtual void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPU_MEMORY_USAGE& usage) = 0;
+		virtual void    VBindMesh(IMesh* mesh) = 0;
+
+		void SetWindowCaption(const char* caption);
+		
 		inline float		GetAspectRatio() const { return (float)mWindowWidth / mWindowHeight; };
 		inline const int&	GetWindowWidth() const { return mWindowWidth; };
 		inline const int&	GetWindowHeight() const { return mWindowHeight; };
@@ -47,6 +53,8 @@ namespace Rig3D
 		inline void SetDelegate(IRendererDelegate* renderDelegate) { mDelegate = renderDelegate; };
 
 	protected:
+		HINSTANCE			mHINSTANCE;
+		HWND				mHWND;
 		int					mWindowWidth;
 		int					mWindowHeight;
 		GRAPHICS_API		mGraphicsAPI;

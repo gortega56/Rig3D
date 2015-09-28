@@ -10,19 +10,18 @@
 
 namespace Rig3D
 {
+	class DXD11Renderer;
+
 	class RIG3D DX11Mesh : public IMesh
 	{
 	public:
 		DX11Mesh();
 		~DX11Mesh();
 
-		void VSetVertexBuffer(void* vertices, const size_t& size, const size_t& stride, const GPU_MEMORY_USAGE& usage);
-		void VSetIndexBuffer(uint16_t* indices, const uint32_t& count, const GPU_MEMORY_USAGE& usage);
-		void VBindVertexBuffer();
-		void VBindIndexBuffer();
-
-	private:
+	protected:
 		ID3D11Buffer*	mVertexBuffer;
 		ID3D11Buffer*	mIndexBuffer;
+		
+		friend class DX3D11Renderer;
 	};
 }

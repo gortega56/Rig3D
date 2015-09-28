@@ -1,4 +1,5 @@
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
+#include "Graphics\DirectX11\DX11Mesh.h"
 #include "Rig3D\Engine.h"
 #include "rig_defines.h"
 #include "Rig3D\Graphics\Interface\IScene.h"
@@ -141,6 +142,50 @@ void DX3D11Renderer::VUpdateScene(const double& milliseconds)
 void DX3D11Renderer::VRenderScene()
 {
 
+}
+
+void DX3D11Renderer::VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPU_MEMORY_USAGE& usage)
+{
+	DX11Mesh* dxMesh = (DX11Mesh*)mesh;
+	D3D11_BUFFER_DESC vbd;
+	vbd.Usage = GD3D11_Usage_Map(usage);
+	vbd.ByteWidth = size;
+	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	vbd.CPUAccessFlags = 0;
+	vbd.MiscFlags = 0;
+	vbd.StructureByteStride = 0;	// Not used for Vertex Input
+
+	D3D11_SUBRESOURCE_DATA vertexData;
+	vertexData.pSysMem = vertices;
+	mDevice->CreateBuffer(&vbd, &vertexData, &dxMesh->mVertexBuffer);
+
+	dxMesh->mVertexStride = stride;
+}
+
+void DX3D11Renderer::VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPU_MEMORY_USAGE& usage)
+{
+	DX11Mesh* dxMesh = (DX11Mesh*)mesh;
+	D3D11_BUFFER_DESC ibd;
+	ibd.Usage = GD3D11_Usage_Map(usage);
+	ibd.ByteWidth = sizeof(uint16_t) * count;
+	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	ibd.CPUAccessFlags = 0;
+	ibd.MiscFlags = 0;
+	ibd.StructureByteStride = 0;
+
+	D3D11_SUBRESOURCE_DATA indexData;
+	indexData.pSysMem = indices;
+	mDevice->CreateBuffer(&ibd, &indexData, &dxMesh->mIndexBuffer);
+
+	dxMesh->mIndexCount = count;
+}
+
+void DX3D11Renderer::VBindMesh(IMesh* mesh)
+{
+	DX11Mesh* dxMesh = (DX11Mesh*)mesh;
+	uint32_t offset = 0;
+	mDeviceContext->IASetVertexBuffers(0, 1, &dxMesh->mVertexBuffer, &dxMesh->mVertexStride, &offset);
+	mDeviceContext->IASetIndexBuffer(dxMesh->mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
 }
 
 void DX3D11Renderer::VSetPrimitiveType(GPU_PRIMITIVE_TYPE type)
