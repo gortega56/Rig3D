@@ -48,6 +48,10 @@ namespace Rig3D
 		void	VShutdown() override;
 		void	HandleEvent(const IEvent& iEvent) override;
 
+		void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPU_MEMORY_USAGE& usage) override;
+		void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPU_MEMORY_USAGE& usage) override;
+		void    VBindMesh(IMesh* mesh) override;
+
 		inline void	VSetPrimitiveType(GPU_PRIMITIVE_TYPE type) override;
 		inline void	VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count) override;
 		inline void	VDrawIndexed(uint32_t startIndex, uint32_t count) override;
