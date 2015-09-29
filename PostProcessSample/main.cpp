@@ -7,6 +7,7 @@
 #include "Rig3D\Common\Transform.h"
 #include "Memory\Memory\LinearAllocator.h"
 #include "Rig3D\Graphics\DirectX11\DirectXTK\Inc\WICTextureLoader.h"
+#include "Rig3D\MeshLibrary.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
@@ -58,7 +59,6 @@ public:
 
 	IMesh*					mCubeMesh;
 	IMesh*					mQuadMesh;
-	IMesh*					mFloorMesh;
 
 	LinearAllocator			mAllocator;
 	float					mMouseX;
@@ -97,6 +97,8 @@ public:
 	float					mAnimationTime;
 	short					mShouldPlay;
 
+	MeshLibrary<LinearAllocator>	mMeshLibrary;
+
 	Rig3DSampleScene() : mAllocator(1024)
 	{
 		mOptions.mWindowCaption	= "Rig3D Sample";
@@ -104,6 +106,7 @@ public:
 		mOptions.mWindowHeight	= 600;
 		mOptions.mGraphicsAPI   = GRAPHICS_API_DIRECTX11;
 		mOptions.mFullScreen	= false;
+		mMeshLibrary.SetAllocator(&mAllocator);
 		mAnimationTime	= 0.0f;
 		mShouldPlay		= false;
 	}
@@ -246,7 +249,7 @@ public:
 		indices[34] = 7;
 		indices[35] = 3;
 
-		mCubeMesh = new(mAllocator.Allocate(sizeof(DX11Mesh), alignof(DX11Mesh), 0)) DX11Mesh();
+		mMeshLibrary.NewMesh(&mCubeMesh, mRenderer);
 		mRenderer->VSetMeshVertexBufferData(mCubeMesh, vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
 		mRenderer->VSetMeshIndexBufferData(mCubeMesh, indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
 
@@ -272,17 +275,13 @@ public:
 		qIndices[4] = 3;
 		qIndices[5] = 0;
 
-		mQuadMesh = new(mAllocator.Allocate(sizeof(DX11Mesh), alignof(DX11Mesh), 0)) DX11Mesh();
+		mMeshLibrary.NewMesh(&mQuadMesh, mRenderer);
 		mRenderer->VSetMeshVertexBufferData(mQuadMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
 		mRenderer->VSetMeshIndexBufferData(mQuadMesh, qIndices, 6, GPU_MEMORY_USAGE_STATIC);
 
-		mFloorMesh = new(mAllocator.Allocate(sizeof(DX11Mesh), alignof(DX11Mesh), 0)) DX11Mesh();
-		mRenderer->VSetMeshVertexBufferData(mFloorMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
-		mRenderer->VSetMeshIndexBufferData(mFloorMesh, qIndices, 6, GPU_MEMORY_USAGE_STATIC);
-
 		//mFloorNode.mTransform.mRotation = { -0.5f * PI, 0.0f , 0.5f * PI };
 		mFloorNode.mTransform.mScale = vec3f(5.0f);
-		mFloorNode.mMesh = mFloorMesh;
+		mFloorNode.mMesh = mQuadMesh;
 
 		mCamera.mPosition = { 0.0f, 0.0, -10.0f };
 }
@@ -487,9 +486,9 @@ public:
 		mDeviceContext->PSSetShaderResources(0, 1, &mFloorSRV);
 		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
-		mRenderer->VBindMesh(mFloorMesh);
+		mRenderer->VBindMesh(mFloorNode.mMesh);
 
-		mRenderer->VDrawIndexed(0, mFloorMesh->GetIndexCount());
+		mRenderer->VDrawIndexed(0, mFloorNode.mMesh->GetIndexCount());
 
 		// Horizontal pass gets rendered to the vertical
 		mDeviceContext->OMSetRenderTargets(1, &mBlurRTV, mRenderer->GetDepthStencilView());
@@ -558,7 +557,7 @@ public:
 		ID3D11ShaderResourceView* nullSRV[1] = { 0 };
 		mDeviceContext->PSSetShaderResources(0, 1, nullSRV);
 		
-		mRenderer->GetSwapChain()->Present(0, 0);
+		mRenderer->VSwapBuffers();
 	}
 
 	void VOnResize() override

@@ -1,6 +1,10 @@
 #pragma once
+
 #define RIG_SUCCESS		0
 #define RIG_ERROR		1
+
+#define RIG_NEW(Type, Allocator, Pointer) Pointer = new (Allocator->Allocate(sizeof(Type), alignof(Type), 0)) Type()
+
 
 #define CSTR2WSTR(in, out)					\
 {											\
@@ -12,13 +16,13 @@ out = wtext;								\
 
 namespace Rig3D
 {
-	enum GRAPHICS_API
+	enum GraphicsAPI
 	{
 		GRAPHICS_API_DIRECTX11,
 		GRAPHICS_API_OPENGL4
 	};
 
-	enum GPU_MEMORY_USAGE
+	enum GPUMemoryUsage
 	{
 		GPU_MEMORY_USAGE_DEFAULT,			// GPU read write, CPU read 
 		GPU_MEMORY_USAGE_STATIC,			// GPU read write . CPU no access after init
@@ -26,7 +30,7 @@ namespace Rig3D
 		GPU_MEMORY_USAGE_COPY				// GPU write, CPU read.
 	};
 
-	enum GPU_BUFFER_TYPE
+	enum GPUBufferType
 	{
 		GPU_BUFFER_TYPE_VERTEX,
 		GPU_BUFFER_TYPE_INDEX,
@@ -35,7 +39,7 @@ namespace Rig3D
 		GPU_BUFFER_TYPE_TEXTURE
 	};
 
-	enum GPU_PRIMITIVE_TYPE
+	enum GPUPrimitiveType
 	{
 		GPU_PRIMITIVE_TYPE_POINT,
 		GPU_PRIMITIVE_TYPE_LINE,

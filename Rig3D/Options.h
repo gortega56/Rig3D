@@ -11,7 +11,7 @@ namespace Rig3D
 {
 	struct RIG3D Options
 	{
-		GRAPHICS_API	mGraphicsAPI;
+		GraphicsAPI		mGraphicsAPI;
 		int				mWindowWidth;
 		int				mWindowHeight;
 		const char*		mWindowCaption;

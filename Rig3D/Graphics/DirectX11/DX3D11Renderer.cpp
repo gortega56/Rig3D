@@ -144,7 +144,7 @@ void DX3D11Renderer::VRenderScene()
 
 }
 
-void DX3D11Renderer::VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPU_MEMORY_USAGE& usage)
+void DX3D11Renderer::VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage)
 {
 	DX11Mesh* dxMesh = (DX11Mesh*)mesh;
 	D3D11_BUFFER_DESC vbd;
@@ -162,7 +162,7 @@ void DX3D11Renderer::VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const
 	dxMesh->mVertexStride = stride;
 }
 
-void DX3D11Renderer::VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPU_MEMORY_USAGE& usage)
+void DX3D11Renderer::VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage)
 {
 	DX11Mesh* dxMesh = (DX11Mesh*)mesh;
 	D3D11_BUFFER_DESC ibd;
@@ -188,12 +188,12 @@ void DX3D11Renderer::VBindMesh(IMesh* mesh)
 	mDeviceContext->IASetIndexBuffer(dxMesh->mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
 }
 
-void DX3D11Renderer::VSetPrimitiveType(GPU_PRIMITIVE_TYPE type)
+void DX3D11Renderer::VSetPrimitiveType(GPUPrimitiveType type)
 {
 	mDeviceContext->IASetPrimitiveTopology(GD3D11_Primitive_Type_Map(type));
 }
 
-void DX3D11Renderer::VDrawIndexed(GPU_PRIMITIVE_TYPE type, uint32_t startIndex, uint32_t count)
+void DX3D11Renderer::VDrawIndexed(GPUPrimitiveType type, uint32_t startIndex, uint32_t count)
 {
 	mDeviceContext->IASetPrimitiveTopology(GD3D11_Primitive_Type_Map(type));
 	mDeviceContext->DrawIndexed(
@@ -277,6 +277,11 @@ void DX3D11Renderer::VOnResize()
 	if (mDelegate) {
 		mDelegate->VOnResize();
 	}
+}
+
+void DX3D11Renderer::VSwapBuffers()
+{
+	mSwapChain->Present(0, 0);
 }
 
 void DX3D11Renderer::HandleEvent(const IEvent& iEvent)

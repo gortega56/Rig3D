@@ -6,6 +6,7 @@
 #include "Rig3D\Graphics\DirectX11\DX11Mesh.h"
 #include "Rig3D\Common\Transform.h"
 #include "Memory\Memory\LinearAllocator.h"
+#include "Rig3D\MeshLibrary.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <fstream>
@@ -62,6 +63,8 @@ public:
 	float					mAnimationTime;
 	short					mShouldPlay;
 	bool					mIsPlaying;
+
+	MeshLibrary<LinearAllocator> mMeshLibrary;
 
 	Rig3DSampleScene() : mAllocator(1024)
 	{
@@ -211,7 +214,7 @@ public:
 		indices[34] = 7;
 		indices[35] = 3;
 
-		mCubeMesh = new(mAllocator.Allocate(sizeof(DX11Mesh), alignof(DX11Mesh), 0)) DX11Mesh();
+		mMeshLibrary.NewMesh(&mCubeMesh, mRenderer);
 		mRenderer->VSetMeshVertexBufferData(mCubeMesh, vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
 		mRenderer->VSetMeshIndexBufferData(mCubeMesh, indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
 	}
@@ -373,7 +376,7 @@ public:
 		mRenderer->VBindMesh(mCubeMesh);
 
 		mRenderer->VDrawIndexed(0, mCubeMesh->GetIndexCount());
-		mRenderer->GetSwapChain()->Present(0, 0);
+		mRenderer->VSwapBuffers();
 	}
 
 	void VOnResize() override
