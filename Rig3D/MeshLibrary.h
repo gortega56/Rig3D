@@ -1,7 +1,7 @@
 #pragma once
 #include "Rig3D\rig_defines.h"
 #include "Rig3D\Graphics\DirectX11\DX11Mesh.h"
-#include "Rig3D\GraphicsMath\Vector.hpp"
+#include "GraphicsMath\cgm.h"
 #include <vector>
 #include <map>
 
@@ -10,6 +10,199 @@ namespace Rig3D
 	class IRenderer;
 	class IMesh;
 	
+#pragma region OBJResource
+	template<class Vertex>
+	class OBJResource
+	{
+	public:
+		std::vector<Vertex>		mVertices;
+		std::vector<uint32_t>	mIndices;
+
+		uint32_t mVertexCount;
+		uint32_t mIndexCount;
+
+		const char* mFilename;
+
+		OBJResource(const char* filename) : mFilename(filename)
+		{
+
+		}
+
+		OBJResource()
+		{
+
+		}
+
+		~OBJResource()
+		{
+
+		}
+
+		// Expects Vertex {position: float3, uv: float2, normal: float3, tangent: float4}
+		bool Load()
+		{
+			mVertices.clear();
+			mIndices.clear();
+
+			// File input object
+			std::ifstream obj(mFilename);
+
+			// Check for successful open
+			if (!obj.is_open())
+			{
+				return false;
+			}
+
+			// Variables used while reading the file
+			std::vector<vec3f> positions;     // Positions from the file
+			std::vector<vec3f> normals;       // Normals from the file
+			std::vector<vec2f> uvs;           // UVs from the file
+			std::map<int, std::vector<vec3f>> sharedTangentMap;
+			std::map<int, std::vector<vec3f>> sharedBitangentMap;
+			unsigned int triangleCounter = 0;    // Count of triangles/mIndices
+			char chars[100];                     // String for line reading
+
+												 // Still good?
+			while (obj.good())
+			{
+				// Get the line (100 characters should be more than enough)
+				obj.getline(chars, 100);
+
+				// Check the type of line
+				if (chars[0] == 'v' && chars[1] == 'n')
+				{
+					// Read the 3 numbers directly into an XMFLOAT3
+					vec3f norm;
+					sscanf_s(
+						chars,
+						"vn %f %f %f",
+						&norm.x, &norm.y, &norm.z);
+
+					// Add to the list of normals
+					normals.push_back(norm);
+				}
+				else if (chars[0] == 'v' && chars[1] == 't')
+				{
+					// Read the 2 numbers directly into an XMFLOAT2
+					vec2f uv;
+					sscanf_s(
+						chars,
+						"vt %f %f",
+						&uv.x, &uv.y);
+
+					// Add to the list of uv's
+					uvs.push_back(uv);
+				}
+				else if (chars[0] == 'v')
+				{
+					// Read the 3 numbers directly into an XMFLOAT3
+					vec3f pos;
+					sscanf_s(
+						chars,
+						"v %f %f %f",
+						&pos.x, &pos.y, &pos.z);
+
+					// Add to the positions
+					positions.push_back(pos);
+				}
+				else if (chars[0] == 'f')
+				{
+					// Read the 9 face indices into an array
+					unsigned int i[9];
+					sscanf_s(
+						chars,
+						"f %d/%d/%d %d/%d/%d %d/%d/%d",
+						&i[0], &i[1], &i[2],
+						&i[3], &i[4], &i[5],
+						&i[6], &i[7], &i[8]);
+
+					// - Create the mVertices by looking up
+					//    corresponding data from vectors
+					// - OBJ File indices are 1-based, so
+					//    they need to be adusted
+					Vertex v1;
+					v1.Position = positions[i[0] - 1];
+					v1.UV = uvs[i[1] - 1];
+					v1.Normal = normals[i[2] - 1];
+
+					Vertex v2;
+					v2.Position = positions[i[3] - 1];
+					v2.UV = uvs[i[4] - 1];
+					v2.Normal = normals[i[5] - 1];
+
+					Vertex v3;
+					v3.Position = positions[i[6] - 1];
+					v3.UV = uvs[i[7] - 1];
+					v3.Normal = normals[i[8] - 1];
+
+					// Add the vertices to the vector
+					mVertices.push_back(v1);
+					mVertices.push_back(v2);
+					mVertices.push_back(v3);
+
+					// Add three more indices
+					mIndices.push_back(triangleCounter++);
+					mIndices.push_back(triangleCounter++);
+					mIndices.push_back(triangleCounter++);
+
+					float x1 = v2.Position.x - v1.Position.x;
+					float x2 = v3.Position.x - v1.Position.x;
+					float y1 = v2.Position.y - v1.Position.y;
+					float y2 = v3.Position.y - v1.Position.y;
+					float z1 = v2.Position.z - v1.Position.z;
+					float z2 = v3.Position.z - v1.Position.z;
+
+					float s1 = v2.UV.x - v1.UV.x;
+					float s2 = v3.UV.x - v1.UV.x;
+					float t1 = v2.UV.y - v1.UV.y;
+					float t2 = v3.UV.y - v1.UV.y;
+
+					float r = 1.0f / ((s1 * t2) - (s2 * t1));
+					vec3f tangent = { (((t2 * x1) - (t1 * x2)) * r), (((t2 * y1) - (t1 * y2)) * r), (((t2 * z1) - (t1 * z2)) * r) };
+					vec3f bitangent = { (((s2 * x1) - (s1 * x2)) * r), (((s2 * y1) - (s1 * y2)) * r), (((s2 * z1) - (s1 * z2)) * r) };
+
+					for (int j = 3; j >= 0; j--) {
+						int index = triangleCounter - j;
+						if (sharedTangentMap.find(index) == sharedTangentMap.end()) {
+							std::vector<vec3f> tangents = { tangent };
+							std::vector<vec3f> bitangents = { bitangent };
+							sharedTangentMap.insert({ index, tangents });
+							sharedBitangentMap.insert({ index, bitangents });
+						}
+						else {
+							sharedTangentMap.at(index).push_back(tangent);
+							sharedBitangentMap.at(index).push_back(bitangent);
+						}
+					}
+				}
+			}
+
+			for (int i = 0; i < mVertices.size(); i++)
+			{
+				std::vector<vec3f>& faceTangents = sharedTangentMap.at(i);
+				std::vector<vec3f>& faceBitangents = sharedBitangentMap.at(i);
+				vec4f vertexTangent = { 0.0f, 0.0f, 0.0f, 0.0f };
+				vec3f vertexBitangent = { 0.0f, 0.0f, 0.0f, 0.0f };
+				vec3f& vertexNormal = mVertices[i].Normal;
+
+				for (int j = 0; j < faceTangents.size(); j++) {
+					vertexTangent += vec4f(faceTangents[j]);
+					vertexBitangent += vec4f(faceBitangents[j]);
+				}
+
+				vertexBitangent /= faceBitangents.size();
+				vertexTangent = cliqCity::graphicsMath::normalize(vertexTangent / faceTangents.size());
+				vertexTangent = cliqCity::graphicsMath::normalize((vertexTangent - vertexNormal * cliqCity::graphicsMath::dot(vertexNormal, vertexTangent)));
+				mVertices[i].Tangent = vertexTangent;
+				mVertices[i].Tangent.w = cliqCity::graphicsMath::dot(cliqCity::graphicsMath::cross(vertexNormal, vertexTangent), vertexBitangent);
+				mVertices[i].Tangent.w = (mVertices[i].Tangent.w < 0.0f) ? -1.0 : 1.0f;
+			}
+
+			// Close
+			obj.close();
+		}
+	};
+#pragma endregion
 	template<class Allocator>
 	class MeshLibrary
 	{
@@ -22,7 +215,9 @@ namespace Rig3D
 
 		void SetAllocator(Allocator* allocator);
 		void NewMesh(IMesh** mesh, IRenderer* renderer);
-		void LoadMesh(IMesh** mesh, IRenderer* renderer, const char* filename);
+
+		template<template<typename> class Resource, class Vertex>
+		void LoadMesh(IMesh** mesh, IRenderer* renderer, const Resource<Vertex>& resource);
 	};
 
 	template<class Allocator>
@@ -52,178 +247,19 @@ namespace Rig3D
 	template<class Allocator>
 	void MeshLibrary<Allocator>::NewMesh(IMesh** mesh, IRenderer* renderer)
 	{
-		(renderer->GetGraphicsAPI() == GRAPHICS_API_DIRECTX11) ? RIG_NEW(DX11Mesh, mAllocator, *mesh) : RIG_NEW(DX11Mesh, mAllocator, *mesh);
+		(renderer->GetGraphicsAPI() == GRAPHICS_API_DIRECTX11) ? RIG_NEW(DX11Mesh, mAllocator, *mesh)() : RIG_NEW(DX11Mesh, mAllocator, *mesh)();
 	}
 
-	template<class Allocator, class Vertex>
-	void MeshLibrary<Allocator>::LoadMesh(IMesh** mesh, IRenderer* renderer, const char* filename)
+	template<class Allocator>
+	template<template<typename> class Resource, class Vertex>
+	void MeshLibrary<Allocator>::LoadMesh(IMesh** mesh, IRenderer* renderer, const Resource<Vertex>& resource)
 	{
-		//clear the vertex and indices array
-		vector<Vertex>() verts;
-		vector<uint32_t>() indices;
+		resource.Load();
 
-		// File input object
-		std::ifstream obj(filePath); // <-- Replace filename with your parameter
-
-									 // Check for successful open
-		if (!obj.is_open())
-		{
-			return false;
-		}
-
-		// Variables used while reading the file
-		std::vector<vec3f> positions;     // Positions from the file
-		std::vector<XMFLOAT3> normals;       // Normals from the file
-		std::vector<XMFLOAT2> uvs;           // UVs from the file
-		std::map<int, std::vector<XMFLOAT3>> sharedTangentMap;
-		std::map<int, std::vector<XMFLOAT3>> sharedBitangentMap;
-		unsigned int triangleCounter = 0;    // Count of triangles/indices
-		char chars[100];                     // String for line reading
-
-											 // Still good?
-		while (obj.good())
-		{
-			// Get the line (100 characters should be more than enough)
-			obj.getline(chars, 100);
-
-			// Check the type of line
-			if (chars[0] == 'v' && chars[1] == 'n')
-			{
-				// Read the 3 numbers directly into an XMFLOAT3
-				XMFLOAT3 norm;
-				sscanf_s(
-					chars,
-					"vn %f %f %f",
-					&norm.x, &norm.y, &norm.z);
-
-				// Add to the list of normals
-				normals.push_back(norm);
-			}
-			else if (chars[0] == 'v' && chars[1] == 't')
-			{
-				// Read the 2 numbers directly into an XMFLOAT2
-				XMFLOAT2 uv;
-				sscanf_s(
-					chars,
-					"vt %f %f",
-					&uv.x, &uv.y);
-
-				// Add to the list of uv's
-				uvs.push_back(uv);
-			}
-			else if (chars[0] == 'v')
-			{
-				// Read the 3 numbers directly into an XMFLOAT3
-				XMFLOAT3 pos;
-				sscanf_s(
-					chars,
-					"v %f %f %f",
-					&pos.x, &pos.y, &pos.z);
-
-				// Add to the positions
-				positions.push_back(pos);
-			}
-			else if (chars[0] == 'f')
-			{
-				// Read the 9 face indices into an array
-				unsigned int i[9];
-				sscanf_s(
-					chars,
-					"f %d/%d/%d %d/%d/%d %d/%d/%d",
-					&i[0], &i[1], &i[2],
-					&i[3], &i[4], &i[5],
-					&i[6], &i[7], &i[8]);
-
-				// - Create the verts by looking up
-				//    corresponding data from vectors
-				// - OBJ File indices are 1-based, so
-				//    they need to be adusted
-				Vertex v1;
-				v1.Position = positions[i[0] - 1];
-				v1.UV = uvs[i[1] - 1];
-				v1.Normal = normals[i[2] - 1];
-
-				Vertex v2;
-				v2.Position = positions[i[3] - 1];
-				v2.UV = uvs[i[4] - 1];
-				v2.Normal = normals[i[5] - 1];
-
-				Vertex v3;
-				v3.Position = positions[i[6] - 1];
-				v3.UV = uvs[i[7] - 1];
-				v3.Normal = normals[i[8] - 1];
-
-				// Add the verts to the vector
-				verts.push_back(v1);
-				verts.push_back(v2);
-				verts.push_back(v3);
-
-				// Add three more indices
-				indices.push_back(triangleCounter++);
-				indices.push_back(triangleCounter++);
-				indices.push_back(triangleCounter++);
-
-				float x1 = v2.Position.x - v1.Position.x;
-				float x2 = v3.Position.x - v1.Position.x;
-				float y1 = v2.Position.y - v1.Position.y;
-				float y2 = v3.Position.y - v1.Position.y;
-				float z1 = v2.Position.z - v1.Position.z;
-				float z2 = v3.Position.z - v1.Position.z;
-
-				float s1 = v2.UV.x - v1.UV.x;
-				float s2 = v3.UV.x - v1.UV.x;
-				float t1 = v2.UV.y - v1.UV.y;
-				float t2 = v3.UV.y - v1.UV.y;
-
-				float r = 1.0f / ((s1 * t2) - (s2 * t1));
-				XMFLOAT3 tangent = { (((t2 * x1) - (t1 * x2)) * r), (((t2 * y1) - (t1 * y2)) * r), (((t2 * z1) - (t1 * z2)) * r) };
-				XMFLOAT3 bitangent = { (((s2 * x1) - (s1 * x2)) * r), (((s2 * y1) - (s1 * y2)) * r), (((s2 * z1) - (s1 * z2)) * r) };
-
-				for (int j = 3; j >= 0; j--) {
-					int index = triangleCounter - j;
-					if (sharedTangentMap.find(index) == sharedTangentMap.end()) {
-						std::vector<XMFLOAT3> tangents = { tangent };
-						std::vector<XMFLOAT3> bitangents = { bitangent };
-						sharedTangentMap.insert({ index, tangents });
-						sharedBitangentMap.insert({ index, bitangents });
-					}
-					else {
-						sharedTangentMap.at(index).push_back(tangent);
-						sharedBitangentMap.at(index).push_back(bitangent);
-					}
-				}
-			}
-		}
-
-		for (int i = 0; i < verts.size(); i++)
-		{
-			std::vector<XMFLOAT3>& faceTangents = sharedTangentMap.at(i);
-			std::vector<XMFLOAT3>& faceBitangents = sharedBitangentMap.at(i);
-			XMVECTOR vertexTangent = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
-			XMVECTOR vertexBitangent = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
-			XMVECTOR vertexNormal = XMLoadFloat3(&verts[i].Normal);
-
-			for (int j = 0; j < faceTangents.size(); j++) {
-				XMVECTOR faceTangent = XMLoadFloat3(&faceTangents[j]);
-				vertexTangent += faceTangent;
-
-				XMVECTOR faceBitangent = XMLoadFloat3(&faceBitangents[j]);
-				vertexBitangent += faceBitangent;
-			}
-			vertexBitangent /= faceBitangents.size();
-			vertexTangent = XMVector3Normalize(vertexTangent / faceTangents.size());
-			vertexTangent = XMVector3Normalize((vertexTangent - vertexNormal * XMVector3Dot(vertexNormal, vertexTangent)));
-			XMStoreFloat4(&verts[i].Tangent, vertexTangent);
-
-			XMStoreFloat(&verts[i].Tangent.w, XMVector3Dot((XMVector3Cross(vertexNormal, vertexTangent)), vertexBitangent));
-			verts[i].Tangent.w = (verts[i].Tangent.w < 0.0f) ? -1.0 : 1.0f;
-		}
-
-		// Close
-		obj.close();
-
-		(renderer->GetGraphicsAPI() == GRAPHICS_API_DIRECTX11) ? RIG_NEW(DX11Mesh, mAllocator, *mesh) : RIG_NEW(DX11Mesh, mAllocator, *mesh);
-		
+		(renderer->GetGraphicsAPI() == GRAPHICS_API_DIRECTX11) ? RIG_NEW(DX11Mesh, mAllocator, *mesh)() : RIG_NEW(DX11Mesh, mAllocator, *mesh)();
+		renderer->VSetMeshVertexBufferData(*mesh, &resource.mVertices[0], sizeof(Vertex), GPU_MEMORY_USAGE_STATIC);
+		renderer->VSetMeshIndexBufferData(*mesh, &resource.mIndices[0], resource.mIndices.count, GPU_MEMORY_USAGE_STATIC);
 	}
-
 }
+
+

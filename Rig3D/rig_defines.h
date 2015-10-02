@@ -3,7 +3,7 @@
 #define RIG_SUCCESS		0
 #define RIG_ERROR		1
 
-#define RIG_NEW(Type, Allocator, Pointer) Pointer = new (Allocator->Allocate(sizeof(Type), alignof(Type), 0)) Type()
+#define RIG_NEW(Type, Allocator, Pointer) Pointer = new (Allocator->Allocate(sizeof(Type), alignof(Type), 0)) Type
 
 
 #define CSTR2WSTR(in, out)					\

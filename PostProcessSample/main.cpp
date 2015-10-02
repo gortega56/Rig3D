@@ -25,7 +25,6 @@ class Rig3DSampleScene : public IScene, public virtual IRendererDelegate
 {
 public:
 
-	typedef cliqCity::graphicsMath::Vector2 vec2f;
 	typedef cliqCity::memory::LinearAllocator LinearAllocator;
 
 	struct SampleVertex
@@ -280,8 +279,8 @@ public:
 		mRenderer->VSetMeshIndexBufferData(mQuadMesh, qIndices, 6, GPU_MEMORY_USAGE_STATIC);
 
 		//mFloorNode.mTransform.mRotation = { -0.5f * PI, 0.0f , 0.5f * PI };
-		mFloorNode.mTransform.mScale = vec3f(5.0f);
-		mFloorNode.mMesh = mQuadMesh;
+		//mFloorNode.mTransform.mScale = vec3f(1.0f);
+		mFloorNode.mMesh = mCubeMesh;
 
 		mCamera.mPosition = { 0.0f, 0.0, -10.0f };
 }
@@ -388,8 +387,9 @@ public:
 
 	void InitializeCamera()
 	{
-		mMatrixBuffer.mProjection = mat4f::perspective(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
+		mMatrixBuffer.mProjection = mat4f::normalizedPerspectiveLH(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
 		mMatrixBuffer.mView = mCamera.GetWorldMatrix().inverse().transpose();
+		//mMatrixBuffer.mView = mat4f::lookToLH(mCamera.GetForward(), mCamera.mPosition, vec3f(0.0f, 1.0f, 0.0f)).transpose();
 	}
 
 	void VUpdate(double milliseconds) override
@@ -487,7 +487,6 @@ public:
 		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
 		mRenderer->VBindMesh(mFloorNode.mMesh);
-
 		mRenderer->VDrawIndexed(0, mFloorNode.mMesh->GetIndexCount());
 
 		// Horizontal pass gets rendered to the vertical
