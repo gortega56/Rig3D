@@ -100,6 +100,7 @@ public:
 	DX3D11Renderer*			mRenderer;
 	ID3D11Device*			mDevice;
 	ID3D11DeviceContext*	mDeviceContext;
+
 	ID3D11Buffer*			mConstantBuffer;
 	ID3D11InputLayout*		mSceneInputLayout;
 	ID3D11InputLayout*		mPostProcessInputLayout;
@@ -150,33 +151,40 @@ public:
 
 	~Rig3DSampleScene()
 	{
-		ReleaseMacro(mBlurRTV);
-		ReleaseMacro(mBlurSceneSRV);
-		ReleaseMacro(mBlurTexture2D);
+		ReleaseMacro(mConstantBuffer);
+		ReleaseMacro(mSceneInputLayout);
+		ReleaseMacro(mPostProcessInputLayout);
+		ReleaseMacro(mVertexShader);
+		ReleaseMacro(mPixelShader);
+
+		ReleaseMacro(mSCPixelShader);
+		ReleaseMacro(mColorBuffer);
 
 		ReleaseMacro(mSceneRTV);
 		ReleaseMacro(mSceneSRV);
 		ReleaseMacro(mSceneTexture2D);
 
-		ReleaseMacro(mVertexShader);
-		ReleaseMacro(mPixelShader);
-		ReleaseMacro(mSCPixelShader);
-		ReleaseMacro(mQuadVertexShader);
-		ReleaseMacro(mColorBuffer);
-
-		ReleaseMacro(mConstantBuffer);
-		ReleaseMacro(mSceneInputLayout);
-		ReleaseMacro(mPostProcessInputLayout);
-
-		ReleaseMacro(mBlurBuffer);
-		ReleaseMacro(mSamplerState);
-		ReleaseMacro(mQuadBlurPixelShader);
+		ReleaseMacro(mBlurRTV);
+		ReleaseMacro(mBlurSceneSRV);
+		ReleaseMacro(mBlurTexture2D);
 
 		ReleaseMacro(mLavaTexture2D);
 		ReleaseMacro(mLavaSRV);
 
 		ReleaseMacro(mWaterTexture2D);
 		ReleaseMacro(mWaterSRV);
+
+		ReleaseMacro(mSamplerState);
+
+		ReleaseMacro(mQuadVertexShader);
+		ReleaseMacro(mQuadBlurPixelShader);
+		ReleaseMacro(mBlurBuffer);
+
+		ReleaseMacro(mQuadBlurPixelShader);
+		ReleaseMacro(mMotionBlurBuffer);
+		ReleaseMacro(mDepthTexture2D);
+		ReleaseMacro(mDepthDSV);
+		ReleaseMacro(mDepthSRV);
 	}
 
 	void VInitialize() override
@@ -267,7 +275,6 @@ public:
 
 			// Before cleaning up the data, create the input layout
 			if (inputDescription) {
-				if (mSceneInputLayout != NULL) ReleaseMacro(mSceneInputLayout);
 				mDevice->CreateInputLayout(
 					inputDescription,					// Reference to Description
 					4,									// Number of elments inside of Description
@@ -288,6 +295,8 @@ public:
 				psBlob->GetBufferSize(),
 				NULL,
 				&mPixelShader);
+
+			psBlob->Release();
 
 			D3DReadFileToBlob(L"SCPixelShader.cso", &psBlob);
 
@@ -353,7 +362,6 @@ public:
 				&mQuadVertexShader);
 
 			if (inputDescription2) {
-				if (mPostProcessInputLayout != NULL) ReleaseMacro(mPostProcessInputLayout);
 				mDevice->CreateInputLayout(
 					inputDescription2,					// Reference to Description
 					2,									// Number of elments inside of Description
@@ -411,10 +419,10 @@ public:
 
 	void InitializeCamera()
 	{
-		mMBMatrixBuffer.mPreviousClip = mat4f(1.0f) * mMatrixBuffer.mView * mMatrixBuffer.mProjection;
+		mMBMatrixBuffer.mPreviousClip = mMatrixBuffer.mProjection * mMatrixBuffer.mView * mat4f(1.0f);
 		mMatrixBuffer.mProjection = mat4f::normalizedPerspectiveLH(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
 		mMatrixBuffer.mView = mCamera.GetWorldMatrix().inverse().transpose();
-		mMBMatrixBuffer.mInverseClip = (mat4f(1.0f) * mMatrixBuffer.mView * mMatrixBuffer.mProjection).inverse();
+		mMBMatrixBuffer.mInverseClip = (mMatrixBuffer.mProjection * mMatrixBuffer.mView * mat4f(1.0f)).inverse();
 		//mMatrixBuffer.mView = mat4f::lookToLH(mCamera.GetForward(), mCamera.mPosition, vec3f(0.0f, 1.0f, 0.0f)).transpose();
 	}
 
@@ -692,10 +700,17 @@ public:
 	{
 		ReleaseMacro(mBlurTexture2D);
 		ReleaseMacro(mSceneTexture2D);
+
 		ReleaseMacro(mBlurRTV);
 		ReleaseMacro(mSceneRTV);
-		ReleaseMacro(mBlurSceneSRV);
 
+		ReleaseMacro(mBlurSceneSRV);
+		ReleaseMacro(mSceneSRV);
+
+		ReleaseMacro(mDepthTexture2D);
+		ReleaseMacro(mDepthDSV);
+		ReleaseMacro(mDepthSRV);
+		
 		D3D11_TEXTURE2D_DESC sceneTextureDesc;
 		sceneTextureDesc.Width = mRenderer->GetWindowWidth();
 		sceneTextureDesc.Height = mRenderer->GetWindowHeight();

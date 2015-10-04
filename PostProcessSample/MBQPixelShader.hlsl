@@ -35,7 +35,7 @@ float4 main(Pixel pixel) : SV_TARGET
 	P /= P.w;
 
 	// Velocity of pixel
-	float2 V = ((W - P) * 0.5f).xy;
+	float2 V = normalize((W - P) * 0.5f).xy;
 
 	float4 color = float4(0.0f, 0.0f, 0.0f, 0.0f);
 	float2 uv = pixel.mUV;
