@@ -4,6 +4,7 @@
 #include "GraphicsMath\cgm.h"
 #include <vector>
 #include <map>
+#include <fstream>
 
 namespace Rig3D
 {
@@ -16,7 +17,7 @@ namespace Rig3D
 	{
 	public:
 		std::vector<Vertex>		mVertices;
-		std::vector<uint32_t>	mIndices;
+		std::vector<uint16_t>	mIndices;
 
 		uint32_t mVertexCount;
 		uint32_t mIndexCount;
@@ -177,32 +178,35 @@ namespace Rig3D
 				}
 			}
 
-			for (int i = 0; i < mVertices.size(); i++)
+			for (unsigned int i = 0; i < mVertices.size(); i++)
 			{
 				std::vector<vec3f>& faceTangents = sharedTangentMap.at(i);
 				std::vector<vec3f>& faceBitangents = sharedBitangentMap.at(i);
-				vec4f vertexTangent = { 0.0f, 0.0f, 0.0f, 0.0f };
-				vec3f vertexBitangent = { 0.0f, 0.0f, 0.0f, 0.0f };
+				vec3f vertexTangent = { 0.0f, 0.0f, 0.0f };
+				vec3f vertexBitangent = { 0.0f, 0.0f, 0.0f};
 				vec3f& vertexNormal = mVertices[i].Normal;
 
-				for (int j = 0; j < faceTangents.size(); j++) {
+				for (unsigned int j = 0; j < faceTangents.size(); j++) {
 					vertexTangent += vec4f(faceTangents[j]);
 					vertexBitangent += vec4f(faceBitangents[j]);
 				}
 
-				vertexBitangent /= faceBitangents.size();
-				vertexTangent = cliqCity::graphicsMath::normalize(vertexTangent / faceTangents.size());
+				vertexBitangent /= (float)faceBitangents.size();
+				vertexTangent = cliqCity::graphicsMath::normalize(vertexTangent / (float)faceTangents.size());
 				vertexTangent = cliqCity::graphicsMath::normalize((vertexTangent - vertexNormal * cliqCity::graphicsMath::dot(vertexNormal, vertexTangent)));
-				mVertices[i].Tangent = vertexTangent;
+				mVertices[i].Tangent = vec4f(vertexTangent, 0.0f);
 				mVertices[i].Tangent.w = cliqCity::graphicsMath::dot(cliqCity::graphicsMath::cross(vertexNormal, vertexTangent), vertexBitangent);
-				mVertices[i].Tangent.w = (mVertices[i].Tangent.w < 0.0f) ? -1.0 : 1.0f;
+				mVertices[i].Tangent.w = (mVertices[i].Tangent.w < 0.0f) ? -1.0f : 1.0f;
 			}
 
 			// Close
 			obj.close();
+			
+			return true;
 		}
 	};
 #pragma endregion
+
 	template<class Allocator>
 	class MeshLibrary
 	{
@@ -217,7 +221,7 @@ namespace Rig3D
 		void NewMesh(IMesh** mesh, IRenderer* renderer);
 
 		template<template<typename> class Resource, class Vertex>
-		void LoadMesh(IMesh** mesh, IRenderer* renderer, const Resource<Vertex>& resource);
+		void LoadMesh(IMesh** mesh, IRenderer* renderer, Resource<Vertex>& resource);
 	};
 
 	template<class Allocator>
@@ -252,13 +256,13 @@ namespace Rig3D
 
 	template<class Allocator>
 	template<template<typename> class Resource, class Vertex>
-	void MeshLibrary<Allocator>::LoadMesh(IMesh** mesh, IRenderer* renderer, const Resource<Vertex>& resource)
+	void MeshLibrary<Allocator>::LoadMesh(IMesh** mesh, IRenderer* renderer, Resource<Vertex>& resource)
 	{
 		resource.Load();
 
 		(renderer->GetGraphicsAPI() == GRAPHICS_API_DIRECTX11) ? RIG_NEW(DX11Mesh, mAllocator, *mesh)() : RIG_NEW(DX11Mesh, mAllocator, *mesh)();
-		renderer->VSetMeshVertexBufferData(*mesh, &resource.mVertices[0], sizeof(Vertex), GPU_MEMORY_USAGE_STATIC);
-		renderer->VSetMeshIndexBufferData(*mesh, &resource.mIndices[0], resource.mIndices.count, GPU_MEMORY_USAGE_STATIC);
+		renderer->VSetMeshVertexBufferData(*mesh, &resource.mVertices[0], sizeof(Vertex) * resource.mVertices.size(), sizeof(Vertex), GPU_MEMORY_USAGE_STATIC);
+		renderer->VSetMeshIndexBufferData(*mesh, &resource.mIndices[0], resource.mIndices.size(), GPU_MEMORY_USAGE_STATIC);
 	}
 }
 
