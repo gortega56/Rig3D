@@ -6,6 +6,7 @@
 #include "Rig3D\Graphics\DirectX11\DX11Mesh.h"
 #include "Rig3D\Common\Transform.h"
 #include "Memory\Memory\LinearAllocator.h"
+#include "Rig3D\MeshLibrary.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <fstream>
@@ -60,8 +61,9 @@ public:
 	ID3D11PixelShader*		mPixelShader;
 
 	float					mAnimationTime;
-	short					mShouldPlay;
 	bool					mIsPlaying;
+
+	MeshLibrary<LinearAllocator> mMeshLibrary;
 
 	Rig3DSampleScene() : mAllocator(1024)
 	{
@@ -71,7 +73,8 @@ public:
 		mOptions.mGraphicsAPI = GRAPHICS_API_DIRECTX11;
 		mOptions.mFullScreen = false;
 		mAnimationTime = 0.0f;
-		mShouldPlay = false;
+		mIsPlaying = false;
+		mMeshLibrary.SetAllocator(&mAllocator);
 	}
 
 	~Rig3DSampleScene()
@@ -127,6 +130,10 @@ public:
 		}
 
 		file.close();
+
+		mMatrixBuffer.mWorld = mat4f::translate(mKeyFrames[1].mPosition).transpose();
+		mAnimationTime = 0.0f;
+		mIsPlaying = false;
 	}
 
 	void InitializeGeometry()
@@ -211,7 +218,7 @@ public:
 		indices[34] = 7;
 		indices[35] = 3;
 
-		mCubeMesh = new(mAllocator.Allocate(sizeof(DX11Mesh), alignof(DX11Mesh), 0)) DX11Mesh();
+		mMeshLibrary.NewMesh(&mCubeMesh, mRenderer);
 		mRenderer->VSetMeshVertexBufferData(mCubeMesh, vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
 		mRenderer->VSetMeshIndexBufferData(mCubeMesh, indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
 	}
@@ -277,8 +284,8 @@ public:
 
 	void InitializeCamera()
 	{
-		mMatrixBuffer.mProjection = mat4f::perspective(0.25f * 3.1415926535f, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
-		mMatrixBuffer.mView = mat4f::lookAtLH(vec3f(0.0, 0.0, 0.0), vec3f(0.0, 0.0, -70.0), vec3f(0.0, 1.0, 0.0)).transpose();
+		mMatrixBuffer.mProjection = mat4f::normalizedPerspectiveLH(0.25f * 3.1415926535f, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
+		mMatrixBuffer.mView = mat4f::lookAtLH(vec3f(0.0, 0.0, 0.0), vec3f(0.0, 0.0, -38.0), vec3f(0.0, 1.0, 0.0)).transpose();
 	}
 
 	void VUpdate(double milliseconds) override
@@ -288,23 +295,34 @@ public:
 		}
 		else {
 			float t = mAnimationTime / 1000.0f;
-			if (t < 9.0f) {
+			if (t >= 1.0 && t < 8.0f) {
 
 				// Find key frame index
 				int i = (int)floorf(t);
 
 				// Find fractional portion
-				float u = t - i;
+				float u = (t - i);
 
-				KeyFrame& from = mKeyFrames[i];
-				KeyFrame& to = mKeyFrames[i + 1];
+				KeyFrame& before	= mKeyFrames[i - 1];
+				KeyFrame& current	= mKeyFrames[i];
+				KeyFrame& after		= mKeyFrames[i + 1];
+				KeyFrame& after2	= mKeyFrames[i + 2];
 
-				vec3f position = (1 - u) * from.mPosition + u * to.mPosition;
+				mat4f CR = 0.5f * mat4f(
+					0.0f, 2.0f, 0.0f, 0.0f,
+				   -1.0f, 0.0f, 1.0f, 0.0f, 
+					2.0f,-5.0f, 4.0f,-1.0f,
+				   -1.0f, 3.0f,-3.0f, 1.0f);
 
+				mat4f P = mat4f(before.mPosition, current.mPosition, after.mPosition, after2.mPosition);
+				vec4f T = { 1, u, u * u, u * u * u };
+				
+				vec3f position = T * CR * P;
+				
 				quatf rotation;
 				{
-					quatf q0 = from.mRotation;
-					quatf q1 = to.mRotation;
+					quatf q0 = current.mRotation;
+					quatf q1 = after.mRotation;
 
 					float cosAngle = cliqCity::graphicsMath::dot(q0, q1);
 					if (cosAngle < 0.0f) {
@@ -312,26 +330,41 @@ public:
 						cosAngle = -cosAngle;
 					}
 
-					float angle = acosf(cosAngle);
-					float s		= sinf(angle);
+					float k0, k1;				// Check for divide by zero
+					if (cosAngle > 0.9999f) {
+						k0 = 1.0f - u;
+						k1 = u;
+					}
+					else {
+						float angle = acosf(cosAngle);
+						float oneOverSinAngle = 1.0f / sinf(angle);
 
-					q0 = q0 * ((sinf(1.0f - u) * angle) / s);
-					q1 = q1 * (sinf(u * angle) / s);
+						k0 = ((sinf(1.0f - u) * angle) * oneOverSinAngle);
+						k1 = (sinf(u * angle) * oneOverSinAngle);
+					}
 
-					rotation.w		= q0.w + q1.w;
-					rotation.v.x	= q0.v.x + q1.v.x;
-					rotation.v.y	= q0.v.y + q1.v.y;
-					rotation.v.z	= q0.v.z + q1.v.z;
+					q0 = q0 * k0;
+					q1 = q1 * k1;
+
+					rotation.w = q0.w + q1.w;
+					rotation.v.x = q0.v.x + q1.v.x;
+					rotation.v.y = q0.v.y + q1.v.y;
+					rotation.v.z = q0.v.z + q1.v.z;
 				}
 
 				mMatrixBuffer.mWorld = (cliqCity::graphicsMath::normalize(rotation)
 					.toMatrix4() * mat4f::translate(position)).transpose();
 
-				mAnimationTime += (float)milliseconds;
 				char str[256];
-				sprintf_s(str, "Milliseconds %f\n", mAnimationTime);
+				sprintf_s(str, "Milliseconds %f", mAnimationTime);
 				mRenderer->SetWindowCaption(str);
 			}
+
+			mAnimationTime += (float)milliseconds;	
+		}
+
+		if (Input::SharedInstance().GetKeyDown(KEYCODE_LEFT)) {
+			InitializeAnimation();
 		}
 	}
 
@@ -373,7 +406,7 @@ public:
 		mRenderer->VBindMesh(mCubeMesh);
 
 		mRenderer->VDrawIndexed(0, mCubeMesh->GetIndexCount());
-		mRenderer->GetSwapChain()->Present(0, 0);
+		mRenderer->VSwapBuffers();
 	}
 
 	void VOnResize() override

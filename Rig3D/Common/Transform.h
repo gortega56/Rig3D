@@ -1,7 +1,5 @@
 #pragma once
-#include "GraphicsMath\Vector.hpp"
-#include "GraphicsMath\Matrix.hpp"
-#include "GraphicsMath\Quaternion.hpp"
+#include "GraphicsMath\cgm.h"
 
 #ifdef _WINDLL
 #define RIG3D __declspec(dllexport)
@@ -11,11 +9,6 @@
 
 namespace Rig3D
 {
-	typedef cliqCity::graphicsMath::Matrix4		mat4f;
-	typedef cliqCity::graphicsMath::Matrix3		mat3f;
-	typedef cliqCity::graphicsMath::Vector3		vec3f;
-	typedef cliqCity::graphicsMath::Quaternion	quatf;
-
 	class RIG3D Transform
 	{
 	public:

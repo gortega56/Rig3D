@@ -16,9 +16,6 @@ namespace Rig3D
 
 		Camera();
 		~Camera();
-		
-		mat4f GetProjectionMatrix(float fovy, float aspectRatio, float zNear, float zFar);
-		mat4f GetViewMatrix();
 
 	private:  // Not used yet
 		mat4f		mProjection;

@@ -1,13 +1,13 @@
 struct Vertex
 {
 	float3 mPosition	: POSITION;
-	float3 mUV			: TEXCOORD;
+	float2 mUV			: TEXCOORD;
 };
 
 struct Pixel
 {
 	float4 mPositionH	: SV_POSITION;
-	float3 mUV			: TEXCOORD;
+	float2 mUV			: TEXCOORD;
 };
 
 Pixel main(Vertex vertex)

@@ -15,7 +15,7 @@ namespace Rig3D
 	public:
 		IMesh();
 		virtual ~IMesh();
-	
+
 		inline uint32_t GetIndexCount()		const { return mIndexCount; };
 		inline uint32_t GetVertexStride()	const { return mVertexStride; };
 

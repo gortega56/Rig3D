@@ -63,7 +63,7 @@ void Transform::RotateRoll(float roll)
 mat4f Transform::GetWorldMatrix()
 {
 	mat4f translation	= mat4f::translate(mPosition);
-	mat4f rotation		= quatf::rollPitchYaw(mRotation.z, mRotation.x, mRotation.y).toMatrix4();
+	mat4f rotation = quatf::rollPitchYaw(mRotation.z, mRotation.x, mRotation.y).toMatrix4();
 	mat4f scale			= mat4f::scale(mScale);
 	return scale * rotation * translation;
 }

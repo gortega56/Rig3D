@@ -13,7 +13,7 @@ namespace Rig3D
 	class RIG3D IScene
 	{
 	public:
-		Options	mOptions;
+		Options		mOptions;
 
 		IScene();
 		~IScene();

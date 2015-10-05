@@ -4,7 +4,7 @@
 
 namespace Rig3D
 {
-	inline D3D11_USAGE GD3D11_Usage_Map(const GPU_MEMORY_USAGE& usage)
+	inline D3D11_USAGE GD3D11_Usage_Map(const GPUMemoryUsage& usage)
 	{
 		switch (usage)
 		{
@@ -20,7 +20,7 @@ namespace Rig3D
 		}
 	}
 
-	inline D3D11_PRIMITIVE_TOPOLOGY GD3D11_Primitive_Type_Map(const GPU_PRIMITIVE_TYPE& primitiveType)
+	inline D3D11_PRIMITIVE_TOPOLOGY GD3D11_Primitive_Type_Map(const GPUPrimitiveType& primitiveType)
 	{
 		switch (primitiveType)
 		{
