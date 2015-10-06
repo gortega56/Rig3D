@@ -13,12 +13,13 @@
 #include <random>
 #include <ctime>
 
-#define SATURATE_RANDOM		FLT_EPSILON + (float)(rand()) / ((float)(RAND_MAX / (1.0f - FLT_EPSILON)))
-#define OFFSET_COUNT		12
-#define PI					3.1415926535f
-#define CAMERA_SPEED		0.01f
-#define RADIAN				3.1415926535f / 180.0f
-#define NODE_COUNT			8
+#define SATURATE_RANDOM			FLT_EPSILON + (float)(rand()) / ((float)(RAND_MAX / (1.0f - FLT_EPSILON)))
+#define OFFSET_COUNT			12
+#define PI						3.1415926535f
+#define CAMERA_SPEED			0.1f
+#define CAMERA_ROTATION_SPEED	0.1f
+#define RADIAN					3.1415926535f / 180.0f
+#define NODE_COUNT				8
 
 using namespace Rig3D;
 
@@ -441,8 +442,8 @@ public:
 
 		ScreenPoint mousePosition = Input::SharedInstance().mousePosition;
 		if (Input::SharedInstance().GetMouseButton(MOUSEBUTTON_LEFT)) {
-			mCamera.RotatePitch(-(mousePosition.y - mMouseY) * RADIAN * CAMERA_SPEED);
-			mCamera.RotateYaw(-(mousePosition.x - mMouseX) * RADIAN * CAMERA_SPEED);
+			mCamera.RotatePitch(-(mousePosition.y - mMouseY) * RADIAN * CAMERA_ROTATION_SPEED);
+			mCamera.RotateYaw(-(mousePosition.x - mMouseX) * RADIAN * CAMERA_ROTATION_SPEED);
 		}
 
 		mMouseX = mousePosition.x;
@@ -515,8 +516,8 @@ public:
 			0);
 
 		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
-		//mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
-		mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
+		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
+		//mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
 
 		DrawScene();
 	}
@@ -534,8 +535,8 @@ public:
 			0);
 
 		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
-		//mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
-		mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
+		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
+		//mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
 
 		DrawScene();
 
@@ -623,8 +624,8 @@ public:
 			0);
 
 		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
-		//mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
-		mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
+		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
+		//mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
 
 		DrawScene();
 

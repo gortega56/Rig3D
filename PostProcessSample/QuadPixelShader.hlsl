@@ -17,7 +17,7 @@ float4 main(Pixel pixel) : SV_TARGET
 {
 	float zOverW = depthTexture.Sample(sceneSampler, pixel.mUV).r;
 	if (zOverW < 1.0f) {
-		float weights[12] = { 0.000003, 0.000229, 0.005977, 0.060598, 0.24173, 0.1914625, 0.1914625, 0.24173,	0.060598, 0.005977,	0.000229, 0.000003 };
+		float weights[12] = { 0.000003, 0.000229, 0.005977, 0.060598, 0.24173, 0.382925, 0.382925, 0.24173,	0.060598, 0.005977,	0.000229, 0.000003 };
 
 		float4 pixelColor = float4(0, 0, 0, 0);
 
