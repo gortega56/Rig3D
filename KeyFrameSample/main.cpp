@@ -61,7 +61,6 @@ public:
 	ID3D11PixelShader*		mPixelShader;
 
 	float					mAnimationTime;
-	short					mShouldPlay;
 	bool					mIsPlaying;
 
 	MeshLibrary<LinearAllocator> mMeshLibrary;
@@ -74,7 +73,7 @@ public:
 		mOptions.mGraphicsAPI = GRAPHICS_API_DIRECTX11;
 		mOptions.mFullScreen = false;
 		mAnimationTime = 0.0f;
-		mShouldPlay = false;
+		mIsPlaying = false;
 		mMeshLibrary.SetAllocator(&mAllocator);
 	}
 
@@ -131,6 +130,10 @@ public:
 		}
 
 		file.close();
+
+		mMatrixBuffer.mWorld = mat4f::translate(mKeyFrames[1].mPosition).transpose();
+		mAnimationTime = 0.0f;
+		mIsPlaying = false;
 	}
 
 	void InitializeGeometry()
@@ -282,7 +285,7 @@ public:
 	void InitializeCamera()
 	{
 		mMatrixBuffer.mProjection = mat4f::normalizedPerspectiveLH(0.25f * 3.1415926535f, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
-		mMatrixBuffer.mView = mat4f::lookAtLH(vec3f(0.0, 0.0, 0.0), vec3f(0.0, 0.0, -70.0), vec3f(0.0, 1.0, 0.0)).transpose();
+		mMatrixBuffer.mView = mat4f::lookAtLH(vec3f(0.0, 0.0, 0.0), vec3f(0.0, 0.0, -38.0), vec3f(0.0, 1.0, 0.0)).transpose();
 	}
 
 	void VUpdate(double milliseconds) override
@@ -298,7 +301,7 @@ public:
 				int i = (int)floorf(t);
 
 				// Find fractional portion
-				float u = t - i;
+				float u = (t - i);
 
 				KeyFrame& before	= mKeyFrames[i - 1];
 				KeyFrame& current	= mKeyFrames[i];
@@ -334,10 +337,10 @@ public:
 					}
 					else {
 						float angle = acosf(cosAngle);
-						float s = sinf(angle);
+						float oneOverSinAngle = 1.0f / sinf(angle);
 
-						k0 = ((sinf(1.0f - u) * angle) / s);
-						k1 = (sinf(u * angle) / s);
+						k0 = ((sinf(1.0f - u) * angle) * oneOverSinAngle);
+						k1 = (sinf(u * angle) * oneOverSinAngle);
 					}
 
 					q0 = q0 * k0;
@@ -352,14 +355,16 @@ public:
 				mMatrixBuffer.mWorld = (cliqCity::graphicsMath::normalize(rotation)
 					.toMatrix4() * mat4f::translate(position)).transpose();
 
-
 				char str[256];
-				sprintf_s(str, "Milliseconds %f, Position %f %f %f", mAnimationTime, position.x, position.y, position.z);
+				sprintf_s(str, "Milliseconds %f", mAnimationTime);
 				mRenderer->SetWindowCaption(str);
 			}
 
-			mAnimationTime += (float)milliseconds;
-			
+			mAnimationTime += (float)milliseconds;	
+		}
+
+		if (Input::SharedInstance().GetKeyDown(KEYCODE_LEFT)) {
+			InitializeAnimation();
 		}
 	}
 
