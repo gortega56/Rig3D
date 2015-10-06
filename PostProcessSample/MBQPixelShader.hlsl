@@ -35,15 +35,18 @@ float4 main(Pixel pixel) : SV_TARGET
 	P /= P.w;
 
 	// Velocity of pixel
-	float2 V = normalize((W - P) * 0.5f).xy;
+	float4 v = H - P;
 
-	float4 color = float4(0.0f, 0.0f, 0.0f, 0.0f);
-	float2 uv = pixel.mUV;
-	for (int i = 0; i < 2; i++, uv += V) {
+	float2 V = ((v)* 0.5f).xy * float2(1.0f, -1.0f);
+
+	float4 color = sceneTexture.Sample(sceneSampler, pixel.mUV);
+	float2 uv = pixel.mUV + V;
+	float n = 500;
+	for (int i = 0; i < n; i++, uv += V) {
 		color += sceneTexture.Sample(sceneSampler, uv);
 	}
 
-	color /= 2;
+	color /= n;
 
 	return color;
 }

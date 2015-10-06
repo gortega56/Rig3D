@@ -383,7 +383,7 @@ public:
 			psBlob->Release();
 
 			D3D11_BUFFER_DESC bufferDesc;
-			bufferDesc.ByteWidth = sizeof(mat4f) * 2;
+			bufferDesc.ByteWidth = sizeof(vec2f) * OFFSET_COUNT;
 			bufferDesc.Usage = D3D11_USAGE_DEFAULT;
 			bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 			bufferDesc.CPUAccessFlags = 0;
@@ -423,6 +423,7 @@ public:
 		mMatrixBuffer.mProjection = mat4f::normalizedPerspectiveLH(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
 		mMatrixBuffer.mView = mCamera.GetWorldMatrix().inverse().transpose();
 		mMBMatrixBuffer.mInverseClip = (mMatrixBuffer.mProjection * mMatrixBuffer.mView * mat4f(1.0f)).inverse();
+		mat4f i = mMBMatrixBuffer.mPreviousClip * mMBMatrixBuffer.mInverseClip;
 		//mMatrixBuffer.mView = mat4f::lookToLH(mCamera.GetForward(), mCamera.mPosition, vec3f(0.0f, 1.0f, 0.0f)).transpose();
 	}
 
@@ -440,8 +441,8 @@ public:
 
 		ScreenPoint mousePosition = Input::SharedInstance().mousePosition;
 		if (Input::SharedInstance().GetMouseButton(MOUSEBUTTON_LEFT)) {
-			mCamera.RotatePitch(-(mousePosition.y - mMouseY) * RADIAN);
-			mCamera.RotateYaw(-(mousePosition.x - mMouseX) * RADIAN);	
+			mCamera.RotatePitch(-(mousePosition.y - mMouseY) * RADIAN * CAMERA_SPEED);
+			mCamera.RotateYaw(-(mousePosition.x - mMouseX) * RADIAN * CAMERA_SPEED);
 		}
 
 		mMouseX = mousePosition.x;

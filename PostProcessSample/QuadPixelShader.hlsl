@@ -16,7 +16,7 @@ float4 main(Pixel pixel) : SV_TARGET
 {
 	//return sceneTexture.Sample(sceneSampler, pixel.mUV.xy);
 
-	float weights[12] = {	0.000003, 0.000229,	0.005977, 0.060598,	0.24173,0.382925,0.382925,	0.24173,	0.060598,	0.005977,	0.000229,	0.000003};
+	float weights[12] = { 0.000003, 0.000229, 0.005977, 0.060598, 0.24173, 0.382925, 0.382925, 0.24173,	0.060598, 0.005977,	0.000229, 0.000003};
 
 	float4 pixelColor = float4(0, 0, 0, 0);
 
