@@ -16,7 +16,7 @@ namespace Rig3D
 		Options		mOptions;
 
 		IScene();
-		~IScene();
+		virtual ~IScene();
 
 		virtual void VInitialize() = 0;
 		virtual void VUpdate(double milliseconds) = 0;

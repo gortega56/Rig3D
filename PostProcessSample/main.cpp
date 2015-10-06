@@ -137,7 +137,7 @@ public:
 	ID3D11DepthStencilView*     mDepthDSV;
 	ID3D11ShaderResourceView*	mDepthSRV;
 
-	Rig3DSampleScene() : mAllocator(1024)
+	Rig3DSampleScene() : mAllocator(1024), mMouseX(0.0f), mMouseY(0.0f), mCubeMesh(nullptr), mQuadMesh(nullptr)
 	{
 		mOptions.mWindowCaption	= "Rig3D Sample";
 		mOptions.mWindowWidth	= 800;
@@ -336,9 +336,9 @@ public:
 
 			D3D11_SAMPLER_DESC samplerDesc;
 			ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
-			samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-			samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-			samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+			samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+			samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+			samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
 			samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
 			samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
@@ -525,10 +525,10 @@ public:
 	{
 		mDeviceContext->IASetInputLayout(mSceneInputLayout);
 
-		mDeviceContext->OMSetRenderTargets(1, &mSceneRTV, mRenderer->GetDepthStencilView());
+		mDeviceContext->OMSetRenderTargets(1, &mSceneRTV, mDepthDSV);
 		mDeviceContext->ClearRenderTargetView(mSceneRTV, (const float*)&mClearColor);
 		mDeviceContext->ClearDepthStencilView(
-			mRenderer->GetDepthStencilView(),
+			mDepthDSV,
 			D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
 			1.0f,
 			0);
@@ -568,6 +568,7 @@ public:
 			&mBlurBuffer);
 
 		mDeviceContext->PSSetShaderResources(0, 1, &mSceneSRV);
+		mDeviceContext->PSSetShaderResources(1, 1, &mDepthSRV);
 		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
 		mRenderer->VBindMesh(mQuadMesh);
@@ -599,13 +600,14 @@ public:
 
 		// Bind Blur Texture
 		mDeviceContext->PSSetShaderResources(0, 1, &mBlurSceneSRV);
+		mDeviceContext->PSSetShaderResources(1, 1, &mDepthSRV);
 		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
 		mRenderer->VBindMesh(mQuadMesh);
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
-		ID3D11ShaderResourceView* nullSRV[1] = { 0 };
-		mDeviceContext->PSSetShaderResources(0, 1, nullSRV);
+		ID3D11ShaderResourceView* nullSRV[2] = { 0, 0 };
+		mDeviceContext->PSSetShaderResources(0, 2, nullSRV);
 	}
 
 	void RenderMotionBlur()

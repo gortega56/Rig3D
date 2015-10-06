@@ -20,7 +20,7 @@ namespace Rig3D
 		virtual void VOnResize() = 0;
 
 		IRendererDelegate() {};
-		~IRendererDelegate() {};
+		virtual ~IRendererDelegate() {};
 	};
 
 	class RIG3D IRenderer
