@@ -3,7 +3,6 @@
 #include "Rig3D\Graphics\Interface\IScene.h"
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "Rig3D\Graphics\Interface\IMesh.h"
-#include "Rig3D\Graphics\DirectX11\DX11Mesh.h"
 #include "Rig3D\Common\Transform.h"
 #include "Memory\Memory\LinearAllocator.h"
 #include "Rig3D\MeshLibrary.h"
@@ -76,8 +75,6 @@ public:
 	TCBProperties			mTCBProperties;
 	float					mAnimationTime;
 	bool					mIsPlaying;
-
-	IMesh*					mQuadMesh;
 
 	MeshLibrary<LinearAllocator> mMeshLibrary;
 
@@ -238,25 +235,6 @@ public:
 		mMeshLibrary.NewMesh(&mCubeMesh, mRenderer);
 		mRenderer->VSetMeshVertexBufferData(mCubeMesh, vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
 		mRenderer->VSetMeshIndexBufferData(mCubeMesh, indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
-
-		SampleVertex qVertices[4];
-		qVertices[0].mPosition = { -0.8f, -0.6f, 0.0 };
-		qVertices[1].mPosition = { -0.4f, -0.6f, 0.0 };
-		qVertices[2].mPosition = { -0.4f, -0.7f, 0.0 };
-		qVertices[3].mPosition = { -0.8f, -0.7f, 0.0 };
-
-		uint16_t qIndices[6];
-		qIndices[0] = 0;
-		qIndices[1] = 1;
-		qIndices[2] = 2;
-
-		qIndices[3] = 2;
-		qIndices[4] = 3;
-		qIndices[5] = 0;
-
-		mMeshLibrary.NewMesh(&mQuadMesh, mRenderer);
-		mRenderer->VSetMeshVertexBufferData(mQuadMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
-		mRenderer->VSetMeshIndexBufferData(mQuadMesh, qIndices, 6, GPU_MEMORY_USAGE_STATIC);
 	}
 
 	void InitializeShaders()
@@ -385,18 +363,18 @@ public:
 
 	void LinearInterpolation(vec3f* position, quatf* rotation, int i, float u)
 	{
-		KeyFrame& current = mKeyFrames[i];
-		KeyFrame& after = mKeyFrames[i + 1];
-		*position = (1 - u) * current.mPosition + after.mPosition * u;
+		KeyFrame& current	= mKeyFrames[i];
+		KeyFrame& after		= mKeyFrames[i + 1];
+		*position			= (1 - u) * current.mPosition + after.mPosition * u;
 		Slerp(rotation, current.mRotation, after.mRotation, u);
 	}
 
 	void CatmullRomInterpolation(vec3f* position, quatf* rotation, int i, float u)
 	{
-		KeyFrame& before = (i == 0) ? mKeyFrames[i] : mKeyFrames[i - 1];
-		KeyFrame& current = mKeyFrames[i];
-		KeyFrame& after = (i <= KEY_FRAME_COUNT - 2) ? mKeyFrames[i + 1] : mKeyFrames[KEY_FRAME_COUNT - 1];
-		KeyFrame& after2 = (i <= KEY_FRAME_COUNT - 3) ? mKeyFrames[i + 2] : mKeyFrames[KEY_FRAME_COUNT - 1];
+		KeyFrame& before	= (i == 0) ? mKeyFrames[i] : mKeyFrames[i - 1];
+		KeyFrame& current	= mKeyFrames[i];
+		KeyFrame& after		= mKeyFrames[i + 1];
+		KeyFrame& after2	= (i == KEY_FRAME_COUNT - 2) ? mKeyFrames[i + 1] : mKeyFrames[i + 2];
 
 		mat4f CR = 0.5f * mat4f(
 			0.0f, 2.0f, 0.0f, 0.0f,
@@ -413,9 +391,13 @@ public:
 
 	void TCBInterpolation(TCBProperties& tcb, vec3f* position, quatf* rotation, int i, float u)
 	{
-		KeyFrame& before = (i == 0) ? mKeyFrames[i] : mKeyFrames[i - 1];
-		KeyFrame& current = mKeyFrames[i];
-		KeyFrame& after = (i <= KEY_FRAME_COUNT - 2) ? mKeyFrames[i + 1] : mKeyFrames[KEY_FRAME_COUNT - 1];
+		KeyFrame& before	= (i == 0) ? mKeyFrames[i] : mKeyFrames[i - 1];
+		KeyFrame& current	= mKeyFrames[i];
+		KeyFrame& after		= mKeyFrames[i + 1];
+
+		tcb.t = -1.0f;
+		tcb.c = -1.0f;
+		tcb.b = -1.0f;
 
 		vec3f vIn = ((1.0f - tcb.t) * (1.0f + tcb.b) * (1.0f - tcb.c) * 0.5f) * (current.mPosition - before.mPosition) +
 			((1.0f - tcb.t) * (1.0f - tcb.b) * (1.0f + tcb.c) * 0.5f) * (after.mPosition - current.mPosition);
