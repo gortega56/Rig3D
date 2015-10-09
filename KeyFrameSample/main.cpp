@@ -27,6 +27,13 @@ public:
 	typedef cliqCity::graphicsMath::Vector2 vec2f;
 	typedef cliqCity::memory::LinearAllocator LinearAllocator;
 
+	enum InterpolationMode
+	{
+		INTERPOLATION_MODE_LINEAR,
+		INTERPOLATION_MODE_CATMULL_ROM,
+		INTERPOLATION_MODE_TCB
+	};
+
 	struct SampleVertex
 	{
 		vec3f mPosition;
@@ -47,6 +54,11 @@ public:
 		float mTime;
 	};
 
+	struct TCBProperties
+	{
+		float t, c, b;
+	};
+
 	SampleMatrixBuffer		mMatrixBuffer;
 	IMesh*					mCubeMesh;
 	LinearAllocator			mAllocator;
@@ -60,8 +72,12 @@ public:
 	ID3D11VertexShader*		mVertexShader;
 	ID3D11PixelShader*		mPixelShader;
 
+	InterpolationMode		mInterpolationMode;
+	TCBProperties			mTCBProperties;
 	float					mAnimationTime;
 	bool					mIsPlaying;
+
+	IMesh*					mQuadMesh;
 
 	MeshLibrary<LinearAllocator> mMeshLibrary;
 
@@ -75,6 +91,7 @@ public:
 		mAnimationTime = 0.0f;
 		mIsPlaying = false;
 		mMeshLibrary.SetAllocator(&mAllocator);
+		mInterpolationMode = INTERPOLATION_MODE_LINEAR;
 	}
 
 	~Rig3DSampleScene()
@@ -131,7 +148,7 @@ public:
 
 		file.close();
 
-		mMatrixBuffer.mWorld = mat4f::translate(mKeyFrames[1].mPosition).transpose();
+		mMatrixBuffer.mWorld = mat4f::translate(mKeyFrames[0].mPosition).transpose();
 		mAnimationTime = 0.0f;
 		mIsPlaying = false;
 	}
@@ -221,6 +238,25 @@ public:
 		mMeshLibrary.NewMesh(&mCubeMesh, mRenderer);
 		mRenderer->VSetMeshVertexBufferData(mCubeMesh, vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
 		mRenderer->VSetMeshIndexBufferData(mCubeMesh, indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
+
+		SampleVertex qVertices[4];
+		qVertices[0].mPosition = { -0.8f, -0.6f, 0.0 };
+		qVertices[1].mPosition = { -0.4f, -0.6f, 0.0 };
+		qVertices[2].mPosition = { -0.4f, -0.7f, 0.0 };
+		qVertices[3].mPosition = { -0.8f, -0.7f, 0.0 };
+
+		uint16_t qIndices[6];
+		qIndices[0] = 0;
+		qIndices[1] = 1;
+		qIndices[2] = 2;
+
+		qIndices[3] = 2;
+		qIndices[4] = 3;
+		qIndices[5] = 0;
+
+		mMeshLibrary.NewMesh(&mQuadMesh, mRenderer);
+		mRenderer->VSetMeshVertexBufferData(mQuadMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
+		mRenderer->VSetMeshIndexBufferData(mQuadMesh, qIndices, 6, GPU_MEMORY_USAGE_STATIC);
 	}
 
 	void InitializeShaders()
@@ -295,7 +331,7 @@ public:
 		}
 		else {
 			float t = mAnimationTime / 1000.0f;
-			if (t >= 1.0 && t < 8.0f) {
+			if (t < 9.0f) {
 
 				// Find key frame index
 				int i = (int)floorf(t);
@@ -303,53 +339,22 @@ public:
 				// Find fractional portion
 				float u = (t - i);
 
-				KeyFrame& before	= mKeyFrames[i - 1];
-				KeyFrame& current	= mKeyFrames[i];
-				KeyFrame& after		= mKeyFrames[i + 1];
-				KeyFrame& after2	= mKeyFrames[i + 2];
-
-				mat4f CR = 0.5f * mat4f(
-					0.0f, 2.0f, 0.0f, 0.0f,
-				   -1.0f, 0.0f, 1.0f, 0.0f, 
-					2.0f,-5.0f, 4.0f,-1.0f,
-				   -1.0f, 3.0f,-3.0f, 1.0f);
-
-				mat4f P = mat4f(before.mPosition, current.mPosition, after.mPosition, after2.mPosition);
-				vec4f T = { 1, u, u * u, u * u * u };
-				
-				vec3f position = T * CR * P;
-				
 				quatf rotation;
+				vec3f position;
+
+				switch (mInterpolationMode)
 				{
-					quatf q0 = current.mRotation;
-					quatf q1 = after.mRotation;
-
-					float cosAngle = cliqCity::graphicsMath::dot(q0, q1);
-					if (cosAngle < 0.0f) {
-						q1 = -q1;
-						cosAngle = -cosAngle;
-					}
-
-					float k0, k1;				// Check for divide by zero
-					if (cosAngle > 0.9999f) {
-						k0 = 1.0f - u;
-						k1 = u;
-					}
-					else {
-						float angle = acosf(cosAngle);
-						float oneOverSinAngle = 1.0f / sinf(angle);
-
-						k0 = ((sinf(1.0f - u) * angle) * oneOverSinAngle);
-						k1 = (sinf(u * angle) * oneOverSinAngle);
-					}
-
-					q0 = q0 * k0;
-					q1 = q1 * k1;
-
-					rotation.w = q0.w + q1.w;
-					rotation.v.x = q0.v.x + q1.v.x;
-					rotation.v.y = q0.v.y + q1.v.y;
-					rotation.v.z = q0.v.z + q1.v.z;
+					case INTERPOLATION_MODE_LINEAR:
+						LinearInterpolation(&position, &rotation, i, u);
+						break;
+					case INTERPOLATION_MODE_CATMULL_ROM:
+						CatmullRomInterpolation(&position, &rotation, i, u);
+						break;
+					case INTERPOLATION_MODE_TCB:
+						TCBInterpolation(mTCBProperties, &position, &rotation, i, u);
+						break;
+					default:
+						break;
 				}
 
 				mMatrixBuffer.mWorld = (cliqCity::graphicsMath::normalize(rotation)
@@ -366,6 +371,98 @@ public:
 		if (Input::SharedInstance().GetKeyDown(KEYCODE_LEFT)) {
 			InitializeAnimation();
 		}
+
+		if (Input::SharedInstance().GetKeyDown(KEYCODE_L)) {
+			mInterpolationMode = INTERPOLATION_MODE_LINEAR;
+		}
+		else if (Input::SharedInstance().GetKeyDown(KEYCODE_C)) {
+			mInterpolationMode = INTERPOLATION_MODE_CATMULL_ROM;
+		}
+		else if (Input::SharedInstance().GetKeyDown(KEYCODE_T)) {
+			mInterpolationMode = INTERPOLATION_MODE_TCB;
+		}
+	}
+
+	void LinearInterpolation(vec3f* position, quatf* rotation, int i, float u)
+	{
+		KeyFrame& current = mKeyFrames[i];
+		KeyFrame& after = mKeyFrames[i + 1];
+		*position = (1 - u) * current.mPosition + after.mPosition * u;
+		Slerp(rotation, current.mRotation, after.mRotation, u);
+	}
+
+	void CatmullRomInterpolation(vec3f* position, quatf* rotation, int i, float u)
+	{
+		KeyFrame& before = (i == 0) ? mKeyFrames[i] : mKeyFrames[i - 1];
+		KeyFrame& current = mKeyFrames[i];
+		KeyFrame& after = (i <= KEY_FRAME_COUNT - 2) ? mKeyFrames[i + 1] : mKeyFrames[KEY_FRAME_COUNT - 1];
+		KeyFrame& after2 = (i <= KEY_FRAME_COUNT - 3) ? mKeyFrames[i + 2] : mKeyFrames[KEY_FRAME_COUNT - 1];
+
+		mat4f CR = 0.5f * mat4f(
+			0.0f, 2.0f, 0.0f, 0.0f,
+			-1.0f, 0.0f, 1.0f, 0.0f,
+			2.0f, -5.0f, 4.0f, -1.0f,
+			-1.0f, 3.0f, -3.0f, 1.0f);
+
+		mat4f P = { before.mPosition, current.mPosition, after.mPosition, after2.mPosition };
+		vec4f T = { 1, u, u * u, u * u * u };
+
+		*position = T * CR * P;
+		Slerp(rotation, current.mRotation, after.mRotation, u);
+	}
+
+	void TCBInterpolation(TCBProperties& tcb, vec3f* position, quatf* rotation, int i, float u)
+	{
+		KeyFrame& before = (i == 0) ? mKeyFrames[i] : mKeyFrames[i - 1];
+		KeyFrame& current = mKeyFrames[i];
+		KeyFrame& after = (i <= KEY_FRAME_COUNT - 2) ? mKeyFrames[i + 1] : mKeyFrames[KEY_FRAME_COUNT - 1];
+
+		vec3f vIn = ((1.0f - tcb.t) * (1.0f + tcb.b) * (1.0f - tcb.c) * 0.5f) * (current.mPosition - before.mPosition) +
+			((1.0f - tcb.t) * (1.0f - tcb.b) * (1.0f + tcb.c) * 0.5f) * (after.mPosition - current.mPosition);
+		vec3f vOut = ((1.0f - tcb.t) * (1.0f + tcb.b) * (1.0f + tcb.c) * 0.5f) * (current.mPosition - before.mPosition) +
+			((1.0f - tcb.t) * (1.0f - tcb.b) * (1.0f - tcb.c) * 0.5f) * (after.mPosition - current.mPosition);
+
+		mat4f H = {
+			1.0f, 0.0f, 0.0f, 0.0f,
+			0.0f, 1.0f, 0.0f, 0.0f,
+		   -3.0f, -2.0f, -1.0f, 3.0f,
+			2.0f, 1.0f, 1.0f, -2.0f};
+
+		mat4f P = { current.mPosition, vOut, vIn, after.mPosition };
+		vec4f T = { 1, u, u * u, u * u * u };
+
+		*position = T * H * P;
+		Slerp(rotation, current.mRotation, after.mRotation, u);
+	}
+
+	void Slerp(quatf* out, quatf q0, quatf q1, const float u)
+	{
+		float cosAngle = cliqCity::graphicsMath::dot(q0, q1);
+		if (cosAngle < 0.0f) {
+			q1 = -q1;
+			cosAngle = -cosAngle;
+		}
+
+		float k0, k1;				// Check for divide by zero
+		if (cosAngle > 0.9999f) {
+			k0 = 1.0f - u;
+			k1 = u;
+		}
+		else {
+			float angle = acosf(cosAngle);
+			float oneOverSinAngle = 1.0f / sinf(angle);
+
+			k0 = ((sinf(1.0f - u) * angle) * oneOverSinAngle);
+			k1 = (sinf(u * angle) * oneOverSinAngle);
+		}
+
+		q0 = q0 * k0;
+		q1 = q1 * k1;
+
+		out->w = q0.w + q1.w;
+		out->v.x = q0.v.x + q1.v.x;
+		out->v.y = q0.v.y + q1.v.y;
+		out->v.z = q0.v.z + q1.v.z;
 	}
 
 	void VRender() override

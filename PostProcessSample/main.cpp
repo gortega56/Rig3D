@@ -516,8 +516,8 @@ public:
 			0);
 
 		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
-		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
-		//mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
+		//mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
+		mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
 
 		DrawScene();
 	}
@@ -535,8 +535,8 @@ public:
 			0);
 
 		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
-		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
-		//mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
+		//mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
+		mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
 
 		DrawScene();
 
@@ -624,8 +624,8 @@ public:
 			0);
 
 		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
-		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
-		//mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
+		//mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
+		mDeviceContext->PSSetShader(mSCPixelShader, NULL, 0);
 
 		DrawScene();
 
