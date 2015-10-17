@@ -456,8 +456,6 @@ public:
 		mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
 
 		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
-
-		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
 		mDeviceContext->OMSetRenderTargets(1, mRenderer->GetRenderTargetView(), mRenderer->GetDepthStencilView());
 		mDeviceContext->ClearRenderTargetView(*mRenderer->GetRenderTargetView(), color);
 		mDeviceContext->ClearDepthStencilView(

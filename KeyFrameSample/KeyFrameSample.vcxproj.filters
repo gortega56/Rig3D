@@ -29,8 +29,5 @@
     <FxCompile Include="SampleVertexShader.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="UIVertexShader.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
   </ItemGroup>
 </Project>
