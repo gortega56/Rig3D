@@ -41,6 +41,5 @@ int CALLBACK WinMain(HINSTANCE hInstance,								\
 						showCmd,										\
 						gRig3DScene->mOptions);							\
 	engine.RunScene(gRig3DScene);										\
-    delete gRig3DScene;													\
     return 0;															\
 }	

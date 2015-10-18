@@ -25,9 +25,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DirectXTK_Desktop_2015", "Rig3D\Graphics\DirectX11\DirectXTK\DirectXTK_Desktop_2015.vcxproj", "{E0B52AE7-E160-4D32-BF3F-910B785E5A8E}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7B2E5757-D109-43AD-8114-8FB0B3ECC078}"
-	ProjectSection(SolutionItems) = preProject
-		Performance1.psess = Performance1.psess
-	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DeferredLightingSample", "DeferredLightingSample\DeferredLightingSample.vcxproj", "{516FE024-573D-4EC3-A2ED-2F952DCF9D39}"
 EndProject
 Global
 	GlobalSection(Performance) = preSolution
@@ -88,6 +87,14 @@ Global
 		{E0B52AE7-E160-4D32-BF3F-910B785E5A8E}.Release|Win32.Build.0 = Release|Win32
 		{E0B52AE7-E160-4D32-BF3F-910B785E5A8E}.Release|x64.ActiveCfg = Release|x64
 		{E0B52AE7-E160-4D32-BF3F-910B785E5A8E}.Release|x64.Build.0 = Release|x64
+		{516FE024-573D-4EC3-A2ED-2F952DCF9D39}.Debug|Win32.ActiveCfg = Debug|Win32
+		{516FE024-573D-4EC3-A2ED-2F952DCF9D39}.Debug|Win32.Build.0 = Debug|Win32
+		{516FE024-573D-4EC3-A2ED-2F952DCF9D39}.Debug|x64.ActiveCfg = Debug|x64
+		{516FE024-573D-4EC3-A2ED-2F952DCF9D39}.Debug|x64.Build.0 = Debug|x64
+		{516FE024-573D-4EC3-A2ED-2F952DCF9D39}.Release|Win32.ActiveCfg = Release|Win32
+		{516FE024-573D-4EC3-A2ED-2F952DCF9D39}.Release|Win32.Build.0 = Release|Win32
+		{516FE024-573D-4EC3-A2ED-2F952DCF9D39}.Release|x64.ActiveCfg = Release|x64
+		{516FE024-573D-4EC3-A2ED-2F952DCF9D39}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -100,5 +107,6 @@ Global
 		{9DD363FA-2329-41A0-8372-0A712E9789D6} = {60C00797-6723-4DEE-BF7D-718FAA7AD5E6}
 		{3C394EA0-5A8B-4A6D-B8B8-F28E73A98A07} = {60C00797-6723-4DEE-BF7D-718FAA7AD5E6}
 		{E0B52AE7-E160-4D32-BF3F-910B785E5A8E} = {4D698D34-0472-4FEA-A19D-559FBA345066}
+		{516FE024-573D-4EC3-A2ED-2F952DCF9D39} = {60C00797-6723-4DEE-BF7D-718FAA7AD5E6}
 	EndGlobalSection
 EndGlobal
