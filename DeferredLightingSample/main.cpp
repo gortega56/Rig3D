@@ -96,6 +96,7 @@ public:
 	ID3D11PixelShader*				mScenePixelShader;
 	ID3D11VertexShader*				mQuadVertexShader;
 	ID3D11PixelShader*				mQuadPixelShader;
+	ID3D11PixelShader*				mSingleBufferPixelShader;
 
 	ID3D11InputLayout*				mSceneInputLayout;
 	ID3D11InputLayout*				mQuadInputLayout;
@@ -103,6 +104,10 @@ public:
 	ID3D11Buffer*					mMVPBuffer;
 	ID3D11Buffer*					mColorBuffer;
 	ID3D11Buffer*					mLightBuffer;
+
+	D3D11_VIEWPORT					mDepthViewport;
+	D3D11_VIEWPORT					mColorViewport;
+	D3D11_VIEWPORT					mNormalViewport;
 
 	DeferredLightingScene() : 
 		mAllocator(gMemory, gMemory + 10240),
@@ -180,7 +185,6 @@ public:
 
 		InitializeGeometry();
 		InitializeSceneObjects();
-		InitializeCamera();
 		InitializeShaders();
 		InitializeShaderResources();
 	}
@@ -241,6 +245,25 @@ public:
 
 		mRenderer->VBindMesh(mQuadMesh);
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
+
+		D3D11_VIEWPORT viewports[] = { mDepthViewport, mColorViewport, mNormalViewport };
+		mDeviceContext->VSSetShader(mQuadVertexShader, nullptr, 0);
+		mDeviceContext->PSSetShader(mSingleBufferPixelShader, nullptr, 0);
+		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
+
+		for (int i = 0; i < 3; i++) {
+			mDeviceContext->RSSetViewports(1, &viewports[i]);
+			mDeviceContext->ClearDepthStencilView(
+				mRenderer->GetDepthStencilView(),
+				D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
+				1.0f,
+				0);
+
+			mDeviceContext->PSSetShaderResources(0, 1, &SRVs[i]);
+
+			mRenderer->VBindMesh(mQuadMesh);
+			mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
+		}
 
 		ID3D11ShaderResourceView* nullSRV[3] = { 0, 0, 0 };
 		mDeviceContext->PSSetShaderResources(0, 3, nullSRV);
@@ -369,6 +392,41 @@ public:
 
 			mDevice->CreateShaderResourceView(mNormalMap, &normalSRVDesc, &mNormalSRV);
 		}
+
+		// Viewports
+		{
+			float width = static_cast<float>(mRenderer->GetWindowWidth()) / 3.0f;
+			float windowHeight = static_cast<float>(mRenderer->GetWindowHeight());
+			float height = windowHeight / 3.0f;
+			float topY = windowHeight - height;
+
+			mDepthViewport.TopLeftX = 0.0f;
+			mDepthViewport.TopLeftY = topY;
+			mDepthViewport.Width = width;
+			mDepthViewport.Height = height;
+			mDepthViewport.MinDepth = 0;
+			mDepthViewport.MaxDepth = 1;
+
+			mColorViewport.TopLeftX = width;
+			mColorViewport.TopLeftY = topY;
+			mColorViewport.Width = width;
+			mColorViewport.Height = height;
+			mColorViewport.MinDepth = 0;
+			mColorViewport.MaxDepth = 1;
+
+			mNormalViewport.TopLeftX = width + width;
+			mNormalViewport.TopLeftY = topY;
+			mNormalViewport.Width = width;
+			mNormalViewport.Height = height;
+			mNormalViewport.MinDepth = 0;
+			mNormalViewport.MaxDepth = 1;
+		}
+
+		// Camera
+		{
+			mMVP.View = mat4f::lookAtLH(vec3f(0.0f, 0.0f, 0.0f), vec3f(0.0f, 0.0f, -10.0f), vec3f(0.0f, 1.0f, 0.0f)).transpose();
+			mMVP.Projection = mat4f::normalizedPerspectiveLH(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
+		}
 	}
 
 	void InitializeGeometry()
@@ -442,12 +500,6 @@ public:
 		mSceneObjects[4].mMesh = mPlaneMesh;
 	}
 
-	void InitializeCamera()
-	{
-		mMVP.View = mat4f::lookAtLH(vec3f(0.0f, 0.0f, 0.0f), vec3f(0.0f, 0.0f, -10.0f), vec3f(0.0f, 1.0f, 0.0f)).transpose();
-		mMVP.Projection = mat4f::normalizedPerspectiveLH(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
-	}
-
 	void InitializeShaders()
 	{
 		ID3DBlob* vsBlob;
@@ -480,6 +532,9 @@ public:
 
 		D3DReadFileToBlob(L"QuadPixelShader.cso", &psBlob);
 		mDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &mQuadPixelShader);
+
+		D3DReadFileToBlob(L"SingleBufferPixelShader.cso", &psBlob);
+		mDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &mSingleBufferPixelShader);
 
 		vsBlob->Release();
 		psBlob->Release();
