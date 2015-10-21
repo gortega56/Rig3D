@@ -318,7 +318,7 @@ public:
 			positionTextureDesc.ArraySize = 1;
 			positionTextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 			positionTextureDesc.CPUAccessFlags = 0;
-			positionTextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			positionTextureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 			positionTextureDesc.MipLevels = 1;
 			positionTextureDesc.MiscFlags = 0;
 			positionTextureDesc.SampleDesc.Count = 1;

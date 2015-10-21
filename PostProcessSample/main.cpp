@@ -211,7 +211,7 @@ public:
 	void InitializeGeometry()
 	{
 		
-		OBJResource<Vertex4> resource ("Models\\sphere.obj");
+		OBJResource<Vertex4> resource ("Models\\Sphere.obj");
 		mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, resource);
 
 		SampleVertex qVertices[4];
