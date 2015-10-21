@@ -51,6 +51,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>$(SolutionDir)Debug\EventHandler.lib;$(SolutionDir)Debug\GraphicsMath.lib;d3d11.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -83,6 +84,8 @@
     <ClInclude Include="MeshLibrary.h" />
     <ClInclude Include="rig_defines.h" />
     <ClInclude Include="rig_graphics_api_conversions.h" />
+    <ClInclude Include="TaskDispatch\Task.h" />
+    <ClInclude Include="TaskDispatch\TaskDispatcher.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Common\Input.cpp" />
@@ -98,6 +101,7 @@
     <ClCompile Include="Graphics\Interface\IRenderer.cpp" />
     <ClCompile Include="Graphics\Interface\IScene.cpp" />
     <ClCompile Include="Options.h" />
+    <ClCompile Include="TaskDispatch\TaskDispatcher.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\EventHandler\EventHandler.vcxproj">

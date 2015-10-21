@@ -13,12 +13,13 @@
 #include <random>
 #include <ctime>
 
-#define SATURATE_RANDOM		FLT_EPSILON + (float)(rand()) / ((float)(RAND_MAX / (1.0f - FLT_EPSILON)))
-#define OFFSET_COUNT		12
-#define PI					3.1415926535f
-#define CAMERA_SPEED		0.01f
-#define RADIAN				3.1415926535f / 180.0f
-#define NODE_COUNT			8
+#define SATURATE_RANDOM			FLT_EPSILON + (float)(rand()) / ((float)(RAND_MAX / (1.0f - FLT_EPSILON)))
+#define OFFSET_COUNT			12
+#define PI						3.1415926535f
+#define CAMERA_SPEED			0.1f
+#define CAMERA_ROTATION_SPEED	0.1f
+#define RADIAN					3.1415926535f / 180.0f
+#define NODE_COUNT				8
 
 using namespace Rig3D;
 
@@ -137,7 +138,7 @@ public:
 	ID3D11DepthStencilView*     mDepthDSV;
 	ID3D11ShaderResourceView*	mDepthSRV;
 
-	Rig3DSampleScene() : mAllocator(1024)
+	Rig3DSampleScene() : mAllocator(1024), mMouseX(0.0f), mMouseY(0.0f), mCubeMesh(nullptr), mQuadMesh(nullptr)
 	{
 		mOptions.mWindowCaption	= "Rig3D Sample";
 		mOptions.mWindowWidth	= 800;
@@ -336,9 +337,9 @@ public:
 
 			D3D11_SAMPLER_DESC samplerDesc;
 			ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
-			samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-			samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-			samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+			samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+			samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+			samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
 			samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
 			samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
@@ -383,7 +384,7 @@ public:
 			psBlob->Release();
 
 			D3D11_BUFFER_DESC bufferDesc;
-			bufferDesc.ByteWidth = sizeof(mat4f) * 2;
+			bufferDesc.ByteWidth = sizeof(vec2f) * OFFSET_COUNT;
 			bufferDesc.Usage = D3D11_USAGE_DEFAULT;
 			bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 			bufferDesc.CPUAccessFlags = 0;
@@ -423,6 +424,7 @@ public:
 		mMatrixBuffer.mProjection = mat4f::normalizedPerspectiveLH(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
 		mMatrixBuffer.mView = mCamera.GetWorldMatrix().inverse().transpose();
 		mMBMatrixBuffer.mInverseClip = (mMatrixBuffer.mProjection * mMatrixBuffer.mView * mat4f(1.0f)).inverse();
+		mat4f i = mMBMatrixBuffer.mPreviousClip * mMBMatrixBuffer.mInverseClip;
 		//mMatrixBuffer.mView = mat4f::lookToLH(mCamera.GetForward(), mCamera.mPosition, vec3f(0.0f, 1.0f, 0.0f)).transpose();
 	}
 
@@ -440,8 +442,8 @@ public:
 
 		ScreenPoint mousePosition = Input::SharedInstance().mousePosition;
 		if (Input::SharedInstance().GetMouseButton(MOUSEBUTTON_LEFT)) {
-			mCamera.RotatePitch(-(mousePosition.y - mMouseY) * RADIAN);
-			mCamera.RotateYaw(-(mousePosition.x - mMouseX) * RADIAN);	
+			mCamera.RotatePitch(-(mousePosition.y - mMouseY) * RADIAN * CAMERA_ROTATION_SPEED);
+			mCamera.RotateYaw(-(mousePosition.x - mMouseX) * RADIAN * CAMERA_ROTATION_SPEED);
 		}
 
 		mMouseX = mousePosition.x;
@@ -524,10 +526,10 @@ public:
 	{
 		mDeviceContext->IASetInputLayout(mSceneInputLayout);
 
-		mDeviceContext->OMSetRenderTargets(1, &mSceneRTV, mRenderer->GetDepthStencilView());
+		mDeviceContext->OMSetRenderTargets(1, &mSceneRTV, mDepthDSV);
 		mDeviceContext->ClearRenderTargetView(mSceneRTV, (const float*)&mClearColor);
 		mDeviceContext->ClearDepthStencilView(
-			mRenderer->GetDepthStencilView(),
+			mDepthDSV,
 			D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
 			1.0f,
 			0);
@@ -567,6 +569,7 @@ public:
 			&mBlurBuffer);
 
 		mDeviceContext->PSSetShaderResources(0, 1, &mSceneSRV);
+		mDeviceContext->PSSetShaderResources(1, 1, &mDepthSRV);
 		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
 		mRenderer->VBindMesh(mQuadMesh);
@@ -598,13 +601,14 @@ public:
 
 		// Bind Blur Texture
 		mDeviceContext->PSSetShaderResources(0, 1, &mBlurSceneSRV);
+		mDeviceContext->PSSetShaderResources(1, 1, &mDepthSRV);
 		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
 		mRenderer->VBindMesh(mQuadMesh);
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
-		ID3D11ShaderResourceView* nullSRV[1] = { 0 };
-		mDeviceContext->PSSetShaderResources(0, 1, nullSRV);
+		ID3D11ShaderResourceView* nullSRV[2] = { 0, 0 };
+		mDeviceContext->PSSetShaderResources(0, 2, nullSRV);
 	}
 
 	void RenderMotionBlur()

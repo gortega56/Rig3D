@@ -75,15 +75,15 @@ mat3f Transform::GetRotationMatrix()
 
 vec3f Transform::GetForward()
 {
-	return vec3f(0.0, 0.0, 1.0) * quatf::rollPitchYaw(mRotation.z, mRotation.x, mRotation.y);
+	return quatf::rollPitchYaw(mRotation.z, mRotation.x, mRotation.y) * vec3f(0.0, 0.0, 1.0);
 }
 
 vec3f Transform::GetUp()
 {
-	return vec3f(0.0, 1.0, 0.0) * quatf::rollPitchYaw(mRotation.z, mRotation.x, mRotation.y);
+	return quatf::rollPitchYaw(mRotation.z, mRotation.x, mRotation.y) * vec3f(0.0, 1.0, 0.0);
 }
 
 vec3f Transform::GetRight()
 {
-	return vec3f(1.0, 0.0, 0.0) * quatf::rollPitchYaw(mRotation.z, mRotation.x, mRotation.y);
+	return quatf::rollPitchYaw(mRotation.z, mRotation.x, mRotation.y) * vec3f(1.0, 0.0, 0.0);
 }

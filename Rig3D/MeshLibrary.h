@@ -24,12 +24,12 @@ namespace Rig3D
 
 		const char* mFilename;
 
-		OBJResource(const char* filename) : mFilename(filename)
+		OBJResource(const char* filename) : mVertexCount(0), mIndexCount(0), mFilename(filename)
 		{
 
 		}
 
-		OBJResource()
+		OBJResource() : OBJResource(nullptr)
 		{
 
 		}
