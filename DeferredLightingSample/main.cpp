@@ -78,14 +78,17 @@ public:
 	ID3D11DeviceContext*			mDeviceContext;
 	ID3D11Device*					mDevice;
 
+	ID3D11RenderTargetView*			mPositionRTV;
 	ID3D11RenderTargetView*			mDepthRTV;
 	ID3D11RenderTargetView*			mColorRTV;
 	ID3D11RenderTargetView*			mNormalRTV;
 
+	ID3D11Texture2D*				mPositionMap;
 	ID3D11Texture2D*				mDepthMap;
 	ID3D11Texture2D*				mColorMap;
 	ID3D11Texture2D*				mNormalMap;
 
+	ID3D11ShaderResourceView*		mPositionSRV;
 	ID3D11ShaderResourceView*		mDepthSRV;
 	ID3D11ShaderResourceView*		mColorSRV;
 	ID3D11ShaderResourceView*		mNormalSRV;
@@ -105,6 +108,7 @@ public:
 	ID3D11Buffer*					mColorBuffer;
 	ID3D11Buffer*					mLightBuffer;
 
+	D3D11_VIEWPORT					mPositionViewport;
 	D3D11_VIEWPORT					mDepthViewport;
 	D3D11_VIEWPORT					mColorViewport;
 	D3D11_VIEWPORT					mNormalViewport;
@@ -120,12 +124,15 @@ public:
 		mQuadMesh(nullptr),
 		mDeviceContext(nullptr),
 		mDevice(nullptr),
+		mPositionRTV(nullptr),
 		mDepthRTV(nullptr),
 		mColorRTV(nullptr),
 		mNormalRTV(nullptr),
+		mPositionMap(nullptr),
 		mDepthMap(nullptr),
 		mColorMap(nullptr),
 		mNormalMap(nullptr),
+		mPositionSRV(nullptr),
 		mDepthSRV(nullptr),
 		mColorSRV(nullptr),
 		mNormalSRV(nullptr),
@@ -134,6 +141,7 @@ public:
 		mScenePixelShader(nullptr),
 		mQuadVertexShader(nullptr),
 		mQuadPixelShader(nullptr),
+		mSingleBufferPixelShader(nullptr),
 		mSceneInputLayout(nullptr),
 		mQuadInputLayout(nullptr),
 		mMVPBuffer(nullptr),
@@ -151,12 +159,15 @@ public:
 
 	~DeferredLightingScene()
 	{
+		ReleaseMacro(mPositionRTV);
 		ReleaseMacro(mDepthRTV);
 		ReleaseMacro(mColorRTV);
 		ReleaseMacro(mNormalRTV);
+		ReleaseMacro(mPositionMap);
 		ReleaseMacro(mDepthMap);
 		ReleaseMacro(mColorMap);
 		ReleaseMacro(mNormalMap);
+		ReleaseMacro(mPositionSRV);
 		ReleaseMacro(mDepthSRV);
 		ReleaseMacro(mColorSRV);
 		ReleaseMacro(mNormalSRV);
@@ -167,6 +178,7 @@ public:
 		ReleaseMacro(mScenePixelShader);
 		ReleaseMacro(mQuadVertexShader);
 		ReleaseMacro(mQuadPixelShader);
+		ReleaseMacro(mSingleBufferPixelShader);
 
 		ReleaseMacro(mSceneInputLayout);
 		ReleaseMacro(mQuadInputLayout);
@@ -200,8 +212,9 @@ public:
 		mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
 		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
 
-		ID3D11RenderTargetView* RTVs[3] = { mDepthRTV, mColorRTV, mNormalRTV };
-		mDeviceContext->OMSetRenderTargets(3, RTVs, mRenderer->GetDepthStencilView());
+		ID3D11RenderTargetView* RTVs[4] = { mPositionRTV, mDepthRTV, mColorRTV, mNormalRTV };
+		mDeviceContext->OMSetRenderTargets(4, RTVs, mRenderer->GetDepthStencilView());
+		mDeviceContext->ClearRenderTargetView(mPositionRTV, color);
 		mDeviceContext->ClearRenderTargetView(mDepthRTV, color);
 		mDeviceContext->ClearRenderTargetView(mColorRTV, color);
 		mDeviceContext->ClearRenderTargetView(mNormalRTV, color);
@@ -239,19 +252,19 @@ public:
 		mDeviceContext->VSSetShader(mQuadVertexShader, nullptr, 0);
 		mDeviceContext->PSSetShader(mQuadPixelShader, nullptr, 0);
 
-		ID3D11ShaderResourceView* SRVs[3] = { mDepthSRV, mColorSRV, mNormalSRV };
-		mDeviceContext->PSSetShaderResources(0, 3, SRVs);
+		ID3D11ShaderResourceView* SRVs[4] = { mPositionSRV, mDepthSRV, mColorSRV, mNormalSRV };
+		mDeviceContext->PSSetShaderResources(0, 4, SRVs);
 		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
 		mRenderer->VBindMesh(mQuadMesh);
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
-		D3D11_VIEWPORT viewports[] = { mDepthViewport, mColorViewport, mNormalViewport };
+		D3D11_VIEWPORT viewports[] = { mPositionViewport, mDepthViewport, mColorViewport, mNormalViewport };
 		mDeviceContext->VSSetShader(mQuadVertexShader, nullptr, 0);
 		mDeviceContext->PSSetShader(mSingleBufferPixelShader, nullptr, 0);
 		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 4; i++) {
 			mDeviceContext->RSSetViewports(1, &viewports[i]);
 			mDeviceContext->ClearDepthStencilView(
 				mRenderer->GetDepthStencilView(),
@@ -265,8 +278,8 @@ public:
 			mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 		}
 
-		ID3D11ShaderResourceView* nullSRV[3] = { 0, 0, 0 };
-		mDeviceContext->PSSetShaderResources(0, 3, nullSRV);
+		ID3D11ShaderResourceView* nullSRV[4] = { 0, 0, 0, 0 };
+		mDeviceContext->PSSetShaderResources(0, 4, nullSRV);
 
 		mRenderer->VSwapBuffers();
 	}
@@ -284,15 +297,51 @@ public:
 
 	void VOnResize() override
 	{
+		ReleaseMacro(mPositionRTV);
 		ReleaseMacro(mDepthRTV);
 		ReleaseMacro(mColorRTV);
 		ReleaseMacro(mNormalRTV);
+		ReleaseMacro(mPositionMap);
 		ReleaseMacro(mDepthMap);
 		ReleaseMacro(mColorMap);
 		ReleaseMacro(mNormalMap);
+		ReleaseMacro(mPositionSRV);
 		ReleaseMacro(mDepthSRV);
 		ReleaseMacro(mColorSRV);
 		ReleaseMacro(mNormalSRV);
+
+		// Position
+		{
+			D3D11_TEXTURE2D_DESC positionTextureDesc;
+			positionTextureDesc.Width = mRenderer->GetWindowWidth();
+			positionTextureDesc.Height = mRenderer->GetWindowHeight();
+			positionTextureDesc.ArraySize = 1;
+			positionTextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+			positionTextureDesc.CPUAccessFlags = 0;
+			positionTextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			positionTextureDesc.MipLevels = 1;
+			positionTextureDesc.MiscFlags = 0;
+			positionTextureDesc.SampleDesc.Count = 1;
+			positionTextureDesc.SampleDesc.Quality = 0;
+			positionTextureDesc.Usage = D3D11_USAGE_DEFAULT;
+
+			mDevice->CreateTexture2D(&positionTextureDesc, nullptr, &mPositionMap);
+
+			D3D11_RENDER_TARGET_VIEW_DESC positionRTVDesc;
+			positionRTVDesc.Format = positionTextureDesc.Format;
+			positionRTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+			positionRTVDesc.Texture2D.MipSlice = 0;
+
+			mRenderer->GetDevice()->CreateRenderTargetView(mPositionMap, &positionRTVDesc, &mPositionRTV);
+
+			D3D11_SHADER_RESOURCE_VIEW_DESC positionSRVDesc;
+			positionSRVDesc.Format = positionTextureDesc.Format;
+			positionSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+			positionSRVDesc.Texture2D.MipLevels = 1;
+			positionSRVDesc.Texture2D.MostDetailedMip = 0;
+
+			mDevice->CreateShaderResourceView(mPositionMap, &positionSRVDesc, &mPositionSRV);
+		}
 
 		// Depth
 		{	
@@ -395,26 +444,33 @@ public:
 
 		// Viewports
 		{
-			float width = static_cast<float>(mRenderer->GetWindowWidth()) / 3.0f;
+			float width = static_cast<float>(mRenderer->GetWindowWidth()) * 0.25f;
 			float windowHeight = static_cast<float>(mRenderer->GetWindowHeight());
 			float height = windowHeight / 3.0f;
 			float topY = windowHeight - height;
 
-			mDepthViewport.TopLeftX = 0.0f;
+			mPositionViewport.TopLeftX = 0.0f;
+			mPositionViewport.TopLeftY = topY;
+			mPositionViewport.Width = width;
+			mPositionViewport.Height = height;
+			mPositionViewport.MinDepth = 0;
+			mPositionViewport.MaxDepth = 1;
+
+			mDepthViewport.TopLeftX = width;
 			mDepthViewport.TopLeftY = topY;
 			mDepthViewport.Width = width;
 			mDepthViewport.Height = height;
 			mDepthViewport.MinDepth = 0;
 			mDepthViewport.MaxDepth = 1;
 
-			mColorViewport.TopLeftX = width;
+			mColorViewport.TopLeftX = width + width;
 			mColorViewport.TopLeftY = topY;
 			mColorViewport.Width = width;
 			mColorViewport.Height = height;
 			mColorViewport.MinDepth = 0;
 			mColorViewport.MaxDepth = 1;
 
-			mNormalViewport.TopLeftX = width + width;
+			mNormalViewport.TopLeftX = width + width + width;
 			mNormalViewport.TopLeftY = topY;
 			mNormalViewport.Width = width;
 			mNormalViewport.Height = height;

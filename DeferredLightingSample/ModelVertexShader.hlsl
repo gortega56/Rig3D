@@ -9,6 +9,7 @@ struct Vertex
 struct Pixel
 {
 	float4 mPositionH	: SV_POSITION;
+	float3 mPositionW	: POSITIONT;
 	float3 mTangent		: TANGENT;
 	float3 mBitangent	: BINORMAL;
 	float3 mNormal		: NORMAL;
@@ -25,9 +26,11 @@ cbuffer transform : register(b0)
 Pixel main(Vertex vertex)
 {
 	matrix clip = mul(mul(world, view), projection);
+	float4 vertexPosition = float4(vertex.mPosition, 1.0f);
 
 	Pixel pixel;
-	pixel.mPositionH = mul(float4(vertex.mPosition, 1.0f), clip);
+	pixel.mPositionH = mul(vertexPosition, clip);
+	pixel.mPositionW = mul(vertexPosition, world).xyz;
 	pixel.mNormal = mul(vertex.mNormal, (float3x3)world);
 	pixel.mTangent = vertex.mTangent.xyz;
 	pixel.mBitangent = cross(vertex.mNormal, vertex.mTangent.xyz) * vertex.mTangent.w;
