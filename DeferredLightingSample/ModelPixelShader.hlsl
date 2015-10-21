@@ -21,7 +21,7 @@ cbuffer Color : register(b0)
 	float4 color;
 }
 
-PS_OUT main(Pixel pixel) : SV_TARGET
+PS_OUT main(Pixel pixel)
 {
 	PS_OUT output;
 	output.position = float4(pixel.mPositionW, 1.0f);
