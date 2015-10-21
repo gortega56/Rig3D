@@ -60,6 +60,12 @@
     <ClInclude Include="MeshLibrary.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TaskDispatch\Task.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TaskDispatch\TaskDispatcher.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine.cpp">
@@ -100,6 +106,9 @@
     </ClCompile>
     <ClCompile Include="Options.h">
       <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TaskDispatch\TaskDispatcher.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
