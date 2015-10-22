@@ -7,6 +7,12 @@
 #include "Task.h"
 #include "Memory\Memory\PoolAllocator.h"
 
+#ifdef _WINDLL
+#define RIG3D __declspec(dllexport)
+#else
+#define RIG3D __declspec(dllimport)
+#endif
+
 namespace cliqCity
 {
 	namespace multicore
@@ -20,7 +26,7 @@ namespace cliqCity
 		typedef std::thread						Thread;
 		typedef std::queue<Task*>				Queue;
 		
-		class TaskDispatcher
+		class RIG3D TaskDispatcher
 		{
 		public:
 			TaskDispatcher(Thread* threads, uint8_t threadCount, void* memory, size_t size);
@@ -47,7 +53,7 @@ namespace cliqCity
 			 void*			mMemory;
 			 Thread*		mThreads;
 			 uint8_t		mThreadCount;
-			 bool			mIsProcessingTasks;
+			 bool			mIsPaused;
 
 			 TaskID	GetTaskID(Task* task) const;
 			 Task*	GetTask(const TaskID& taskID) const;

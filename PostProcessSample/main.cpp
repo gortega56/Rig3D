@@ -205,12 +205,12 @@ public:
 		InitializeShaders();
 		InitializeCamera();
 
-		std::srand((unsigned int)std::time(0));
+		std::time_t now;
+		std::srand((unsigned int)std::time(&now));
 	}
 
 	void InitializeGeometry()
 	{
-		
 		OBJResource<Vertex4> resource ("Models\\Sphere.obj");
 		mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, resource);
 

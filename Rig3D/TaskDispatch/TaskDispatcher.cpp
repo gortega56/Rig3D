@@ -2,13 +2,21 @@
 
 using namespace cliqCity::multicore;
 
+static const Task emptyTask;
+static const TaskData emptyTaskData;
+
+void EmptyKernel(const TaskData& data)
+{
+	// Empty
+}
+
 TaskDispatcher::TaskDispatcher(Thread* threads, uint8_t threadCount, void* memory, size_t size) :
 	mTaskGeneration(0),
 	mAllocator(memory, reinterpret_cast<char*>(memory) + size, sizeof(Task)),
+	mMemory(memory),
 	mThreads(threads),
 	mThreadCount(threadCount),
-	mIsProcessingTasks(false),
-	mMemory(memory)
+	mIsPaused(false)
 {
 
 }
@@ -20,19 +28,19 @@ TaskDispatcher::TaskDispatcher() : TaskDispatcher(nullptr, 0, nullptr, 0)
 
 TaskDispatcher::~TaskDispatcher()
 {
-	mIsProcessingTasks = false;
+	Pause();
 	Synchronize();
 	mThreads = nullptr;
 }
 
 void TaskDispatcher::Start()
 {
-	if (mIsProcessingTasks)
+	if (mIsPaused)
 	{
 		return;
 	}
 
-	mIsProcessingTasks = true;
+	mIsPaused = true;
 	for (int i = 0; i < mThreadCount; i++)
 	{
 		mThreads[i] = Thread::thread(&TaskDispatcher::ProcessTasks, this);
@@ -41,11 +49,16 @@ void TaskDispatcher::Start()
 
 void TaskDispatcher::Pause()
 {
-	mIsProcessingTasks = false;
+	mIsPaused = false;
 }
 
 void TaskDispatcher::Synchronize()
 {
+	for (int i = 0; i < mThreadCount; i++)
+	{
+		AddTask(emptyTaskData, EmptyKernel);
+	}
+
 	for (int i = 0; i < mThreadCount; i++)
 	{
 		if (mThreads[i].joinable())
@@ -57,7 +70,7 @@ void TaskDispatcher::Synchronize()
 
 bool TaskDispatcher::IsProcessing()
 {
-	return mIsProcessingTasks;
+	return mIsPaused;
 }
 
 TaskID TaskDispatcher::AddTask(const TaskData& data, TaskKernel kernel)
@@ -100,7 +113,7 @@ inline Task* TaskDispatcher::WaitForAvailableTasks()
 {
 	UniqueLock lock(mQueueLock);
 	while (mTaskQueue.empty())
-	{
+	{	
 		mTaskSignal.wait(lock);
 	}
 
@@ -138,10 +151,7 @@ inline void TaskDispatcher::QueueTask(Task* task)
 		mTaskQueue.push(task);
 	}
 
-	if (mIsProcessingTasks)
-	{
-		mTaskSignal.notify_all();
-	}
+	mTaskSignal.notify_all();	
 }
 
 inline void TaskDispatcher::ExecuteTask(Task* task)
@@ -151,7 +161,7 @@ inline void TaskDispatcher::ExecuteTask(Task* task)
 
 inline void TaskDispatcher::ProcessTasks()
 {
-	while (mIsProcessingTasks)
+	while (mIsPaused)
 	{
 		Task* task = WaitForAvailableTasks();
 		ExecuteTask(task);
