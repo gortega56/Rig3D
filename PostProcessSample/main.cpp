@@ -384,7 +384,7 @@ public:
 			psBlob->Release();
 
 			D3D11_BUFFER_DESC blurBufferDesc;
-			blurBufferDesc.ByteWidth = 96;
+			blurBufferDesc.ByteWidth = sizeof(BlurBuffer);
 			blurBufferDesc.Usage = D3D11_USAGE_DEFAULT;
 			blurBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 			blurBufferDesc.CPUAccessFlags = 0;
