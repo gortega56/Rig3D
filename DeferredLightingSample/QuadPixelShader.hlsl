@@ -30,7 +30,7 @@ float4 main(Pixel pixel) : SV_TARGET
 	float3 position = positionMap.Sample(samplerState, pixel.mUV).xyz;
 	float depth = depthMap.Sample(samplerState, pixel.mUV).r;
 	float4 color = diffuseMap.Sample(samplerState, pixel.mUV);
-	float3 normal = normalize(normalMap.Sample(samplerState, pixel.mUV)).xyz;
+	float3 normal = normalize(normalMap.Sample(samplerState, pixel.mUV) * 0.5f - 1.0f).xyz;
 
 	return color * saturate(dot(-lightDirection, normal));
 }

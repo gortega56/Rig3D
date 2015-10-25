@@ -24,7 +24,9 @@ namespace Rig3D
 
 		const char* mFilename;
 
-		OBJResource(const char* filename) : mVertexCount(0), mIndexCount(0), mFilename(filename)
+		bool mCalculateTangents;
+
+		OBJResource(const char* filename) : mVertexCount(0), mIndexCount(0), mFilename(filename), mCalculateTangents(false)
 		{
 
 		}
@@ -146,57 +148,63 @@ namespace Rig3D
 					mIndices.push_back(triangleCounter++);
 					mIndices.push_back(triangleCounter++);
 
-					float x1 = v2.Position.x - v1.Position.x;
-					float x2 = v3.Position.x - v1.Position.x;
-					float y1 = v2.Position.y - v1.Position.y;
-					float y2 = v3.Position.y - v1.Position.y;
-					float z1 = v2.Position.z - v1.Position.z;
-					float z2 = v3.Position.z - v1.Position.z;
+					if (mCalculateTangents)
+					{
+						float x1 = v2.Position.x - v1.Position.x;
+						float x2 = v3.Position.x - v1.Position.x;
+						float y1 = v2.Position.y - v1.Position.y;
+						float y2 = v3.Position.y - v1.Position.y;
+						float z1 = v2.Position.z - v1.Position.z;
+						float z2 = v3.Position.z - v1.Position.z;
 
-					float s1 = v2.UV.x - v1.UV.x;
-					float s2 = v3.UV.x - v1.UV.x;
-					float t1 = v2.UV.y - v1.UV.y;
-					float t2 = v3.UV.y - v1.UV.y;
+						float s1 = v2.UV.x - v1.UV.x;
+						float s2 = v3.UV.x - v1.UV.x;
+						float t1 = v2.UV.y - v1.UV.y;
+						float t2 = v3.UV.y - v1.UV.y;
 
-					float r = 1.0f / ((s1 * t2) - (s2 * t1));
-					vec3f tangent = { (((t2 * x1) - (t1 * x2)) * r), (((t2 * y1) - (t1 * y2)) * r), (((t2 * z1) - (t1 * z2)) * r) };
-					vec3f bitangent = { (((s2 * x1) - (s1 * x2)) * r), (((s2 * y1) - (s1 * y2)) * r), (((s2 * z1) - (s1 * z2)) * r) };
+						float r = 1.0f / ((s1 * t2) - (s2 * t1));
+						vec3f tangent = { (((t2 * x1) - (t1 * x2)) * r), (((t2 * y1) - (t1 * y2)) * r), (((t2 * z1) - (t1 * z2)) * r) };
+						vec3f bitangent = { (((s2 * x1) - (s1 * x2)) * r), (((s2 * y1) - (s1 * y2)) * r), (((s2 * z1) - (s1 * z2)) * r) };
 
-					for (int j = 3; j >= 0; j--) {
-						int index = triangleCounter - j;
-						if (sharedTangentMap.find(index) == sharedTangentMap.end()) {
-							std::vector<vec3f> tangents = { tangent };
-							std::vector<vec3f> bitangents = { bitangent };
-							sharedTangentMap.insert({ index, tangents });
-							sharedBitangentMap.insert({ index, bitangents });
-						}
-						else {
-							sharedTangentMap.at(index).push_back(tangent);
-							sharedBitangentMap.at(index).push_back(bitangent);
+						for (int j = 3; j >= 0; j--) {
+							int index = triangleCounter - j;
+							if (sharedTangentMap.find(index) == sharedTangentMap.end()) {
+								std::vector<vec3f> tangents = { tangent };
+								std::vector<vec3f> bitangents = { bitangent };
+								sharedTangentMap.insert({ index, tangents });
+								sharedBitangentMap.insert({ index, bitangents });
+							}
+							else {
+								sharedTangentMap.at(index).push_back(tangent);
+								sharedBitangentMap.at(index).push_back(bitangent);
+							}
 						}
 					}
 				}
 			}
 
-			for (unsigned int i = 0; i < mVertices.size(); i++)
+			if (mCalculateTangents)
 			{
-				std::vector<vec3f>& faceTangents = sharedTangentMap.at(i);
-				std::vector<vec3f>& faceBitangents = sharedBitangentMap.at(i);
-				vec3f vertexTangent = { 0.0f, 0.0f, 0.0f };
-				vec3f vertexBitangent = { 0.0f, 0.0f, 0.0f};
-				vec3f& vertexNormal = mVertices[i].Normal;
+				for (unsigned int i = 0; i < mVertices.size(); i++)
+				{
+					std::vector<vec3f>& faceTangents = sharedTangentMap.at(i);
+					std::vector<vec3f>& faceBitangents = sharedBitangentMap.at(i);
+					vec3f vertexTangent = { 0.0f, 0.0f, 0.0f };
+					vec3f vertexBitangent = { 0.0f, 0.0f, 0.0f };
+					vec3f& vertexNormal = mVertices[i].Normal;
 
-				for (unsigned int j = 0; j < faceTangents.size(); j++) {
-					vertexTangent += vec4f(faceTangents[j]);
-					vertexBitangent += vec4f(faceBitangents[j]);
+					for (unsigned int j = 0; j < faceTangents.size(); j++) {
+						vertexTangent += vec4f(faceTangents[j]);
+						vertexBitangent += vec4f(faceBitangents[j]);
+					}
+
+					vertexBitangent /= (float)faceBitangents.size();
+					vertexTangent = cliqCity::graphicsMath::normalize(vertexTangent / (float)faceTangents.size());
+					vertexTangent = cliqCity::graphicsMath::normalize((vertexTangent - vertexNormal * cliqCity::graphicsMath::dot(vertexNormal, vertexTangent)));
+					mVertices[i].Tangent = vec4f(vertexTangent, 0.0f);
+					mVertices[i].Tangent.w = cliqCity::graphicsMath::dot(cliqCity::graphicsMath::cross(vertexNormal, vertexTangent), vertexBitangent);
+					mVertices[i].Tangent.w = (mVertices[i].Tangent.w < 0.0f) ? -1.0f : 1.0f;
 				}
-
-				vertexBitangent /= (float)faceBitangents.size();
-				vertexTangent = cliqCity::graphicsMath::normalize(vertexTangent / (float)faceTangents.size());
-				vertexTangent = cliqCity::graphicsMath::normalize((vertexTangent - vertexNormal * cliqCity::graphicsMath::dot(vertexNormal, vertexTangent)));
-				mVertices[i].Tangent = vec4f(vertexTangent, 0.0f);
-				mVertices[i].Tangent.w = cliqCity::graphicsMath::dot(cliqCity::graphicsMath::cross(vertexNormal, vertexTangent), vertexBitangent);
-				mVertices[i].Tangent.w = (mVertices[i].Tangent.w < 0.0f) ? -1.0f : 1.0f;
 			}
 
 			// Close

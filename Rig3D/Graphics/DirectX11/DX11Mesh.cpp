@@ -3,7 +3,7 @@
 
 using namespace Rig3D;
 
-DX11Mesh::DX11Mesh() : IMesh()
+DX11Mesh::DX11Mesh() : mVertexBuffer(nullptr), mIndexBuffer(nullptr)
 {
 
 }

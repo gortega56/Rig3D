@@ -205,13 +205,14 @@ public:
 		InitializeShaders();
 		InitializeCamera();
 
-		std::srand((unsigned int)std::time(0));
+		std::time_t now;
+		std::srand((unsigned int)std::time(&now));
 	}
 
 	void InitializeGeometry()
 	{
-		
-		OBJResource<Vertex4> resource ("Models\\sphere.obj");
+		OBJResource<Vertex4> resource ("Models\\Sphere.obj");
+		resource.mCalculateTangents = true;
 		mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, resource);
 
 		SampleVertex qVertices[4];

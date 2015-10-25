@@ -6,34 +6,48 @@
 #include "Rig3D\Common\Transform.h"
 #include "Memory\Memory\LinearAllocator.h"
 #include "Rig3D\MeshLibrary.h"
+#include "Rig3D/TaskDispatch/TaskDispatcher.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>
 
 #define PI						3.1415926535f
+#define MULTITHREAD				1
+#define THREAD_COUNT			1
 
 using namespace Rig3D;
 
 typedef cliqCity::memory::LinearAllocator LinearAllocator;
 
 uint8_t gMemory[10240];
+uint8_t gTaskMemory[1024];
+
+struct Vertex2
+{
+	vec3f Position;
+	vec2f UV;
+};
+
+struct Vertex4
+{
+	vec4f Tangent;
+	vec3f Position;
+	vec3f Normal;
+	vec2f UV;
+};
+
+void PerformModelLoadTask(const cliqCity::multicore::TaskData& data)
+{
+	OBJResource<Vertex4> resource(reinterpret_cast<const char*>(data.mKernelData));
+	resource.mCalculateTangents = true;
+	MeshLibrary<LinearAllocator>* meshLibrary = reinterpret_cast<MeshLibrary<LinearAllocator>*>(data.mStream.in[0]);
+	IRenderer* drawContext = reinterpret_cast<IRenderer*>(data.mStream.in[1]);
+	IMesh** mesh = reinterpret_cast<IMesh**>(data.mStream.in[2]);
+	meshLibrary->LoadMesh(mesh, drawContext, resource);
+}
 
 class DeferredLightingScene : public IScene, public virtual IRendererDelegate
 {
 public:
-	
-	struct Vertex2
-	{
-		vec3f Position;
-		vec2f UV;
-	};
-
-	struct Vertex4
-	{
-		vec4f Tangent;
-		vec3f Position;
-		vec3f Normal;
-		vec2f UV;
-	};
 
 	struct PointLight
 	{
@@ -318,7 +332,7 @@ public:
 			positionTextureDesc.ArraySize = 1;
 			positionTextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 			positionTextureDesc.CPUAccessFlags = 0;
-			positionTextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			positionTextureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 			positionTextureDesc.MipLevels = 1;
 			positionTextureDesc.MiscFlags = 0;
 			positionTextureDesc.SampleDesc.Count = 1;
@@ -487,6 +501,38 @@ public:
 
 	void InitializeGeometry()
 	{
+#ifdef MULTITHREAD
+		cliqCity::multicore::Thread threads[THREAD_COUNT];
+		cliqCity::multicore::TaskData modelData[4];
+		char* fileNames[4] = {
+			"Models\\torus.obj",
+			"Models\\sphere.obj",
+			"Models\\cone.obj",
+			"Models\\cube.obj"
+		};
+
+		IMesh** meshes[4] = {
+			&mTorusMesh,
+			&mSphereMesh,
+			&mConeMesh,
+			&mCubeMesh
+		};
+
+		cliqCity::multicore::TaskID taskIDs[4];
+
+		cliqCity::multicore::TaskDispatcher dispatchQueue(threads, THREAD_COUNT, gTaskMemory, 1024);
+		dispatchQueue.Start();
+		for (int i = 0; i < 4; i++)
+		{
+			modelData[i].mKernelData = fileNames[i];
+			modelData[i].mStream.in[0] = &mMeshLibrary;
+			modelData[i].mStream.in[1] = mRenderer;
+			modelData[i].mStream.in[2] = meshes[i];
+			taskIDs[i] = dispatchQueue.AddTask(modelData[i], PerformModelLoadTask);
+		}
+
+			//dispatchQueue.Synchronize();
+#else
 		OBJResource<Vertex4> torusResource("Models\\torus.obj");
 		OBJResource<Vertex4> sphereResource("Models\\sphere.obj");
 		OBJResource<Vertex4> coneResource("Models\\cone.obj");
@@ -496,17 +542,18 @@ public:
 		mMeshLibrary.LoadMesh(&mSphereMesh, mRenderer, sphereResource);
 		mMeshLibrary.LoadMesh(&mConeMesh, mRenderer, coneResource);
 		mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, cubeResource);
-
+#endif
+	
 		Vertex4 planeVertices[9];
 		for (int z = 0; z < 3; z++)
 		{
 			for (int x = 0; x < 3; x++)
 			{
-				Vertex4& vertex		= planeVertices[z * 3 + x];
-				vertex.Tangent		= { 1.0f, 0.0f, 0.0f, 1.0f };
-				vertex.Position		= { -1.0f + x, 0.0f, 1.0f - z };
-				vertex.Normal		= { 0.0f, 1.0f, 0.0f };
-				vertex.UV			= { x / 3.0f, (1.0f + z / 3.0f) - 1.0f };
+				Vertex4& vertex = planeVertices[z * 3 + x];
+				vertex.Tangent = { 1.0f, 0.0f, 0.0f, 1.0f };
+				vertex.Position = { -1.0f + x, 0.0f, 1.0f - z };
+				vertex.Normal = { 0.0f, 1.0f, 0.0f };
+				vertex.UV = { x / 3.0f, (1.0f + z / 3.0f) - 1.0f };
 			}
 		}
 
@@ -517,14 +564,14 @@ public:
 		mRenderer->VSetMeshIndexBufferData(mPlaneMesh, planeIndices, 24, GPU_MEMORY_USAGE_STATIC);
 
 		Vertex2 quadVertices[4];
-		quadVertices[0].Position	= { -1.0f, 1.0f, 0.0f };
-		quadVertices[0].UV			= { 0.0f, 0.0f };
-		quadVertices[1].Position	= { 1.0f, 1.0f, 0.0f };
-		quadVertices[1].UV			= { 1.0f, 0.0f };
-		quadVertices[2].Position	= { 1.0f, -1.0f, 0.0f };
-		quadVertices[2].UV			= { 1.0f, 1.0f };
-		quadVertices[3].Position	= { -1.0f, -1.0f, 0.0f };
-		quadVertices[3].UV			= { 0.0f, 1.0f };
+		quadVertices[0].Position = { -1.0f, 1.0f, 0.0f };
+		quadVertices[0].UV = { 0.0f, 0.0f };
+		quadVertices[1].Position = { 1.0f, 1.0f, 0.0f };
+		quadVertices[1].UV = { 1.0f, 0.0f };
+		quadVertices[2].Position = { 1.0f, -1.0f, 0.0f };
+		quadVertices[2].UV = { 1.0f, 1.0f };
+		quadVertices[3].Position = { -1.0f, -1.0f, 0.0f };
+		quadVertices[3].UV = { 0.0f, 1.0f };
 
 		uint16_t quadIndices[6] = { 0, 1, 2, 2, 3, 0 };
 
