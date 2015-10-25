@@ -75,7 +75,7 @@ public:
 	struct SceneNode
 	{
 		Transform mTransform;
-		vec3f	  mColor;
+		vec4f	  mColor;
 		IMesh*	  mMesh;
 	};
 
@@ -212,7 +212,6 @@ public:
 	void InitializeGeometry()
 	{
 		OBJResource<Vertex4> resource ("Models\\Sphere.obj");
-		resource.mCalculateTangents = true;
 		mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, resource);
 
 		SampleVertex qVertices[4];
@@ -243,7 +242,7 @@ public:
 
 		for (int i = 0; i < NODE_COUNT; i++) {
 			mSceneNodes[i].mMesh = mCubeMesh;
-			mSceneNodes[i].mColor = { SATURATE_RANDOM, SATURATE_RANDOM, SATURATE_RANDOM };
+			mSceneNodes[i].mColor = { SATURATE_RANDOM, SATURATE_RANDOM, SATURATE_RANDOM, 1.0f };
 			mSceneNodes[i].mTransform.mPosition = { (float)(rand() % 10) - 5.0f, (float)(rand() % 10) - 5.0f, (float)(rand() % 5) };
 		}
 
@@ -314,7 +313,7 @@ public:
 
 			// Constant buffers ----------------------------------------
 			D3D11_BUFFER_DESC cBufferTransformDesc;
-			cBufferTransformDesc.ByteWidth = sizeof(mMatrixBuffer);
+			cBufferTransformDesc.ByteWidth = sizeof(SampleMatrixBuffer);
 			cBufferTransformDesc.Usage = D3D11_USAGE_DEFAULT;
 			cBufferTransformDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 			cBufferTransformDesc.CPUAccessFlags = 0;
@@ -384,15 +383,15 @@ public:
 
 			psBlob->Release();
 
-			D3D11_BUFFER_DESC bufferDesc;
-			bufferDesc.ByteWidth = sizeof(vec2f) * OFFSET_COUNT;
-			bufferDesc.Usage = D3D11_USAGE_DEFAULT;
-			bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-			bufferDesc.CPUAccessFlags = 0;
-			bufferDesc.MiscFlags = 0;
-			bufferDesc.StructureByteStride = 0;
+			D3D11_BUFFER_DESC blurBufferDesc;
+			blurBufferDesc.ByteWidth = 96;
+			blurBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+			blurBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+			blurBufferDesc.CPUAccessFlags = 0;
+			blurBufferDesc.MiscFlags = 0;
+			blurBufferDesc.StructureByteStride = 0;
 
-			mDevice->CreateBuffer(&bufferDesc, NULL, &mBlurBuffer);
+			mDevice->CreateBuffer(&blurBufferDesc, NULL, &mBlurBuffer);
 		}
 
 		// Motion Blur Shaders 

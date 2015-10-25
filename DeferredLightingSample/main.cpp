@@ -40,7 +40,6 @@ std::mutex gMemoryMutex;
 void PerformModelLoadTask(const cliqCity::multicore::TaskData& data)
 {
 	OBJResource<Vertex4> resource(reinterpret_cast<const char*>(data.mKernelData));
-	resource.mCalculateTangents = true;
 	MeshLibrary<LinearAllocator>* meshLibrary = reinterpret_cast<MeshLibrary<LinearAllocator>*>(data.mStream.in[0]);
 	IRenderer* drawContext = reinterpret_cast<IRenderer*>(data.mStream.in[1]);
 	IMesh** mesh = reinterpret_cast<IMesh**>(data.mStream.in[2]);
