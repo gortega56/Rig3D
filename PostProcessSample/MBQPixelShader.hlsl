@@ -42,6 +42,8 @@ float4 main(Pixel pixel) : SV_TARGET
 		float4 color = sceneTexture.Sample(sceneSampler, pixel.mUV);
 		float2 uv = pixel.mUV + V;
 		float n = 50;
+
+		[unroll]
 		for (int i = 0; i < n; i++, uv += V) {
 			color += sceneTexture.Sample(sceneSampler, uv);
 		}

@@ -11,6 +11,8 @@
 #include <d3dcompiler.h>
 
 #define PI						3.1415926535f
+#define MULTITHREAD				1
+#define THREAD_COUNT			1
 
 using namespace Rig3D;
 
@@ -36,17 +38,16 @@ struct Vertex4
 void PerformModelLoadTask(const cliqCity::multicore::TaskData& data)
 {
 	OBJResource<Vertex4> resource(reinterpret_cast<const char*>(data.mKernelData));
+	resource.mCalculateTangents = true;
 	MeshLibrary<LinearAllocator>* meshLibrary = reinterpret_cast<MeshLibrary<LinearAllocator>*>(data.mStream.in[0]);
 	IRenderer* drawContext = reinterpret_cast<IRenderer*>(data.mStream.in[1]);
-	IMesh* mesh = reinterpret_cast<IMesh*>(data.mStream.in[2]);
-	meshLibrary->LoadMesh(&mesh, drawContext, resource);
+	IMesh** mesh = reinterpret_cast<IMesh**>(data.mStream.in[2]);
+	meshLibrary->LoadMesh(mesh, drawContext, resource);
 }
 
 class DeferredLightingScene : public IScene, public virtual IRendererDelegate
 {
 public:
-	
-	
 
 	struct PointLight
 	{
@@ -500,8 +501,8 @@ public:
 
 	void InitializeGeometry()
 	{
-		cliqCity::multicore::Thread threads[2];
-		cliqCity::multicore::TaskDispatcher dispatchQueue(threads, 2, gTaskMemory, 1024);
+#ifdef MULTITHREAD
+		cliqCity::multicore::Thread threads[THREAD_COUNT];
 		cliqCity::multicore::TaskData modelData[4];
 		char* fileNames[4] = {
 			"Models\\torus.obj",
@@ -510,15 +511,16 @@ public:
 			"Models\\cube.obj"
 		};
 
-		IMesh* meshes[4] = {
-			mTorusMesh,
-			mSphereMesh,
-			mConeMesh,
-			mCubeMesh
+		IMesh** meshes[4] = {
+			&mTorusMesh,
+			&mSphereMesh,
+			&mConeMesh,
+			&mCubeMesh
 		};
 
 		cliqCity::multicore::TaskID taskIDs[4];
 
+		cliqCity::multicore::TaskDispatcher dispatchQueue(threads, THREAD_COUNT, gTaskMemory, 1024);
 		dispatchQueue.Start();
 		for (int i = 0; i < 4; i++)
 		{
@@ -529,21 +531,19 @@ public:
 			taskIDs[i] = dispatchQueue.AddTask(modelData[i], PerformModelLoadTask);
 		}
 
-		for (int i = 0; i < 4; i++)
-		{
-			dispatchQueue.WaitForTask(taskIDs[i]);
-		}
+			//dispatchQueue.Synchronize();
+#else
+		OBJResource<Vertex4> torusResource("Models\\torus.obj");
+		OBJResource<Vertex4> sphereResource("Models\\sphere.obj");
+		OBJResource<Vertex4> coneResource("Models\\cone.obj");
+		OBJResource<Vertex4> cubeResource("Models\\cube.obj");
 
-		//OBJResource<Vertex4> torusResource("Models\\torus.obj");
-		//OBJResource<Vertex4> sphereResource("Models\\sphere.obj");
-		//OBJResource<Vertex4> coneResource("Models\\cone.obj");
-		//OBJResource<Vertex4> cubeResource("Models\\cube.obj");
-
-		//mMeshLibrary.LoadMesh(&mTorusMesh, mRenderer, torusResource);
-		//mMeshLibrary.LoadMesh(&mSphereMesh, mRenderer, sphereResource);
-		//mMeshLibrary.LoadMesh(&mConeMesh, mRenderer, coneResource);
-		//mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, cubeResource);
-
+		mMeshLibrary.LoadMesh(&mTorusMesh, mRenderer, torusResource);
+		mMeshLibrary.LoadMesh(&mSphereMesh, mRenderer, sphereResource);
+		mMeshLibrary.LoadMesh(&mConeMesh, mRenderer, coneResource);
+		mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, cubeResource);
+#endif
+	
 		Vertex4 planeVertices[9];
 		for (int z = 0; z < 3; z++)
 		{
@@ -578,8 +578,6 @@ public:
 		mMeshLibrary.NewMesh(&mQuadMesh, mRenderer);
 		mRenderer->VSetMeshVertexBufferData(mQuadMesh, quadVertices, sizeof(Vertex2) * 4, sizeof(Vertex2), GPU_MEMORY_USAGE_STATIC);
 		mRenderer->VSetMeshIndexBufferData(mQuadMesh, quadIndices, 6, GPU_MEMORY_USAGE_STATIC);
-
-	
 	}
 
 	void InitializeSceneObjects()

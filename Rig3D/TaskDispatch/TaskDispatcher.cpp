@@ -2,12 +2,11 @@
 
 using namespace cliqCity::multicore;
 
-static const Task emptyTask;
 static const TaskData emptyTaskData;
 
 void EmptyKernel(const TaskData& data)
 {
-	// Empty
+	// Empty task used for clearing an empty task queue.
 }
 
 TaskDispatcher::TaskDispatcher(Thread* threads, uint8_t threadCount, void* memory, size_t size) :
@@ -16,7 +15,7 @@ TaskDispatcher::TaskDispatcher(Thread* threads, uint8_t threadCount, void* memor
 	mMemory(memory),
 	mThreads(threads),
 	mThreadCount(threadCount),
-	mIsPaused(false)
+	mIsPaused(true)
 {
 
 }
@@ -28,68 +27,68 @@ TaskDispatcher::TaskDispatcher() : TaskDispatcher(nullptr, 0, nullptr, 0)
 
 TaskDispatcher::~TaskDispatcher()
 {
-	Pause();
+	// Wait for all currently executing tasks. Threads should be in waiting state.
 	Synchronize();
+
+	// Pause queue so threads will exit upon completion.
+	Pause();
+
 	mThreads = nullptr;
 }
 
 void TaskDispatcher::Start()
 {
-	if (mIsPaused)
+	if (!mIsPaused)
 	{
 		return;
 	}
 
-	mIsPaused = true;
+	mIsPaused = false;
 	for (int i = 0; i < mThreadCount; i++)
 	{
-		mThreads[i] = Thread::thread(&TaskDispatcher::ProcessTasks, this);
+		mThreads[i] = std::thread(&TaskDispatcher::ProcessTasks, this);
 	}
 }
 
 void TaskDispatcher::Pause()
 {
-	mIsPaused = false;
+	mIsPaused = true;
+
+	// Prompt any waiting threads to exit.
+	mTaskSignal.notify_all();
+
+	// Finally join threads.
+	JoinThreads();
 }
 
-void TaskDispatcher::Synchronize()
-{
-	for (int i = 0; i < mThreadCount; i++)
-	{
-		AddTask(emptyTaskData, EmptyKernel);
-	}
-
-	for (int i = 0; i < mThreadCount; i++)
-	{
-		if (mThreads[i].joinable())
-		{
-			mThreads[i].join();
-		}
-	}
-}
-
-bool TaskDispatcher::IsProcessing()
+bool TaskDispatcher::IsPaused()
 {
 	return mIsPaused;
 }
 
 TaskID TaskDispatcher::AddTask(const TaskData& data, TaskKernel kernel)
 {
-	Task* task		= AllocateTask();
-	task->mData		= data;
-	task->mKernel	= kernel;
+	return AddTask(data, kernel, !mIsPaused);
+}
 
-	TaskID taskID = GetTaskID(task);
+void TaskDispatcher::Synchronize()
+{
+	if (mIsPaused)
+	{
+		return;
+	}
 
-	QueueTask(task);
-
-	return taskID;
+	while (!mTaskQueue.empty())
+	{
+		std::this_thread::yield();
+	}
 }
 
 void TaskDispatcher::WaitForTask(const TaskID& taskID) const
 {
 	while (!IsTaskFinished(taskID))
 	{
+		// Could help with tasks if possible...
 		std::this_thread::yield();
 	}
 }
@@ -109,12 +108,40 @@ bool TaskDispatcher::IsTaskFinished(const TaskID& taskID) const
 	return false;
 }
 
+inline TaskID TaskDispatcher::AddTask(const TaskData& data, TaskKernel kernel, bool notify)
+{
+	Task* task = AllocateTask();
+	task->mData = data;
+	task->mKernel = kernel;
+
+	TaskID taskID = GetTaskID(task);
+
+	QueueTask(task, notify);
+
+	return taskID;
+}
+
+inline TaskID TaskDispatcher::GetTaskID(Task* task) const
+{
+	return TaskID(task - reinterpret_cast<Task*>(mMemory), task->mGeneration);
+}
+
+inline Task* TaskDispatcher::GetTask(const TaskID& taskID) const
+{
+	return reinterpret_cast<Task*>(mMemory) + taskID.mOffset;
+}
+
 inline Task* TaskDispatcher::WaitForAvailableTasks()
 {
-	UniqueLock lock(mQueueLock);
+	UniqueLock pendingLock(mTaskQueueLock);
 	while (mTaskQueue.empty())
-	{	
-		mTaskSignal.wait(lock);
+	{
+		if (mIsPaused)
+		{
+			return nullptr;
+		}
+
+		mTaskSignal.wait(pendingLock);
 	}
 
 	Task* task = mTaskQueue.front();
@@ -137,6 +164,16 @@ inline Task* TaskDispatcher::AllocateTask()
 
 inline void TaskDispatcher::FreeTask(Task* task)
 {
+	TaskID taskID = GetTaskID(task);
+	{
+		ScopedLock lock(mTaskIDVectorLock);
+		TaskIDVector::iterator iter = mTaskIDVector.find(taskID);
+		if (iter != mTaskIDVector.end())
+		{
+			mTaskIDVector.erase(iter);
+		}
+	}
+
 	task->mGeneration = ++mTaskGeneration;
 	{
 		ScopedLock lock(mMemoryLock);
@@ -144,37 +181,41 @@ inline void TaskDispatcher::FreeTask(Task* task)
 	}
 }
 
-inline void TaskDispatcher::QueueTask(Task* task)
+inline void TaskDispatcher::QueueTask(Task* task, bool notify)
 {
 	{
-		UniqueLock lock(mQueueLock);
+		UniqueLock lock(mTaskQueueLock);
 		mTaskQueue.push(task);
 	}
 
-	mTaskSignal.notify_all();	
+	mTaskSignal.notify_one();	
 }
 
 inline void TaskDispatcher::ExecuteTask(Task* task)
-{
+{	
 	(task->mKernel)(task->mData);
 }
 
 inline void TaskDispatcher::ProcessTasks()
 {
-	while (mIsPaused)
+	while (!mIsPaused)
 	{
 		Task* task = WaitForAvailableTasks();
-		ExecuteTask(task);
-		FreeTask(task);
+		if (task)
+		{
+			ExecuteTask(task);
+			FreeTask(task);
+		}
 	}
 }
 
-inline TaskID TaskDispatcher::GetTaskID(Task* task) const
+inline void TaskDispatcher::JoinThreads()
 {
-	return TaskID(task - reinterpret_cast<Task*>(mMemory), task->mGeneration);
-}
-
-inline Task* TaskDispatcher::GetTask(const TaskID& taskID) const
-{
-	return reinterpret_cast<Task*>(mMemory) + taskID.mOffset;
+	for (int i = 0; i < mThreadCount; i++)
+	{
+		if (mThreads[i].joinable())
+		{
+			mThreads[i].join();
+		}
+	}
 }

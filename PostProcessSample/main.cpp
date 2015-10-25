@@ -212,6 +212,7 @@ public:
 	void InitializeGeometry()
 	{
 		OBJResource<Vertex4> resource ("Models\\Sphere.obj");
+		resource.mCalculateTangents = true;
 		mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, resource);
 
 		SampleVertex qVertices[4];

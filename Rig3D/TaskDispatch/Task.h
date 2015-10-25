@@ -54,5 +54,26 @@ namespace cliqCity
 	}
 }
 
+namespace std
+{
+	template<>
+	struct RIG3D hash<cliqCity::multicore::TaskID>
+	{
+		size_t operator()(const cliqCity::multicore::TaskID& taskID) const
+		{
+			hash<uint32_t> hashFunction;
+			return hashFunction(taskID.mOffset + taskID.mGeneration);
+		}
+	};
+
+	template<>
+	struct equal_to<cliqCity::multicore::TaskID>
+	{
+		bool operator()(const cliqCity::multicore::TaskID& lhs, const cliqCity::multicore::TaskID& rhs) const
+		{
+			return (lhs.mOffset == rhs.mOffset && lhs.mGeneration == rhs.mGeneration);
+		}
+	};
+}
 
 

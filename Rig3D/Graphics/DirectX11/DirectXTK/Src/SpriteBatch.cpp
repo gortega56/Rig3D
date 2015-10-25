@@ -87,7 +87,7 @@ private:
     static const size_t IndicesPerSprite = 6;
 
 
-    // Queue of sprites waiting to be drawn.
+    // TaskQueue of sprites waiting to be drawn.
     std::unique_ptr<SpriteInfo[]> mSpriteQueue;
 
     size_t mSpriteQueueCount;
@@ -461,7 +461,7 @@ void XM_CALLCONV SpriteBatch::Impl::Draw(_In_ ID3D11ShaderResourceView* texture,
     }
     else
     {
-        // Queue this sprite for later sorting and batched rendering.
+        // TaskQueue this sprite for later sorting and batched rendering.
         mSpriteQueueCount++;
 
         // Make sure we hold a refcount on this texture until the sprite has been drawn. Only checking the
