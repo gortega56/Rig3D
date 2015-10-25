@@ -11,8 +11,8 @@
 #include <d3dcompiler.h>
 
 #define PI						3.1415926535f
-#define MULTITHREAD				4
-#define THREAD_COUNT			1
+#define MULTITHREAD				1
+#define THREAD_COUNT			4
 
 using namespace Rig3D;
 
