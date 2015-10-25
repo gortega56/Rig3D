@@ -11,7 +11,7 @@
 #include <d3dcompiler.h>
 
 #define PI						3.1415926535f
-#define MULTITHREAD				1
+#define MULTITHREAD				4
 #define THREAD_COUNT			1
 
 using namespace Rig3D;
@@ -35,6 +35,8 @@ struct Vertex4
 	vec2f UV;
 };
 
+std::mutex gMemoryMutex;
+
 void PerformModelLoadTask(const cliqCity::multicore::TaskData& data)
 {
 	OBJResource<Vertex4> resource(reinterpret_cast<const char*>(data.mKernelData));
@@ -42,6 +44,8 @@ void PerformModelLoadTask(const cliqCity::multicore::TaskData& data)
 	MeshLibrary<LinearAllocator>* meshLibrary = reinterpret_cast<MeshLibrary<LinearAllocator>*>(data.mStream.in[0]);
 	IRenderer* drawContext = reinterpret_cast<IRenderer*>(data.mStream.in[1]);
 	IMesh** mesh = reinterpret_cast<IMesh**>(data.mStream.in[2]);
+
+	std::lock_guard<std::mutex> lock(gMemoryMutex);
 	meshLibrary->LoadMesh(mesh, drawContext, resource);
 }
 
