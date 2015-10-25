@@ -2,13 +2,6 @@
 
 using namespace cliqCity::multicore;
 
-static const TaskData emptyTaskData;
-
-void EmptyKernel(const TaskData& data)
-{
-	// Empty task used for clearing an empty task queue.
-}
-
 TaskDispatcher::TaskDispatcher(Thread* threads, uint8_t threadCount, void* memory, size_t size) :
 	mTaskGeneration(0),
 	mAllocator(memory, reinterpret_cast<char*>(memory) + size, sizeof(Task)),
@@ -28,7 +21,10 @@ TaskDispatcher::TaskDispatcher() : TaskDispatcher(nullptr, 0, nullptr, 0)
 TaskDispatcher::~TaskDispatcher()
 {
 	// Wait for all currently executing tasks. Threads should be in waiting state.
-	Synchronize();
+	while (!mTaskQueue.empty())
+	{
+		std::this_thread::yield();
+	}
 
 	// Pause queue so threads will exit upon completion.
 	Pause();
@@ -68,7 +64,15 @@ bool TaskDispatcher::IsPaused()
 
 TaskID TaskDispatcher::AddTask(const TaskData& data, TaskKernel kernel)
 {
-	return AddTask(data, kernel, !mIsPaused);
+	Task* task = AllocateTask();
+	task->mData = data;
+	task->mKernel = kernel;
+
+	TaskID taskID = GetTaskID(task);
+
+	QueueTask(task);
+
+	return taskID;
 }
 
 void TaskDispatcher::Synchronize()
@@ -82,6 +86,12 @@ void TaskDispatcher::Synchronize()
 	{
 		std::this_thread::yield();
 	}
+
+	// Use pause to kill any threads still executing a task
+	Pause();
+
+	// Restart threads
+	Start();
 }
 
 void TaskDispatcher::WaitForTask(const TaskID& taskID) const
@@ -106,19 +116,6 @@ bool TaskDispatcher::IsTaskFinished(const TaskID& taskID) const
 	}
 
 	return false;
-}
-
-inline TaskID TaskDispatcher::AddTask(const TaskData& data, TaskKernel kernel, bool notify)
-{
-	Task* task = AllocateTask();
-	task->mData = data;
-	task->mKernel = kernel;
-
-	TaskID taskID = GetTaskID(task);
-
-	QueueTask(task, notify);
-
-	return taskID;
 }
 
 inline TaskID TaskDispatcher::GetTaskID(Task* task) const
@@ -164,16 +161,6 @@ inline Task* TaskDispatcher::AllocateTask()
 
 inline void TaskDispatcher::FreeTask(Task* task)
 {
-	TaskID taskID = GetTaskID(task);
-	{
-		ScopedLock lock(mTaskIDVectorLock);
-		TaskIDVector::iterator iter = mTaskIDVector.find(taskID);
-		if (iter != mTaskIDVector.end())
-		{
-			mTaskIDVector.erase(iter);
-		}
-	}
-
 	task->mGeneration = ++mTaskGeneration;
 	{
 		ScopedLock lock(mMemoryLock);
@@ -181,7 +168,7 @@ inline void TaskDispatcher::FreeTask(Task* task)
 	}
 }
 
-inline void TaskDispatcher::QueueTask(Task* task, bool notify)
+inline void TaskDispatcher::QueueTask(Task* task)
 {
 	{
 		UniqueLock lock(mTaskQueueLock);

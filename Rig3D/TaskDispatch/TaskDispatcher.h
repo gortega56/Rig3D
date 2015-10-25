@@ -3,7 +3,6 @@
 #include <condition_variable>
 #include <mutex>
 #include <queue>
-#include <unordered_set>
 #include <atomic>
 #include "Task.h"
 #include "Memory\Memory\PoolAllocator.h"
@@ -26,7 +25,6 @@ namespace cliqCity
 		typedef std::lock_guard<Mutex>			ScopedLock;
 		typedef std::thread						Thread;
 		typedef std::queue<Task*>				TaskQueue;
-		typedef std::unordered_set<TaskID>		TaskIDVector;
 
 		class RIG3D TaskDispatcher
 		{
@@ -50,27 +48,23 @@ namespace cliqCity
 			Signal			mTaskSignal;
 			Mutex			mMemoryLock;
 			Mutex			mTaskQueueLock;
-			Mutex			mTaskIDVectorLock;
 			TaskQueue		mTaskQueue;
-			TaskIDVector	mTaskIDVector;
 			TaskPool		mAllocator;
 			void*			mMemory;
 			Thread*			mThreads;
 			uint8_t			mThreadCount;
 			bool			mIsPaused;
 
-			TaskID	AddTask(const TaskData& data, TaskKernel kernel, bool notify);
 			TaskID	GetTaskID(Task* task) const;
 			Task*	GetTask(const TaskID& taskID) const;
 
 			Task*	WaitForAvailableTasks();
 			Task*	AllocateTask();
 			void	FreeTask(Task* task);
-			void	QueueTask(Task* task, bool notify);
+			void	QueueTask(Task* task);
 			void	ExecuteTask(Task* task);
 			void	ProcessTasks();
 			void	JoinThreads();
 		};
 	}
 }
-
