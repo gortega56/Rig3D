@@ -3,7 +3,7 @@ struct Vertex
 	float3		position	: POSITION;
 	float2		uv			: TEXCOORD;
 	float4x4	world		: WORLD;
-	uint		instance	: SV_InstanceID;
+	uint		instanceID	: SV_InstanceID;
 };
 
 struct Pixel
