@@ -10,17 +10,29 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <Rig3D/Graphics/Camera.h>
+#include "Rig3D/Intersection.h"
+#include <vector>
 
-#define PI						3.1415926535f
-#define BALL_COUNT				16
-#define BALL_RADIUS				0.1077032961f
-#define CAMERA_SPEED			0.01f
-#define CAMERA_ROTATION_SPEED	0.05f
-#define RADIAN					3.1415926535f / 180.0f
+#define PI								3.1415926535f
+#define BALL_COUNT						16
+#define BALL_RADIUS						0.1077032961f
+#define CAMERA_SPEED					0.01f
+#define CAMERA_ROTATION_SPEED			0.05f
+#define RADIAN							3.1415926535f / 180.0f
+#define SURFACE_Y						2.15f
+#define PLANE_COUNT						4
+#define INVERSE_BALL_MASS				5.88235294118f
+#define ELASTIC_CONSTANT				0.9f
+#define PLANE_SPHERE_ELASTIC_CONSTANT	0.5f
+#define TABLE_WIDTH						2.8f
+#define TABLE_DEPTH						5.8f
 
 using namespace Rig3D;
 
-static const int gMeshMemorySize = 2048;
+static const int	gMeshMemorySize = 2048;
+static const vec3f  gTablePosition = { -1.0f, 0.0f, 1.0f };
+static const mat3f	gSphereInverseTensor;
+static const mat3f	gPlaneInverseTensor;
 
 char gMeshMemory[gMeshMemorySize];
 
@@ -28,12 +40,34 @@ class BilliardsSample : public IScene, public virtual IRendererDelegate
 {
 public:
 	typedef cliqCity::memory::LinearAllocator LinearAllocator;
+	typedef Plane<vec3f>	Plane;
+	typedef Sphere<vec3f>	Sphere;
 
 	struct Vertex3
 	{
 		vec3f Position;
 		vec3f Normal;
 		vec2f UV;
+	};
+
+	struct RigidBody
+	{
+		vec3f	velocity;
+		vec3f	angularVelocity;
+		vec3f	forces;
+		float	inverseMass;
+
+		RigidBody() : velocity(0.0f), angularVelocity(0.0f), forces(0.0f), inverseMass(INVERSE_BALL_MASS) {};
+	};
+
+	struct Collision
+	{
+		vec3f	poi;
+		float	t;
+		int		s0;
+		int		s1;
+
+		Collision(vec3f poi, float t, int s0, int s1) : poi(poi), t(t), s0(s0), s1(s1) {};
 	};
 
 	struct PoolTable
@@ -58,6 +92,12 @@ public:
 	mat4f							mBallWorldMatrices[BALL_COUNT];
 	mat4f							mTableWorldMatrix;
 
+	RigidBody						mRigidBodies[BALL_COUNT];
+	Sphere							mSpheres[BALL_COUNT];
+	Plane							mPlanes[PLANE_COUNT];
+	std::vector<Collision>			mSphereCollisions;
+	std::vector<Collision>			mPlaneCollisions;
+
 	Camera							mCamera;
 
 	LinearAllocator					mAllocator;
@@ -70,27 +110,27 @@ public:
 	ID3D11DeviceContext*			mDeviceContext;
 	ID3D11Device*					mDevice;
 
-	PoolTable					mPoolTable;
-	IMesh*						mBallMesh;
+	PoolTable						mPoolTable;
+	IMesh*							mBallMesh;
 
-	ID3D11InputLayout*			mBallInputLayout;
-	ID3D11VertexShader*			mBallVertexShader;
-	ID3D11PixelShader*			mBallPixelShader;
-	ID3D11ShaderResourceView*	mBallSRV;
+	ID3D11InputLayout*				mBallInputLayout;
+	ID3D11VertexShader*				mBallVertexShader;
+	ID3D11PixelShader*				mBallPixelShader;
+	ID3D11ShaderResourceView*		mBallSRV;
 
-	ID3D11InputLayout*			mPoolTableInputLayout;
-	ID3D11VertexShader*			mPoolTableVertexShader;
-	ID3D11PixelShader*			mPoolTablePixelShader;
-	ID3D11ShaderResourceView*   mPoolTableWoodSRV;
-	ID3D11ShaderResourceView*   mPoolTableDarkWoodSRV;
-	ID3D11ShaderResourceView*	mPoolTableConcreteSRV;
-	ID3D11ShaderResourceView*	mPoolTableFeltSRV;
+	ID3D11InputLayout*				mPoolTableInputLayout;
+	ID3D11VertexShader*				mPoolTableVertexShader;
+	ID3D11PixelShader*				mPoolTablePixelShader;
+	ID3D11ShaderResourceView*		mPoolTableWoodSRV;
+	ID3D11ShaderResourceView*		mPoolTableDarkWoodSRV;
+	ID3D11ShaderResourceView*		mPoolTableConcreteSRV;
+	ID3D11ShaderResourceView*		mPoolTableFeltSRV;
 
-	ID3D11SamplerState*			mSamplerState;
+	ID3D11SamplerState*				mSamplerState;
 
-	ID3D11Buffer*				mViewProjectionBuffer;
-	ID3D11Buffer*				mBallTransformBuffer;
-	ID3D11Buffer*				mTableTransformBuffer;
+	ID3D11Buffer*					mViewProjectionBuffer;
+	ID3D11Buffer*					mBallTransformBuffer;
+	ID3D11Buffer*					mTableTransformBuffer;
 
 	BilliardsSample() :
 		mAllocator(gMeshMemory, gMeshMemory + gMeshMemorySize),
@@ -122,6 +162,8 @@ public:
 		mOptions.mGraphicsAPI = GRAPHICS_API_DIRECTX11;
 		mOptions.mFullScreen = false;
 		mMeshLibrary.SetAllocator(&mAllocator);
+		mSphereCollisions.reserve(BALL_COUNT);
+		mPlaneCollisions.reserve(BALL_COUNT);
 	}
 
 	~BilliardsSample()
@@ -162,6 +204,12 @@ public:
 
 	void InitializeGeometry()
 	{
+		InitializeMeshes();
+		InitializeBoundingVolumes();
+	}
+
+	void InitializeMeshes()
+	{
 		OBJBasicResource<Vertex3> poolTableLegs("Models\\Legs.obj");
 		OBJBasicResource<Vertex3> poolTableFeet("Models\\LegsMetalPart.obj");
 		OBJBasicResource<Vertex3> poolTableSides("Models\\Side.obj");
@@ -179,9 +227,15 @@ public:
 		mMeshLibrary.LoadMesh(&mPoolTable.bottom, mRenderer, poolTableBottom);
 		mMeshLibrary.LoadMesh(&mPoolTable.holes, mRenderer, poolTableHoles);
 		mMeshLibrary.LoadMesh(&mBallMesh, mRenderer, ball);
+	}
 
-		float yOffset = 2.1f + BALL_RADIUS;
-		mBallTransforms[0].mPosition = { 0.0f, yOffset, -1.0f };
+	void InitializeBoundingVolumes()
+	{
+		float yOffset = SURFACE_Y + BALL_RADIUS;
+		mSpheres[0].origin = mBallTransforms[0].mPosition = { 0.0f, yOffset, -3.0f };
+		mSpheres[0].radius = BALL_RADIUS;
+
+		mRigidBodies[0].velocity = { 0.0f, 0.0f, 0.01f };
 
 		float diameter = BALL_RADIUS * 2.0f;
 		float xOffset = 0;
@@ -193,7 +247,8 @@ public:
 		{
 			for (int x = 0; x < xCount; x++)
 			{
-				mBallTransforms[i].mPosition = { xOffset, yOffset, zOffset };
+				mSpheres[i].origin = mBallTransforms[i].mPosition = { xOffset, yOffset, zOffset };
+				mSpheres[i].radius = BALL_RADIUS;
 				xOffset += diameter;
 				i++;
 			}
@@ -203,7 +258,20 @@ public:
 			xCount++;
 		}
 
-		mTableWorldMatrix = mat4f::rotateY(PI * 0.5f).transpose();
+		mPlanes[0].normal = { +1.0f, +0.0f, +0.0f };	// Left Plane Facing Right
+		mPlanes[1].normal = { +0.0f, +0.0f, -1.0f };	// Back Plane Facing Camera
+		mPlanes[2].normal = { -1.0f, +0.0f, +0.0f };	// Right Plane Facing Left
+		mPlanes[3].normal = { +0.0f, +0.0f, +1.0f };	// Front Plane Facing DirectX Forward
+
+		float halfWidth = TABLE_WIDTH * 0.5f;
+		float halfDepth = TABLE_DEPTH * 0.5f;
+
+		mPlanes[0].distance = -halfWidth + gTablePosition.x;
+		mPlanes[1].distance = +halfDepth + gTablePosition.z;
+		mPlanes[2].distance = +halfWidth + gTablePosition.x;
+		mPlanes[3].distance = -halfDepth + gTablePosition.z;
+
+		mTableWorldMatrix = (mat4f::rotateY(PI * 0.5f) * mat4f::translate(gTablePosition)).transpose();
 	}
 
 	void InitializeShaders()
@@ -433,14 +501,23 @@ public:
 
 	void InitializeCamera()
 	{
-		mCamera.mTransform.mPosition = { 0.0f, 0.0f, -10.0f };
+		mCamera.mTransform.mPosition = { 0.0f, SURFACE_Y + 2.5f, -10.0f };
+		mCamera.mTransform.mRotation = { PI / 6.0f, 0.0f, 0.0f };
 	}
 
 	void VUpdate(double milliseconds) override
 	{
-
-		UpdateCamera();
+		IntegrateBalls(milliseconds);
+		DetectSphereSphereCollisions(&mSphereCollisions, mSpheres, mRigidBodies, BALL_COUNT);
+		DetectPlaneSphereCollisions(&mPlaneCollisions, mPlanes, PLANE_COUNT, mSpheres, mRigidBodies, BALL_COUNT);
+		ResolveSphereSphereCollisions(&mSphereCollisions, mSpheres, mBallTransforms, mRigidBodies);
+		ResolvePlaneSphereCollisions(&mPlaneCollisions, mPlanes, mSpheres, mRigidBodies);
+		//ApplyFriction(mSpheres, mRigidBodies, BALL_COUNT);
+		// Interpolate State (Optional)
+		
+		// Update rendering structures.
 		UpdateBallTransforms();
+		UpdateCamera();
 	}
 
 	void UpdateCamera()
@@ -583,6 +660,137 @@ public:
 	void VOnResize() override
 	{
 		mViewProjection.projection = mat4f::normalizedPerspectiveLH(PI * 0.25f, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
+	}
+
+	void IntegrateBalls(double milliseconds)
+	{
+		static float frameTime = static_cast<float>(milliseconds);
+		if (frameTime > 16.67f)
+		{
+			frameTime = 16.67f;
+		}
+
+		static float dt = frameTime / 3.0f;
+		float accumulator = 0.0f;
+
+		while (accumulator < frameTime)
+		{
+			Euler(mBallTransforms, mRigidBodies, dt, BALL_COUNT);
+			accumulator += dt;
+		}
+	}
+
+	void Euler(Transform* transforms, RigidBody* rigidBodies, float dt, int count)
+	{
+		for (int i = 0; i < BALL_COUNT; i++)
+		{
+			vec3f acceleration = rigidBodies[i].forces * rigidBodies[i].inverseMass;
+			rigidBodies[i].velocity += acceleration * dt;
+			mBallTransforms[i].mPosition += rigidBodies[i].velocity * dt;
+		}
+	}
+
+	void DetectPlaneSphereCollisions(std::vector<Collision>* collisions, Plane* planes, int planeCount, Sphere* spheres, RigidBody* rigidBodies, int sphereCount)
+	{
+		vec3f poi;
+		float t;
+
+		for (int i = 0; i < planeCount; i++)
+		{
+			for (int j = 0; j < sphereCount; j++)
+			{
+				if (IntersectDynamicSpherePlane<vec3f>(spheres[j], rigidBodies[j].velocity, planes[i], poi, t))
+				{
+					collisions->push_back(Collision(poi, t, i, j));
+				}
+			}
+		}
+	}
+
+	void DetectSphereSphereCollisions(std::vector<Collision>* collisions, Sphere* spheres, RigidBody* rigidBodies, int count)
+	{
+		vec3f poi;
+		float t;
+
+		for (int i = 0; i < count; i++)
+		{
+			for (int j = i + 1; j < count; j++)
+			{
+				if (IntersectDynamicSphereSphere<vec3f>(spheres[i], rigidBodies[i].velocity, spheres[j], rigidBodies[j].velocity, poi, t))
+				{
+					collisions->push_back(Collision(poi, t, i, j));
+				}
+			}
+		}
+	}
+
+	void ResolvePlaneSphereCollisions(std::vector<Collision>* collisions, Plane* planes, Sphere* spheres, RigidBody* rigidBodies)
+	{
+		for (int i = 0; i < collisions->size(); i++)
+		{
+			vec3f& poi = collisions->at(i).poi;
+			int i0 = collisions->at(i).s0;
+			int i1 = collisions->at(i).s1;
+			vec3f contactNormal = planes[i0].normal;
+
+			float k = CalculateImpulse(planes[i0], spheres[i1], rigidBodies[i1], contactNormal, poi);
+			rigidBodies[i1].velocity += k * contactNormal * rigidBodies[i1].inverseMass;
+		}
+
+		collisions->clear();
+		collisions->reserve(BALL_COUNT);
+	}
+
+	void ResolveSphereSphereCollisions(std::vector<Collision>* collisions, Sphere* spheres, Transform* transforms, RigidBody* rigidBodies)
+	{
+		for (int i = 0; i < collisions->size(); i++)
+		{
+			vec3f& poi = collisions->at(i).poi;
+			int i0 = collisions->at(i).s0;
+			int i1 = collisions->at(i).s1;
+			vec3f contactNormal = spheres[i1].origin - spheres[i0].origin;
+			mat3f R0 = transforms[i0].GetRotationMatrix();
+			mat3f R1 = transforms[i1].GetRotationMatrix();
+			mat3f J0 = R0.transpose() * gSphereInverseTensor * R0;
+			mat3f J1 = R1.transpose() * gSphereInverseTensor * R1;
+
+			float k = CalculateImpulse(spheres[i0], spheres[i1], J0, J1, rigidBodies[i0], rigidBodies[i1], contactNormal, poi);
+			rigidBodies[i0].velocity -= k * contactNormal * rigidBodies[i0].inverseMass;
+			rigidBodies[i1].velocity += k * contactNormal * rigidBodies[i1].inverseMass;
+			rigidBodies[i0].angularVelocity -= cliqCity::graphicsMath::cross(poi, k * contactNormal) * gSphereInverseTensor;
+			rigidBodies[i1].angularVelocity += cliqCity::graphicsMath::cross(poi, k * contactNormal) * gSphereInverseTensor;
+		}
+
+		collisions->clear();
+		collisions->reserve(BALL_COUNT);
+	}
+
+	inline float CalculateImpulse(Plane& plane, Sphere& sphere, RigidBody& rigidBody, vec3f&normal, vec3f& poi)
+	{
+		vec3f vRel = -rigidBody.velocity;
+		float numerator = (PLANE_SPHERE_ELASTIC_CONSTANT + 1.0f) * cliqCity::graphicsMath::dot(vRel, normal);
+		float denominator = (rigidBody.inverseMass) * cliqCity::graphicsMath::dot(normal, normal);
+		return numerator / denominator;
+	}
+
+	inline float CalculateImpulse(Sphere& s0, Sphere& s1, mat3f& J0, mat3f& J1, RigidBody& r0, RigidBody& r1, vec3f& normal, vec3f& poi)
+	{
+		vec3f u0 = r0.velocity + cliqCity::graphicsMath::cross(r0.angularVelocity, poi);
+		vec3f u1 = r1.velocity + cliqCity::graphicsMath::cross(r1.angularVelocity, poi);
+		vec3f uRel = u0 - u1;
+
+		float numerator = (ELASTIC_CONSTANT + 1.0f) * cliqCity::graphicsMath::dot(uRel, normal);
+		vec3f sumInverseMassxN = (r0.inverseMass + r1.inverseMass) * normal;
+		vec3f rCrossN = cliqCity::graphicsMath::cross(poi, normal);
+		vec3f r0CrossNxJ0 = rCrossN * J0;
+		vec3f r1CrossNxJ1 = rCrossN * J1;
+		float denominator = cliqCity::graphicsMath::dot(sumInverseMassxN + cliqCity::graphicsMath::cross(r0CrossNxJ0, poi) + cliqCity::graphicsMath::cross(r1CrossNxJ1, poi), normal);
+		return numerator / denominator;
+	}
+
+	void ApplyFriction(Sphere* spheres, RigidBody* rigidBodies, int count)
+	{
+		
 	}
 };
 

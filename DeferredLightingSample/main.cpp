@@ -120,7 +120,6 @@ public:
 	ID3D11ShaderResourceView*		mNormalSRV;
 
 	ID3D11SamplerState*				mSamplerState;
-	ID3D11DepthStencilState*		mDSState;
 
 	ID3D11VertexShader*				mSceneVertexShader;
 	ID3D11PixelShader*				mScenePixelShader;
@@ -166,7 +165,6 @@ public:
 		mDepthSRV(nullptr),
 		mColorSRV(nullptr),
 		mNormalSRV(nullptr),
-		mDSState(nullptr),
 		mSamplerState(nullptr),
 		mSceneVertexShader(nullptr),
 		mScenePixelShader(nullptr),
@@ -262,7 +260,6 @@ public:
 
 			ID3D11RenderTargetView* RTVs[4] = { mPositionRTV, mDepthRTV, mColorRTV, mNormalRTV };
 			mDeviceContext->OMSetRenderTargets(4, RTVs, mRenderer->GetDepthStencilView());
-			//mDeviceContext->OMSetDepthStencilState(mDSState, 1);
 			mDeviceContext->ClearRenderTargetView(mPositionRTV, color);
 			mDeviceContext->ClearRenderTargetView(mDepthRTV, color);
 			mDeviceContext->ClearRenderTargetView(mColorRTV, color);
@@ -555,30 +552,6 @@ public:
 		{
 			mMVP.View = mat4f::lookAtLH(mSceneObjects[4].mTransform.mPosition - vec3f(0.0f, 0.0f, 1.0f), vec3f(0.0f, 15.0f, -10.0f), vec3f(0.0f, 1.0f, 0.0f)).transpose();
 			mMVP.Projection = mat4f::normalizedPerspectiveLH(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
-		}
-
-		// Stencil
-		{
-			D3D11_DEPTH_STENCIL_DESC DSVDesc;
-			DSVDesc.DepthEnable = true;
-			DSVDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
-			DSVDesc.DepthFunc = D3D11_COMPARISON_LESS;
-			DSVDesc.StencilEnable = true;
-			DSVDesc.StencilReadMask = 0xff;
-			DSVDesc.StencilWriteMask = 0xff;
-
-			DSVDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-			DSVDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
-			DSVDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
-			DSVDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
-
-			// We are not rendering backfacing polygons, so these settings do not matter.
-			DSVDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-			DSVDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
-			DSVDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
-			DSVDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
-
-			mDevice->CreateDepthStencilState(&DSVDesc, &mDSState);
 		}
 	}
 
