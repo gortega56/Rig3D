@@ -201,12 +201,12 @@ public:
 		mMouseX = 0.0f;
 		mMouseY = 0.0f;
 
+		std::time_t now;
+		std::srand((unsigned int)std::time(&now));
+
 		InitializeGeometry();
 		InitializeShaders();
 		InitializeCamera();
-
-		std::time_t now;
-		std::srand((unsigned int)std::time(&now));
 	}
 
 	void InitializeGeometry()
@@ -265,7 +265,7 @@ public:
 			};
 
 			// Load Vertex Shader --------------------------------------
-			D3DReadFileToBlob(L"ModelVertexShader.cso", &vsBlob);
+			D3DReadFileToBlob(L"SphereVertexShader.cso", &vsBlob);
 
 			// Create the shader on the device
 			mDevice->CreateVertexShader(
@@ -288,7 +288,7 @@ public:
 			vsBlob->Release();
 
 			// Load Pixel Shader ---------------------------------------
-			D3DReadFileToBlob(L"ModelPixelShader.cso", &psBlob);
+			D3DReadFileToBlob(L"SpherePixelShader.cso", &psBlob);
 
 			// Create the shader on the device
 			mDevice->CreatePixelShader(
@@ -354,7 +354,7 @@ public:
 				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,		0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 			};
 
-			D3DReadFileToBlob(L"QuadVertexShader.cso", &vsBlob);
+			D3DReadFileToBlob(L"BlurVertexShader.cso", &vsBlob);
 
 			mDevice->CreateVertexShader(
 				vsBlob->GetBufferPointer(),
@@ -373,7 +373,7 @@ public:
 
 			vsBlob->Release();
 
-			D3DReadFileToBlob(L"QuadPixelShader.cso", &psBlob);
+			D3DReadFileToBlob(L"BlurPixelShader.cso", &psBlob);
 
 			mDevice->CreatePixelShader(
 				psBlob->GetBufferPointer(),
