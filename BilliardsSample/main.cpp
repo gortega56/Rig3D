@@ -14,8 +14,8 @@
 #define PI						3.1415926535f
 #define BALL_COUNT				16
 #define BALL_RADIUS				0.1077032961f
-#define CAMERA_SPEED			0.1f
-#define CAMERA_ROTATION_SPEED	0.1f
+#define CAMERA_SPEED			0.01f
+#define CAMERA_ROTATION_SPEED	0.05f
 #define RADIAN					3.1415926535f / 180.0f
 
 using namespace Rig3D;
@@ -38,13 +38,13 @@ public:
 
 	struct PoolTable
 	{
-		IMesh* legs;
-		IMesh* feet;
-		IMesh* sides;
-		IMesh* guards;
-		IMesh* surface;
-		IMesh* bottom;
-		IMesh* holes;
+		IMesh*	legs;
+		IMesh*	feet;
+		IMesh*	sides;
+		IMesh*	guards;
+		IMesh*	surface;
+		IMesh*	bottom;
+		IMesh*	holes;
 	};
 
 	struct ViewProjection
@@ -56,6 +56,8 @@ public:
 	ViewProjection					mViewProjection;
 	Transform						mBallTransforms[BALL_COUNT];
 	mat4f							mBallWorldMatrices[BALL_COUNT];
+	mat4f							mTableWorldMatrix;
+
 	Camera							mCamera;
 
 	LinearAllocator					mAllocator;
@@ -88,6 +90,7 @@ public:
 
 	ID3D11Buffer*				mViewProjectionBuffer;
 	ID3D11Buffer*				mBallTransformBuffer;
+	ID3D11Buffer*				mTableTransformBuffer;
 
 	BilliardsSample() :
 		mAllocator(gMeshMemory, gMeshMemory + gMeshMemorySize),
@@ -110,7 +113,8 @@ public:
 		mPoolTableFeltSRV(nullptr),
 		mSamplerState(nullptr),
 		mViewProjectionBuffer(nullptr),
-		mBallTransformBuffer(nullptr)
+		mBallTransformBuffer(nullptr),
+		mTableTransformBuffer(nullptr)
 	{
 		mOptions.mWindowCaption = "Deferred Lighting Sample";
 		mOptions.mWindowWidth = 800;
@@ -135,6 +139,10 @@ public:
 		ReleaseMacro(mPoolTableConcreteSRV);
 		ReleaseMacro(mPoolTableFeltSRV);
 		ReleaseMacro(mSamplerState);
+
+		ReleaseMacro(mViewProjectionBuffer);
+		ReleaseMacro(mBallTransformBuffer);
+		ReleaseMacro(mTableTransformBuffer);
 	}
 
 	void VInitialize()	override
@@ -155,24 +163,25 @@ public:
 	void InitializeGeometry()
 	{
 		OBJBasicResource<Vertex3> poolTableLegs("Models\\Legs.obj");
-		//OBJResource<Vertex3> poolTableFeet("Models\\LegsMetalPart.obj");
+		OBJBasicResource<Vertex3> poolTableFeet("Models\\LegsMetalPart.obj");
 		OBJBasicResource<Vertex3> poolTableSides("Models\\Side.obj");
 		OBJBasicResource<Vertex3> poolTableGuards("Models\\SideGuard.obj");
-		//OBJResource<Vertex3> poolTableSurface("Models\\TopSurface.obj");
+		OBJBasicResource<Vertex3> poolTableSurface("Models\\Surface.obj");
 		OBJBasicResource<Vertex3> poolTableBottom("Models\\Bottom.obj");
-		//OBJResource<Vertex3> poolTableHoles("Models\\Holes.obj");
+		OBJBasicResource<Vertex3> poolTableHoles("Models\\Holes.obj");
 		OBJBasicResource<Vertex3> ball("Models\\Ball.obj");
 
 		mMeshLibrary.LoadMesh(&mPoolTable.legs, mRenderer, poolTableLegs);
-		//mMeshLibrary.LoadMesh(&mPoolTable.feet, mRenderer, poolTableFeet);
+		mMeshLibrary.LoadMesh(&mPoolTable.feet, mRenderer, poolTableFeet);
 		mMeshLibrary.LoadMesh(&mPoolTable.sides, mRenderer, poolTableSides);
 		mMeshLibrary.LoadMesh(&mPoolTable.guards, mRenderer, poolTableGuards);
-		//mMeshLibrary.LoadMesh(&mPoolTable.surface, mRenderer, poolTableSurface);
+		mMeshLibrary.LoadMesh(&mPoolTable.surface, mRenderer, poolTableSurface);
 		mMeshLibrary.LoadMesh(&mPoolTable.bottom, mRenderer, poolTableBottom);
-		//mMeshLibrary.LoadMesh(&mPoolTable.holes, mRenderer, poolTableHoles);
+		mMeshLibrary.LoadMesh(&mPoolTable.holes, mRenderer, poolTableHoles);
 		mMeshLibrary.LoadMesh(&mBallMesh, mRenderer, ball);
 
-		mBallTransforms[0].mPosition = { 0.0f, 0.0f, -1.0f };
+		float yOffset = 2.1f + BALL_RADIUS;
+		mBallTransforms[0].mPosition = { 0.0f, yOffset, -1.0f };
 
 		float diameter = BALL_RADIUS * 2.0f;
 		float xOffset = 0;
@@ -184,7 +193,7 @@ public:
 		{
 			for (int x = 0; x < xCount; x++)
 			{
-				mBallTransforms[i].mPosition = { xOffset, 0.0f, zOffset };
+				mBallTransforms[i].mPosition = { xOffset, yOffset, zOffset };
 				xOffset += diameter;
 				i++;
 			}
@@ -193,6 +202,8 @@ public:
 			zOffset += diameter;
 			xCount++;
 		}
+
+		mTableWorldMatrix = mat4f::rotateY(PI * 0.5f).transpose();
 	}
 
 	void InitializeShaders()
@@ -406,6 +417,18 @@ public:
 		viewProjectionBufferDesc.StructureByteStride = 0;
 
 		mDevice->CreateBuffer(&viewProjectionBufferDesc, nullptr, &mViewProjectionBuffer);
+
+		D3D11_BUFFER_DESC tableTransformDesc;
+		tableTransformDesc.ByteWidth = sizeof(mat4f);
+		tableTransformDesc.Usage = D3D11_USAGE_IMMUTABLE;
+		tableTransformDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		tableTransformDesc.CPUAccessFlags = 0;
+		tableTransformDesc.MiscFlags = 0;
+		tableTransformDesc.StructureByteStride = 0;
+
+		D3D11_SUBRESOURCE_DATA tableTransformData;
+		tableTransformData.pSysMem = &mTableWorldMatrix;
+		mDevice->CreateBuffer(&tableTransformDesc, &tableTransformData, &mTableTransformBuffer);
 	}
 
 	void InitializeCamera()
@@ -492,7 +515,8 @@ public:
 		mDeviceContext->VSSetShader(mBallVertexShader, nullptr, 0);
 		mDeviceContext->PSSetShader(mBallPixelShader, nullptr, 0);
 
-		mDeviceContext->VSSetConstantBuffers(0, 1, &mViewProjectionBuffer);
+		ID3D11Buffer* constantBuffers[2] = { mViewProjectionBuffer, mTableTransformBuffer };
+		mDeviceContext->VSSetConstantBuffers(0, 2, constantBuffers);
 		mDeviceContext->PSSetShaderResources(0, 1, &mBallSRV);
 		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
@@ -524,17 +548,17 @@ public:
 
 		// Feet
 		mDeviceContext->PSSetShaderResources(0, 1, &mPoolTableConcreteSRV);
-	//	mRenderer->VBindMesh(mPoolTable.feet);
-	//	mRenderer->VDrawIndexed(0, mPoolTable.feet->GetIndexCount());
+		mRenderer->VBindMesh(mPoolTable.feet);
+		mRenderer->VDrawIndexed(0, mPoolTable.feet->GetIndexCount());
 
 		// Guards
 		mRenderer->VBindMesh(mPoolTable.guards);
 		mRenderer->VDrawIndexed(0, mPoolTable.guards->GetIndexCount());
 
 		// Surface
-	//	mDeviceContext->PSSetShaderResources(0, 1, &mPoolTableFeltSRV);
-	//	mRenderer->VBindMesh(mPoolTable.surface);
-	//	mRenderer->VDrawIndexed(0, mPoolTable.surface->GetIndexCount());
+		mDeviceContext->PSSetShaderResources(0, 1, &mPoolTableFeltSRV);
+		mRenderer->VBindMesh(mPoolTable.surface);
+		mRenderer->VDrawIndexed(0, mPoolTable.surface->GetIndexCount());
 
 
 		// Bottom 
@@ -543,8 +567,8 @@ public:
 		mRenderer->VDrawIndexed(0, mPoolTable.bottom->GetIndexCount());
 
 		// Holes
-		//mRenderer->VBindMesh(mPoolTable.holes);
-		//mRenderer->VDrawIndexed(0, mPoolTable.holes->GetIndexCount());
+		mRenderer->VBindMesh(mPoolTable.holes);
+		mRenderer->VDrawIndexed(0, mPoolTable.holes->GetIndexCount());
 
 		// Sides
 		mRenderer->VBindMesh(mPoolTable.sides);

@@ -18,15 +18,13 @@ cbuffer transform : register(b0)
 	matrix projection;
 }
 
+cbuffer world : register(b1)
+{
+	matrix world;
+}
+
 Pixel main(Vertex vertex)
 {
-	float4x4 world = {
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f
-	};
-
 	matrix clip = mul(mul(world, view), projection);
 
 	Pixel pixel;

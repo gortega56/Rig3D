@@ -33,11 +33,6 @@ float4 CalculatePointLightColor(PointLight pointLight, float4 diffuseColor, floa
 	float  magnitude				= length(lightDirection);
 	lightDirection					/= magnitude;
 
-	//if (magnitude > pointLight.range)
-	//{
-	//	return float4(0.0f, 0.0f, 0.0f, 1.0f);
-	//}
-
 	float3 lightAttenuation		= { 0.0f, 1.0f, 0.0f };
 	float attenuation			= 1.0f / dot(lightAttenuation, float3(1.0f, magnitude, magnitude * magnitude));
 	float nDotL					= saturate(dot(normal, lightDirection));
@@ -49,7 +44,7 @@ float4 main(Pixel pixel) : SV_TARGET
 	float3 position = positionMap.Sample(samplerState, pixel.mUV).xyz;
 	float depth		= depthMap.Sample(samplerState, pixel.mUV).r;
 	float4 color	= diffuseMap.Sample(samplerState, pixel.mUV);
-	float3 normal	= normalize(normalMap.Sample(samplerState, pixel.mUV) * 0.5f - 1.0f).xyz;
+	float3 normal = normalize(normalMap.Sample(samplerState, pixel.mUV).xyz);
 
 	float4 diffuseColor = { 0.0f, 0.0f, 0.0f, 0.0f };
 	[unroll]
@@ -59,14 +54,4 @@ float4 main(Pixel pixel) : SV_TARGET
 	}
 
 	return ambientLight + diffuseColor;
-
-	//float4 lightColor = {1.0f, 1.0f, 1.0f, 1.0f};
-	//float3 lightDirection = normalize(float3(1.0f, -1.0f, 0.5f));
-
-	//float3 position = positionMap.Sample(samplerState, pixel.mUV).xyz;
-	//float depth = depthMap.Sample(samplerState, pixel.mUV).r;
-	//float4 color = diffuseMap.Sample(samplerState, pixel.mUV);
-	//float3 normal = normalize(normalMap.Sample(samplerState, pixel.mUV) * 0.5f - 1.0f).xyz;
-
-	//return ambientLight + color * saturate(dot(-lightDirection, normal));
 }

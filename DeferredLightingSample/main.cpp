@@ -120,6 +120,7 @@ public:
 	ID3D11ShaderResourceView*		mNormalSRV;
 
 	ID3D11SamplerState*				mSamplerState;
+	ID3D11DepthStencilState*		mDSState;
 
 	ID3D11VertexShader*				mSceneVertexShader;
 	ID3D11PixelShader*				mScenePixelShader;
@@ -137,7 +138,6 @@ public:
 	ID3D11Buffer*					mColorBuffer;
 	ID3D11Buffer*					mLightBuffer;
 
-	D3D11_VIEWPORT					mViewport;
 	D3D11_VIEWPORT					mPositionViewport;
 	D3D11_VIEWPORT					mDepthViewport;
 	D3D11_VIEWPORT					mColorViewport;
@@ -166,6 +166,7 @@ public:
 		mDepthSRV(nullptr),
 		mColorSRV(nullptr),
 		mNormalSRV(nullptr),
+		mDSState(nullptr),
 		mSamplerState(nullptr),
 		mSceneVertexShader(nullptr),
 		mScenePixelShader(nullptr),
@@ -183,8 +184,8 @@ public:
 
 	{
 		mOptions.mWindowCaption = "Deferred Lighting Sample";
-		mOptions.mWindowWidth = 800;
-		mOptions.mWindowHeight = 600;
+		mOptions.mWindowWidth = 1200;
+		mOptions.mWindowHeight = 900;
 		mOptions.mGraphicsAPI = GRAPHICS_API_DIRECTX11;
 		mOptions.mFullScreen = false;
 		mMeshLibrary.SetAllocator(&mAllocator);
@@ -254,86 +255,100 @@ public:
 	{
 		const float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 		mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
-		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
-
-		ID3D11RenderTargetView* RTVs[4] = { mPositionRTV, mDepthRTV, mColorRTV, mNormalRTV };
-		mDeviceContext->OMSetRenderTargets(4, RTVs, mRenderer->GetDepthStencilView());
-		mDeviceContext->ClearRenderTargetView(mPositionRTV, color);
-		mDeviceContext->ClearRenderTargetView(mDepthRTV, color);
-		mDeviceContext->ClearRenderTargetView(mColorRTV, color);
-		mDeviceContext->ClearRenderTargetView(mNormalRTV, color);
-		mDeviceContext->ClearDepthStencilView(
-			mRenderer->GetDepthStencilView(),
-			D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
-			1.0f,
-			0);
-
-		mDeviceContext->IASetInputLayout(mSceneInputLayout);
-		mDeviceContext->VSSetShader(mSceneVertexShader, nullptr, 0);
-		mDeviceContext->PSSetShader(mScenePixelShader, nullptr, 0);
-
-		for (int i = 0; i < 5; i++)
+		
+		// G-Buffer Pass
 		{
-			mMVP.Model = mSceneObjects[i].mTransform.GetWorldMatrix().transpose();
-			mDeviceContext->UpdateSubresource(mMVPBuffer, 0, nullptr, &mMVP, 0, 0);
-			mDeviceContext->UpdateSubresource(mColorBuffer, 0, nullptr, &mSceneObjects[i].mColor, 0, 0);
-			mDeviceContext->VSSetConstantBuffers(0, 1, &mMVPBuffer);
-			mDeviceContext->PSSetConstantBuffers(0, 1, &mColorBuffer);
-			mRenderer->VBindMesh(mSceneObjects[i].mMesh);
-			mRenderer->VDrawIndexed(0, mSceneObjects[i].mMesh->GetIndexCount());
-		}
+			mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
 
-		mDeviceContext->RSSetViewports(1, &mViewport);
-		mDeviceContext->OMSetRenderTargets(1, mRenderer->GetRenderTargetView(), nullptr);
-
-		mDeviceContext->IASetInputLayout(mQuadInputLayout);
-		mDeviceContext->VSSetShader(mQuadVertexShader, nullptr, 0);
-		mDeviceContext->PSSetShader(mQuadPixelShader, nullptr, 0);
-
-		ID3D11ShaderResourceView* SRVs[4] = { mPositionSRV, mDepthSRV, mColorSRV, mNormalSRV };
-		mDeviceContext->PSSetShaderResources(0, 4, SRVs);
-		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
-
-		mDeviceContext->UpdateSubresource(mLightBuffer, 0, nullptr, &mLighting, 0, 0);
-		mDeviceContext->PSSetConstantBuffers(0, 1, &mLightBuffer);
-
-		mRenderer->VBindMesh(mQuadMesh);
-		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
-
-		mDeviceContext->OMSetRenderTargets(1, mRenderer->GetRenderTargetView(), mRenderer->GetDepthStencilView());
-		mDeviceContext->IASetInputLayout(mPointLightInputLayout);
-		mDeviceContext->VSSetShader(mPointLightVertexShader, nullptr, 0);
-		mDeviceContext->PSSetShader(mPointLightPixelShader, nullptr, 0);
-
-		mRenderer->VBindMesh(mSphereMesh);
-		for (int i = 0; i < MAX_LIGHTS; i++)
-		{
-			mMVP.Model = mPointLightWorldMatrices[i];
-			mDeviceContext->UpdateSubresource(mMVPBuffer, 0, nullptr, &mMVP, 0, 0);
-			mDeviceContext->UpdateSubresource(mColorBuffer, 0, nullptr, &mLighting.pointLights[i].Color, 0, 0);
-			mDeviceContext->VSSetConstantBuffers(0, 1, &mMVPBuffer);
-			mDeviceContext->VSSetConstantBuffers(1, 1, &mColorBuffer);
-			mRenderer->VDrawIndexed(0, mSphereMesh->GetIndexCount());
-		}
-
-		D3D11_VIEWPORT viewports[] = { mPositionViewport, mDepthViewport, mColorViewport, mNormalViewport };		
-		mDeviceContext->IASetInputLayout(mQuadInputLayout);
-		mDeviceContext->VSSetShader(mQuadVertexShader, nullptr, 0);
-		mDeviceContext->PSSetShader(mSingleBufferPixelShader, nullptr, 0);
-		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
-
-		for (int i = 0; i < 4; i++) {
-			mDeviceContext->RSSetViewports(1, &viewports[i]);
+			ID3D11RenderTargetView* RTVs[4] = { mPositionRTV, mDepthRTV, mColorRTV, mNormalRTV };
+			mDeviceContext->OMSetRenderTargets(4, RTVs, mRenderer->GetDepthStencilView());
+			//mDeviceContext->OMSetDepthStencilState(mDSState, 1);
+			mDeviceContext->ClearRenderTargetView(mPositionRTV, color);
+			mDeviceContext->ClearRenderTargetView(mDepthRTV, color);
+			mDeviceContext->ClearRenderTargetView(mColorRTV, color);
+			mDeviceContext->ClearRenderTargetView(mNormalRTV, color);
 			mDeviceContext->ClearDepthStencilView(
 				mRenderer->GetDepthStencilView(),
 				D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
 				1.0f,
 				0);
 
-			mDeviceContext->PSSetShaderResources(0, 1, &SRVs[i]);
+			mDeviceContext->IASetInputLayout(mSceneInputLayout);
+			mDeviceContext->VSSetShader(mSceneVertexShader, nullptr, 0);
+			mDeviceContext->PSSetShader(mScenePixelShader, nullptr, 0);
+
+			for (int i = 0; i < 5; i++)
+			{
+				mMVP.Model = mSceneObjects[i].mTransform.GetWorldMatrix().transpose();
+				mDeviceContext->UpdateSubresource(mMVPBuffer, 0, nullptr, &mMVP, 0, 0);
+				mDeviceContext->UpdateSubresource(mColorBuffer, 0, nullptr, &mSceneObjects[i].mColor, 0, 0);
+				mDeviceContext->VSSetConstantBuffers(0, 1, &mMVPBuffer);
+				mDeviceContext->PSSetConstantBuffers(0, 1, &mColorBuffer);
+				mRenderer->VBindMesh(mSceneObjects[i].mMesh);
+				mRenderer->VDrawIndexed(0, mSceneObjects[i].mMesh->GetIndexCount());
+			}
+		}
+
+		// Lighting pass
+		ID3D11ShaderResourceView* SRVs[4] = { mPositionSRV, mDepthSRV, mColorSRV, mNormalSRV };
+		{
+			//	mDeviceContext->RSSetViewports(1, &mViewport);
+			mDeviceContext->OMSetRenderTargets(1, mRenderer->GetRenderTargetView(), nullptr);
+
+			mDeviceContext->IASetInputLayout(mQuadInputLayout);
+			mDeviceContext->VSSetShader(mQuadVertexShader, nullptr, 0);
+			mDeviceContext->PSSetShader(mQuadPixelShader, nullptr, 0);
+
+			mDeviceContext->PSSetShaderResources(0, 4, SRVs);
+			mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
+
+			mDeviceContext->UpdateSubresource(mLightBuffer, 0, nullptr, &mLighting, 0, 0);
+			mDeviceContext->PSSetConstantBuffers(0, 1, &mLightBuffer);
 
 			mRenderer->VBindMesh(mQuadMesh);
 			mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
+		}
+
+		// Lighting Geometry
+		{
+			mDeviceContext->OMSetRenderTargets(1, mRenderer->GetRenderTargetView(), mRenderer->GetDepthStencilView());
+			mDeviceContext->IASetInputLayout(mPointLightInputLayout);
+			mDeviceContext->VSSetShader(mPointLightVertexShader, nullptr, 0);
+			mDeviceContext->PSSetShader(mPointLightPixelShader, nullptr, 0);
+
+			mRenderer->VBindMesh(mSphereMesh);
+			for (int i = 0; i < MAX_LIGHTS; i++)
+			{
+				mMVP.Model = mPointLightWorldMatrices[i];
+				mDeviceContext->UpdateSubresource(mMVPBuffer, 0, nullptr, &mMVP, 0, 0);
+				mDeviceContext->UpdateSubresource(mColorBuffer, 0, nullptr, &mLighting.pointLights[i].Color, 0, 0);
+				mDeviceContext->VSSetConstantBuffers(0, 1, &mMVPBuffer);
+				mDeviceContext->VSSetConstantBuffers(1, 1, &mColorBuffer);
+				mRenderer->VDrawIndexed(0, mSphereMesh->GetIndexCount());
+			}
+		}
+
+		// G-Buffer Array Pass
+		{
+			D3D11_VIEWPORT viewports[] = { mPositionViewport, mDepthViewport, mColorViewport, mNormalViewport };
+			mDeviceContext->IASetInputLayout(mQuadInputLayout);
+			mDeviceContext->VSSetShader(mQuadVertexShader, nullptr, 0);
+			mDeviceContext->PSSetShader(mSingleBufferPixelShader, nullptr, 0);
+			mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
+
+			mRenderer->VBindMesh(mQuadMesh);
+			for (int i = 0; i < 4; i++) {
+				mDeviceContext->RSSetViewports(1, &viewports[i]);
+				mDeviceContext->ClearDepthStencilView(
+					mRenderer->GetDepthStencilView(),
+					D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
+					1.0f,
+					0);
+
+				mDeviceContext->PSSetShaderResources(0, 1, &SRVs[i]);
+
+				mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
+			}
 		}
 
 		ID3D11ShaderResourceView* nullSRV[4] = { 0, 0, 0, 0 };
@@ -409,7 +424,7 @@ public:
 			depthTextureDesc.ArraySize = 1;
 			depthTextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 			depthTextureDesc.CPUAccessFlags = 0;
-			depthTextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			depthTextureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 			depthTextureDesc.MipLevels = 1;
 			depthTextureDesc.MiscFlags = 0;
 			depthTextureDesc.SampleDesc.Count = 1;
@@ -504,15 +519,8 @@ public:
 		{
 			float width = static_cast<float>(mRenderer->GetWindowWidth()) * 0.25f;
 			float windowHeight = static_cast<float>(mRenderer->GetWindowHeight());
-			float height = windowHeight / 3.0f;
+			float height = windowHeight / 4.0f;
 			float topY = windowHeight - height;
-
-			mViewport.TopLeftX = 0.0f;
-			mViewport.TopLeftY = 0.0f;
-			mViewport.Width = static_cast<float>(mRenderer->GetWindowWidth());
-			mViewport.Height = topY;
-			mViewport.MinDepth = 0;
-			mViewport.MaxDepth = 1;
 
 			mPositionViewport.TopLeftX = 0.0f;
 			mPositionViewport.TopLeftY = topY;
@@ -545,8 +553,32 @@ public:
 
 		// Camera
 		{
-			mMVP.View = mat4f::lookAtLH(vec3f(0.0f, 0.0f, 0.0f), vec3f(0.0f, 15.0f, -10.0f), vec3f(0.0f, 1.0f, 0.0f)).transpose();
+			mMVP.View = mat4f::lookAtLH(mSceneObjects[4].mTransform.mPosition - vec3f(0.0f, 0.0f, 1.0f), vec3f(0.0f, 15.0f, -10.0f), vec3f(0.0f, 1.0f, 0.0f)).transpose();
 			mMVP.Projection = mat4f::normalizedPerspectiveLH(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
+		}
+
+		// Stencil
+		{
+			D3D11_DEPTH_STENCIL_DESC DSVDesc;
+			DSVDesc.DepthEnable = true;
+			DSVDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+			DSVDesc.DepthFunc = D3D11_COMPARISON_LESS;
+			DSVDesc.StencilEnable = true;
+			DSVDesc.StencilReadMask = 0xff;
+			DSVDesc.StencilWriteMask = 0xff;
+
+			DSVDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+			DSVDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+			DSVDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+			DSVDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+			// We are not rendering backfacing polygons, so these settings do not matter.
+			DSVDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+			DSVDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+			DSVDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_REPLACE;
+			DSVDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+			mDevice->CreateDepthStencilState(&DSVDesc, &mDSState);
 		}
 	}
 
@@ -645,32 +677,32 @@ public:
 			mLighting.pointLights[i].Range = 1.0f;
 		}
 
-		mLighting.ambientLight = { 0.2f, 0.2f, 0.2f, 1.0f };
+		mLighting.ambientLight = { 0.1f, 0.1f, 0.1f, 1.0f };
 	}
 
 	void InitializeSceneObjects()
 	{
-		vec4f color = { 0.5f, 0.5f, 0.5f, 1.0f };
+		vec4f color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-		mSceneObjects[0].mTransform.mPosition = { -3.0f, 0.0f, 3.0f };
+		mSceneObjects[0].mTransform.mPosition = { -3.0f, 0.0f, 2.0f };
 		mSceneObjects[0].mColor = color;// { 1.0f, 1.0f, 0.0f, 1.0f };
 		mSceneObjects[0].mMesh = mTorusMesh;
 
-		mSceneObjects[1].mTransform.mPosition = { 3.5f, -0.1f, 2.5f };
+		mSceneObjects[1].mTransform.mPosition = { 3.5f, -0.1f, 1.5f };
 		mSceneObjects[1].mColor = color; // { 1.0f, 0.0f, 1.0f, 1.0f };
 		mSceneObjects[1].mMesh = mSphereMesh;
 
-		mSceneObjects[2].mTransform.mPosition = { 1.0f, 0.0f, -1.0f };
+		mSceneObjects[2].mTransform.mPosition = { 1.0f, 0.0f, -2.0f };
 		mSceneObjects[2].mColor = color;// { 0.0f, 1.0f, 1.0f, 1.0f };
 		mSceneObjects[2].mMesh = mConeMesh;
 
-		mSceneObjects[3].mTransform.mPosition = { -2.0f, 0.0f, -1.0f };
+		mSceneObjects[3].mTransform.mPosition = { -2.0f, 0.0f, -2.0f };
 		mSceneObjects[3].mColor = color; //{ 1.0f, 0.0f, 0.0f, 1.0f };
 		mSceneObjects[3].mMesh = mCubeMesh;
 
-		mSceneObjects[4].mTransform.mPosition = { 0.0f, -0.6f, 2.5f };
+		mSceneObjects[4].mTransform.mPosition = { 0.0f, -0.6f, 0.0f };
 		mSceneObjects[4].mTransform.mScale = vec3f(5.0f);
-		mSceneObjects[4].mColor = color;// { 0.0f, 1.0f, 0.0f, 1.0f };
+		mSceneObjects[4].mColor = { 0.5f, 0.5f, 0.5f, 1.0f };
 		mSceneObjects[4].mMesh = mPlaneMesh;
 	}
 
