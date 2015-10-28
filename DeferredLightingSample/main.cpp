@@ -12,13 +12,16 @@
 #include <random>
 #include <ctime>
 
-#define SATURATE_RANDOM			FLT_EPSILON + (float)(rand()) / ((float)(RAND_MAX / (1.0f - FLT_EPSILON)))
-#define PI						3.1415926535f
-#define MULTITHREAD				1
-#define THREAD_COUNT			4
-#define MAX_LIGHTS				10
-#define LIGHT_POSITION_RADIUS	4.0f
-#define LIGHT_MOVEMENT_SPEED	0.001f
+#define SATURATE_RANDOM				FLT_EPSILON + (float)(rand()) / ((float)(RAND_MAX / (1.0f - FLT_EPSILON)))
+#define PI							3.1415926535f
+#define MULTITHREAD					1
+#define THREAD_COUNT				4
+#define MAX_LIGHTS					10
+#define LIGHT_POSITION_RADIUS		4.0f
+#define LIGHT_MOVEMENT_SPEED		0.001f
+#define MESH_COUNT					5
+#define POINT_LIGHT_SCALE			0.2f
+#define POINT_LIGHT_VOLUME_SCALE	3.0f
 
 using namespace Rig3D;
 
@@ -26,6 +29,7 @@ typedef cliqCity::memory::LinearAllocator LinearAllocator;
 
 uint8_t gMemory[10240];
 uint8_t gTaskMemory[1024];
+static const vec4f gAmbientColor = { 0.01f, 0.2f, 0.2f, 1.0f };
 
 struct Vertex2
 {
@@ -33,9 +37,8 @@ struct Vertex2
 	vec2f UV;
 };
 
-struct Vertex4
+struct Vertex3
 {
-	vec4f Tangent;
 	vec3f Position;
 	vec3f Normal;
 	vec2f UV;
@@ -45,7 +48,7 @@ std::mutex gMemoryMutex;
 
 void PerformModelLoadTask(const cliqCity::multicore::TaskData& data)
 {
-	OBJResource<Vertex4> resource(reinterpret_cast<const char*>(data.mKernelData));
+	OBJBasicResource<Vertex3> resource(reinterpret_cast<const char*>(data.mKernelData));
 	MeshLibrary<LinearAllocator>* meshLibrary = reinterpret_cast<MeshLibrary<LinearAllocator>*>(data.mStream.in[0]);
 	IRenderer* drawContext = reinterpret_cast<IRenderer*>(data.mStream.in[1]);
 	IMesh** mesh = reinterpret_cast<IMesh**>(data.mStream.in[2]);
@@ -62,7 +65,6 @@ public:
 	{
 		vec4f Color;
 		vec3f Position;
-		float Range;
 	};
 
 	struct ModelViewProjection
@@ -79,22 +81,18 @@ public:
 		IMesh*		mMesh;
 	};
 
-	struct Lighting
-	{
-		PointLight	pointLights[MAX_LIGHTS];
-		vec4f		ambientLight;
-	};
-
 	ModelViewProjection				mMVP;
 	SceneObject						mSceneObjects[5];
 	mat4f							mPointLightWorldMatrices[MAX_LIGHTS];
-	Lighting						mLighting;
+	mat4f							mPointLightVolumeWorldMatrices[MAX_LIGHTS];
+	PointLight						mPointLights[MAX_LIGHTS];
 
 	MeshLibrary<LinearAllocator>	mMeshLibrary;
 	LinearAllocator					mAllocator;
 	
 	DX3D11Renderer*					mRenderer;
 	IMesh*							mTorusMesh;
+	IMesh*							mCylinderMesh;
 	IMesh*							mSphereMesh;
 	IMesh*							mConeMesh;
 	IMesh*							mCubeMesh;
@@ -108,23 +106,29 @@ public:
 	ID3D11RenderTargetView*			mDepthRTV;
 	ID3D11RenderTargetView*			mColorRTV;
 	ID3D11RenderTargetView*			mNormalRTV;
+	ID3D11RenderTargetView*			mLightRTV;
 
 	ID3D11Texture2D*				mPositionMap;
 	ID3D11Texture2D*				mDepthMap;
 	ID3D11Texture2D*				mColorMap;
 	ID3D11Texture2D*				mNormalMap;
+	ID3D11Texture2D*				mLightMap;
 
 	ID3D11ShaderResourceView*		mPositionSRV;
 	ID3D11ShaderResourceView*		mDepthSRV;
 	ID3D11ShaderResourceView*		mColorSRV;
 	ID3D11ShaderResourceView*		mNormalSRV;
+	ID3D11ShaderResourceView*		mLightSRV;
 
-	ID3D11SamplerState*				mSamplerState;
+	ID3D11SamplerState*				mWrapSamplerState;
+	ID3D11SamplerState*				mBorderSamplerState;
 
 	ID3D11VertexShader*				mSceneVertexShader;
 	ID3D11PixelShader*				mScenePixelShader;
 	ID3D11VertexShader*				mPointLightVertexShader;
 	ID3D11PixelShader*				mPointLightPixelShader;
+	ID3D11VertexShader*				mLightVolumeVertexShader;
+	ID3D11PixelShader*				mLightVolumePixelShader;
 	ID3D11VertexShader*				mQuadVertexShader;
 	ID3D11PixelShader*				mQuadPixelShader;
 	ID3D11PixelShader*				mSingleBufferPixelShader;
@@ -146,6 +150,7 @@ public:
 		mAllocator(gMemory, gMemory + 10240),
 		mRenderer(nullptr),
 		mTorusMesh(nullptr),
+		mCylinderMesh(nullptr),
 		mSphereMesh(nullptr),
 		mConeMesh(nullptr),
 		mCubeMesh(nullptr),
@@ -157,19 +162,25 @@ public:
 		mDepthRTV(nullptr),
 		mColorRTV(nullptr),
 		mNormalRTV(nullptr),
+		mLightRTV(nullptr),
 		mPositionMap(nullptr),
 		mDepthMap(nullptr),
 		mColorMap(nullptr),
 		mNormalMap(nullptr),
+		mLightMap(nullptr),
 		mPositionSRV(nullptr),
 		mDepthSRV(nullptr),
 		mColorSRV(nullptr),
 		mNormalSRV(nullptr),
-		mSamplerState(nullptr),
+		mLightSRV(nullptr),
+		mWrapSamplerState(nullptr),
+		mBorderSamplerState(nullptr),
 		mSceneVertexShader(nullptr),
 		mScenePixelShader(nullptr),
 		mPointLightVertexShader(nullptr),
 		mPointLightPixelShader(nullptr),
+		mLightVolumeVertexShader(nullptr),
+		mLightVolumePixelShader(nullptr),
 		mQuadVertexShader(nullptr),
 		mQuadPixelShader(nullptr),
 		mSingleBufferPixelShader(nullptr),
@@ -195,21 +206,27 @@ public:
 		ReleaseMacro(mDepthRTV);
 		ReleaseMacro(mColorRTV);
 		ReleaseMacro(mNormalRTV);
+		ReleaseMacro(mLightRTV);
 		ReleaseMacro(mPositionMap);
 		ReleaseMacro(mDepthMap);
 		ReleaseMacro(mColorMap);
 		ReleaseMacro(mNormalMap);
+		ReleaseMacro(mLightMap);
 		ReleaseMacro(mPositionSRV);
 		ReleaseMacro(mDepthSRV);
 		ReleaseMacro(mColorSRV);
 		ReleaseMacro(mNormalSRV);
+		ReleaseMacro(mLightSRV);
 
-		ReleaseMacro(mSamplerState);
+		ReleaseMacro(mWrapSamplerState);
+		ReleaseMacro(mBorderSamplerState);
 
 		ReleaseMacro(mSceneVertexShader);
 		ReleaseMacro(mScenePixelShader);
 		ReleaseMacro(mPointLightVertexShader);
 		ReleaseMacro(mPointLightPixelShader);
+		ReleaseMacro(mLightVolumeVertexShader);
+		ReleaseMacro(mLightVolumePixelShader);
 		ReleaseMacro(mQuadVertexShader);
 		ReleaseMacro(mQuadPixelShader);
 		ReleaseMacro(mSingleBufferPixelShader);
@@ -240,12 +257,17 @@ public:
 	void VUpdate(double milliseconds) override
 	{
 		vec3f axis = { 0.0f, 1.0f, 0.0 };
+		mat4f physicalScale = mat4f::scale(vec3f(POINT_LIGHT_SCALE));
+		mat4f volumeScale = mat4f::scale(vec3f(POINT_LIGHT_VOLUME_SCALE));
 		for (int i = 0; i < MAX_LIGHTS; i++)
 		{
-			vec3f linear	= cliqCity::graphicsMath::cross(mLighting.pointLights[i].Position, axis);
+			vec3f linear	= cliqCity::graphicsMath::cross(mPointLights[i].Position, axis);
 			vec3f velocity	= cliqCity::graphicsMath::normalize(linear) * LIGHT_MOVEMENT_SPEED;
-			mLighting.pointLights[i].Position += velocity * static_cast<float>(milliseconds);
-			mPointLightWorldMatrices[i] = (mat4f::scale(vec3f(0.2f)) * mat4f::translate(mLighting.pointLights[i].Position)).transpose();
+			mPointLights[i].Position += velocity * static_cast<float>(milliseconds);
+
+			mat4f translation = mat4f::translate(mPointLights[i].Position);
+			mPointLightWorldMatrices[i] = (physicalScale * translation).transpose();
+			mPointLightVolumeWorldMatrices[i] = (volumeScale * translation).transpose();
 		}
 	}
 
@@ -286,21 +308,46 @@ public:
 			}
 		}
 
-		// Lighting pass
-		ID3D11ShaderResourceView* SRVs[4] = { mPositionSRV, mDepthSRV, mColorSRV, mNormalSRV };
+		// Light Map Pass
 		{
-			//	mDeviceContext->RSSetViewports(1, &mViewport);
+			ID3D11ShaderResourceView* SRVs[2] = { mPositionSRV, mNormalSRV };
+
+			mDeviceContext->OMSetRenderTargets(1, &mLightRTV, nullptr);
+			mDeviceContext->ClearRenderTargetView(mLightRTV,  color);
+
+			mDeviceContext->VSSetShader(mLightVolumeVertexShader, nullptr, 0);
+			mDeviceContext->PSSetShader(mLightVolumePixelShader, nullptr, 0);
+
+			mDeviceContext->PSSetShaderResources(0, 2, SRVs);
+			mDeviceContext->PSSetSamplers(0, 1, &mWrapSamplerState);
+
+			mRenderer->VBindMesh(mSphereMesh);
+			for (int i = 0; i < MAX_LIGHTS; i++)
+			{
+				mMVP.Model = mPointLightVolumeWorldMatrices[i];
+				mDeviceContext->UpdateSubresource(mMVPBuffer, 0, nullptr, &mMVP, 0, 0);
+				mDeviceContext->UpdateSubresource(mLightBuffer, 0, nullptr, &mPointLights[i], 0, 0);
+				mDeviceContext->VSSetConstantBuffers(0, 1, &mMVPBuffer);
+				mDeviceContext->VSSetConstantBuffers(1, 1, &mLightBuffer);
+				mRenderer->VDrawIndexed(0, mSphereMesh->GetIndexCount());
+			}
+		}
+
+		// Final Pass
+		{
+			ID3D11ShaderResourceView* SRVs[2] = { mColorSRV, mLightSRV };
+
 			mDeviceContext->OMSetRenderTargets(1, mRenderer->GetRenderTargetView(), nullptr);
 
 			mDeviceContext->IASetInputLayout(mQuadInputLayout);
 			mDeviceContext->VSSetShader(mQuadVertexShader, nullptr, 0);
 			mDeviceContext->PSSetShader(mQuadPixelShader, nullptr, 0);
 
-			mDeviceContext->PSSetShaderResources(0, 4, SRVs);
-			mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
+			mDeviceContext->PSSetShaderResources(0, 2, SRVs);
+			mDeviceContext->PSSetSamplers(0, 1, &mWrapSamplerState);
 
-			mDeviceContext->UpdateSubresource(mLightBuffer, 0, nullptr, &mLighting, 0, 0);
-			mDeviceContext->PSSetConstantBuffers(0, 1, &mLightBuffer);
+			mDeviceContext->UpdateSubresource(mColorBuffer, 0, nullptr, &gAmbientColor, 0, 0);
+			mDeviceContext->PSSetConstantBuffers(0, 1, &mColorBuffer);
 
 			mRenderer->VBindMesh(mQuadMesh);
 			mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
@@ -318,7 +365,7 @@ public:
 			{
 				mMVP.Model = mPointLightWorldMatrices[i];
 				mDeviceContext->UpdateSubresource(mMVPBuffer, 0, nullptr, &mMVP, 0, 0);
-				mDeviceContext->UpdateSubresource(mColorBuffer, 0, nullptr, &mLighting.pointLights[i].Color, 0, 0);
+				mDeviceContext->UpdateSubresource(mColorBuffer, 0, nullptr, &mPointLights[i].Color, 0, 0);
 				mDeviceContext->VSSetConstantBuffers(0, 1, &mMVPBuffer);
 				mDeviceContext->VSSetConstantBuffers(1, 1, &mColorBuffer);
 				mRenderer->VDrawIndexed(0, mSphereMesh->GetIndexCount());
@@ -327,11 +374,13 @@ public:
 
 		// G-Buffer Array Pass
 		{
+			ID3D11ShaderResourceView* SRVs[4] = { mPositionSRV, mDepthSRV, mColorSRV, mNormalSRV };
+
 			D3D11_VIEWPORT viewports[] = { mPositionViewport, mDepthViewport, mColorViewport, mNormalViewport };
 			mDeviceContext->IASetInputLayout(mQuadInputLayout);
 			mDeviceContext->VSSetShader(mQuadVertexShader, nullptr, 0);
 			mDeviceContext->PSSetShader(mSingleBufferPixelShader, nullptr, 0);
-			mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
+			mDeviceContext->PSSetSamplers(0, 1, &mWrapSamplerState);
 
 			mRenderer->VBindMesh(mQuadMesh);
 			for (int i = 0; i < 4; i++) {
@@ -346,10 +395,10 @@ public:
 
 				mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 			}
-		}
 
-		ID3D11ShaderResourceView* nullSRV[4] = { 0, 0, 0, 0 };
-		mDeviceContext->PSSetShaderResources(0, 4, nullSRV);
+			ID3D11ShaderResourceView* nullSRV[4] = { 0, 0, 0, 0 };
+			mDeviceContext->PSSetShaderResources(0, 4, nullSRV);
+		}
 
 		mRenderer->VSwapBuffers();
 	}
@@ -359,6 +408,7 @@ public:
 		mTorusMesh->~IMesh();
 		mSphereMesh->~IMesh();
 		mConeMesh->~IMesh();
+		mCylinderMesh->~IMesh();
 		mCubeMesh->~IMesh();
 		mPlaneMesh->~IMesh();
 		mQuadMesh->~IMesh();
@@ -371,14 +421,17 @@ public:
 		ReleaseMacro(mDepthRTV);
 		ReleaseMacro(mColorRTV);
 		ReleaseMacro(mNormalRTV);
+		ReleaseMacro(mLightRTV);
 		ReleaseMacro(mPositionMap);
 		ReleaseMacro(mDepthMap);
 		ReleaseMacro(mColorMap);
 		ReleaseMacro(mNormalMap);
+		ReleaseMacro(mLightMap);
 		ReleaseMacro(mPositionSRV);
 		ReleaseMacro(mDepthSRV);
 		ReleaseMacro(mColorSRV);
 		ReleaseMacro(mNormalSRV);
+		ReleaseMacro(mLightSRV);
 
 		// Position
 		{
@@ -512,6 +565,39 @@ public:
 			mDevice->CreateShaderResourceView(mNormalMap, &normalSRVDesc, &mNormalSRV);
 		}
 
+		// Light
+		{
+			D3D11_TEXTURE2D_DESC lightTextureDesc;
+			lightTextureDesc.Width = mRenderer->GetWindowWidth();
+			lightTextureDesc.Height = mRenderer->GetWindowHeight();
+			lightTextureDesc.ArraySize = 1;
+			lightTextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+			lightTextureDesc.CPUAccessFlags = 0;
+			lightTextureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+			lightTextureDesc.MipLevels = 1;
+			lightTextureDesc.MiscFlags = 0;
+			lightTextureDesc.SampleDesc.Count = 1;
+			lightTextureDesc.SampleDesc.Quality = 0;
+			lightTextureDesc.Usage = D3D11_USAGE_DEFAULT;
+
+			mDevice->CreateTexture2D(&lightTextureDesc, nullptr, &mLightMap);
+
+			D3D11_RENDER_TARGET_VIEW_DESC lightRTVDesc;
+			lightRTVDesc.Format = lightTextureDesc.Format;
+			lightRTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+			lightRTVDesc.Texture2D.MipSlice = 0;
+
+			mRenderer->GetDevice()->CreateRenderTargetView(mLightMap, &lightRTVDesc, &mLightRTV);
+
+			D3D11_SHADER_RESOURCE_VIEW_DESC lightSRVDesc;
+			lightSRVDesc.Format = lightTextureDesc.Format;
+			lightSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+			lightSRVDesc.Texture2D.MipLevels = 1;
+			lightSRVDesc.Texture2D.MostDetailedMip = 0;
+
+			mDevice->CreateShaderResourceView(mLightMap, &lightSRVDesc, &mLightSRV);
+		}
+
 		// Viewports
 		{
 			float width = static_cast<float>(mRenderer->GetWindowWidth()) * 0.25f;
@@ -559,26 +645,28 @@ public:
 	{
 #ifdef MULTITHREAD
 		cliqCity::multicore::Thread threads[THREAD_COUNT];
-		cliqCity::multicore::TaskData modelData[4];
-		char* fileNames[4] = {
+		cliqCity::multicore::TaskData modelData[MESH_COUNT];
+		char* fileNames[MESH_COUNT] = {
 			"Models\\torus.obj",
-			"Models\\sphere.obj",
+			"Models\\cylinder.obj",
 			"Models\\cone.obj",
-			"Models\\cube.obj"
+			"Models\\cube.obj",
+			"Models\\sphere.obj"
 		};
 
-		IMesh** meshes[4] = {
+		IMesh** meshes[MESH_COUNT] = {
 			&mTorusMesh,
-			&mSphereMesh,
+			&mCylinderMesh,
 			&mConeMesh,
-			&mCubeMesh
+			&mCubeMesh,
+			&mSphereMesh
 		};
 
-		cliqCity::multicore::TaskID taskIDs[4];
+		cliqCity::multicore::TaskID taskIDs[MESH_COUNT];
 
 		cliqCity::multicore::TaskDispatcher dispatchQueue(threads, THREAD_COUNT, gTaskMemory, 1024);
 		dispatchQueue.Start();
-		for (int i = 0; i < 4; i++)
+		for (int i = 0; i < MESH_COUNT; i++)
 		{
 			modelData[i].mKernelData = fileNames[i];
 			modelData[i].mStream.in[0] = &mMeshLibrary;
@@ -586,27 +674,26 @@ public:
 			modelData[i].mStream.in[2] = meshes[i];
 			taskIDs[i] = dispatchQueue.AddTask(modelData[i], PerformModelLoadTask);
 		}
-
-			//dispatchQueue.Synchronize();
 #else
-		OBJResource<Vertex4> torusResource("Models\\torus.obj");
-		OBJResource<Vertex4> sphereResource("Models\\sphere.obj");
-		OBJResource<Vertex4> coneResource("Models\\cone.obj");
-		OBJResource<Vertex4> cubeResource("Models\\cube.obj");
+		OBJBasicResource<Vertex3> torusResource("Models\\torus.obj");
+		OBJBasicResource<Vertex3> cylinderResource("Models\\cylinder.obj");
+		OBJBasicResource<Vertex3> coneResource("Models\\cone.obj");
+		OBJBasicResource<Vertex3> cubeResource("Models\\cube.obj");
+		OBJBasicResource<Vertex3> sphereResource("Models\\sphere.obj");
 
 		mMeshLibrary.LoadMesh(&mTorusMesh, mRenderer, torusResource);
-		mMeshLibrary.LoadMesh(&mSphereMesh, mRenderer, sphereResource);
+		mMeshLibrary.LoadMesh(&mCylinderMesh, mRenderer, cylinderResource);
 		mMeshLibrary.LoadMesh(&mConeMesh, mRenderer, coneResource);
 		mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, cubeResource);
+		mMeshLibrary.LoadMesh(&mSphereMesh, mRenderer, sphereResource);
 #endif
 	
-		Vertex4 planeVertices[9];
+		Vertex3 planeVertices[9];
 		for (int z = 0; z < 3; z++)
 		{
 			for (int x = 0; x < 3; x++)
 			{
-				Vertex4& vertex = planeVertices[z * 3 + x];
-				vertex.Tangent = { 1.0f, 0.0f, 0.0f, 1.0f };
+				Vertex3& vertex = planeVertices[z * 3 + x];
 				vertex.Position = { -1.0f + x, 0.0f, 1.0f - z };
 				vertex.Normal = { 0.0f, 1.0f, 0.0f };
 				vertex.UV = { x / 3.0f, (1.0f + z / 3.0f) - 1.0f };
@@ -616,7 +703,7 @@ public:
 		uint16_t planeIndices[24] = { 0, 1, 4, 4, 3, 0, 1, 2, 5, 5, 4, 1, 3, 4, 7, 7, 6, 3, 4, 5, 8, 8, 7, 4 };
 
 		mMeshLibrary.NewMesh(&mPlaneMesh, mRenderer);
-		mRenderer->VSetMeshVertexBufferData(mPlaneMesh, planeVertices, sizeof(Vertex4) * 9, sizeof(Vertex4), GPU_MEMORY_USAGE_STATIC);
+		mRenderer->VSetMeshVertexBufferData(mPlaneMesh, planeVertices, sizeof(Vertex3) * 9, sizeof(Vertex3), GPU_MEMORY_USAGE_STATIC);
 		mRenderer->VSetMeshIndexBufferData(mPlaneMesh, planeIndices, 24, GPU_MEMORY_USAGE_STATIC);
 
 		Vertex2 quadVertices[4];
@@ -639,18 +726,15 @@ public:
 	void InitializeLighting()
 	{
 		std::time_t now;
-		std::srand((unsigned int)std::time(&now));
+		std::srand(static_cast<unsigned int>(std::time(&now)));
 
 		float angle = 2.0f * PI / MAX_LIGHTS;
 
 		for (int i = 0; i < MAX_LIGHTS; i++)
 		{
-			mLighting.pointLights[i].Color = { SATURATE_RANDOM, SATURATE_RANDOM, SATURATE_RANDOM, 1.0f };
-			mLighting.pointLights[i].Position = { LIGHT_POSITION_RADIUS * cos(angle * i), 1.0f, LIGHT_POSITION_RADIUS * sin(angle * i) };
-			mLighting.pointLights[i].Range = 1.0f;
+			mPointLights[i].Color = { SATURATE_RANDOM, SATURATE_RANDOM, SATURATE_RANDOM, 1.0f };
+			mPointLights[i].Position = { LIGHT_POSITION_RADIUS * cos(angle * i), 1.0f, LIGHT_POSITION_RADIUS * sin(angle * i) };
 		}
-
-		mLighting.ambientLight = { 0.1f, 0.1f, 0.1f, 1.0f };
 	}
 
 	void InitializeSceneObjects()
@@ -663,7 +747,7 @@ public:
 
 		mSceneObjects[1].mTransform.SetPosition(3.5f, -0.1f, 1.5f );
 		mSceneObjects[1].mColor = color; // { 1.0f, 0.0f, 1.0f, 1.0f };
-		mSceneObjects[1].mMesh = mSphereMesh;
+		mSceneObjects[1].mMesh = mCylinderMesh;
 
 		mSceneObjects[2].mTransform.SetPosition(1.0f, 0.0f, -2.0f );
 		mSceneObjects[2].mColor = color;// { 0.0f, 1.0f, 1.0f, 1.0f };
@@ -674,7 +758,7 @@ public:
 		mSceneObjects[3].mMesh = mCubeMesh;
 
 		mSceneObjects[4].mTransform.SetPosition(0.0f, -0.6f, 0.0f );
-		mSceneObjects[4].mTransform.SetScale(vec3f(5.0f));
+		mSceneObjects[4].mTransform.SetScale(vec3f(15.0f));
 		mSceneObjects[4].mColor = { 0.5f, 0.5f, 0.5f, 1.0f };
 		mSceneObjects[4].mMesh = mPlaneMesh;
 	}
@@ -684,27 +768,32 @@ public:
 		ID3DBlob* vsBlob;
 		ID3DBlob* psBlob;
 
-		D3D11_INPUT_ELEMENT_DESC vertex4InputDesc[] =
+		D3D11_INPUT_ELEMENT_DESC vertex3InputDesc[] =
 		{
-			{ "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT,	0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,	0, 16, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT,		0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,		0, 40, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,	0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT,		0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,		0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 		};
 
 		D3DReadFileToBlob(L"ModelVertexShader.cso", &vsBlob);
 		mDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &mSceneVertexShader);
-		mDevice->CreateInputLayout(vertex4InputDesc, 4, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mSceneInputLayout);
+		mDevice->CreateInputLayout(vertex3InputDesc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mSceneInputLayout);
 	
 		D3DReadFileToBlob(L"ModelPixelShader.cso", &psBlob);
 		mDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &mScenePixelShader);
 
 		D3DReadFileToBlob(L"PointLightVertexShader.cso", &vsBlob);
 		mDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &mPointLightVertexShader);
-		mDevice->CreateInputLayout(vertex4InputDesc, 4, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mPointLightInputLayout);
+		mDevice->CreateInputLayout(vertex3InputDesc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mPointLightInputLayout);
 
 		D3DReadFileToBlob(L"PointLightPixelShader.cso", &psBlob);
 		mDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &mPointLightPixelShader);
+
+		D3DReadFileToBlob(L"LightVolumeVertexShader.cso", &vsBlob);
+		mDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &mLightVolumeVertexShader);
+
+		D3DReadFileToBlob(L"LightVolumePixelShader.cso", &psBlob);
+		mDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &mLightVolumePixelShader);
 
 		D3D11_INPUT_ELEMENT_DESC vertex2InputDesc[] =
 		{
@@ -749,7 +838,7 @@ public:
 		mDevice->CreateBuffer(&colorBufferDesc, nullptr, &mColorBuffer);
 
 		D3D11_BUFFER_DESC lightBufferDesc;
-		lightBufferDesc.ByteWidth = sizeof(Lighting);
+		lightBufferDesc.ByteWidth = sizeof(PointLight);
 		lightBufferDesc.Usage = D3D11_USAGE_DEFAULT;
 		lightBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 		lightBufferDesc.CPUAccessFlags = 0;
@@ -758,15 +847,29 @@ public:
 
 		mDevice->CreateBuffer(&lightBufferDesc, nullptr, &mLightBuffer);
 
-		D3D11_SAMPLER_DESC samplerDesc;
-		ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
-		samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-		samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-		samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-		samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-		samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+		D3D11_SAMPLER_DESC wrapSamplerDesc;
+		ZeroMemory(&wrapSamplerDesc, sizeof(D3D11_SAMPLER_DESC));
+		wrapSamplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+		wrapSamplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+		wrapSamplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+		wrapSamplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		wrapSamplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-		mDevice->CreateSamplerState(&samplerDesc, &mSamplerState);
+		mDevice->CreateSamplerState(&wrapSamplerDesc, &mWrapSamplerState);
+
+		D3D11_SAMPLER_DESC borderSamplerDesc;
+		ZeroMemory(&borderSamplerDesc, sizeof(D3D11_SAMPLER_DESC));
+		borderSamplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
+		borderSamplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
+		borderSamplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
+		borderSamplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		borderSamplerDesc.BorderColor[0] = 0.0f;
+		borderSamplerDesc.BorderColor[1] = 0.0f;
+		borderSamplerDesc.BorderColor[2] = 0.0f;
+		borderSamplerDesc.BorderColor[3] = 0.0f;
+		borderSamplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+		mDevice->CreateSamplerState(&borderSamplerDesc, &mBorderSamplerState);
 
 		VOnResize();
 	}

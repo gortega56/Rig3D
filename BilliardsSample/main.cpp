@@ -25,10 +25,10 @@
 #define PLANE_COUNT						4
 #define INVERSE_BALL_MASS				6.25f
 #define BALL_MASS						0.16f
-#define ELASTIC_CONSTANT				0.8f
+#define ELASTIC_CONSTANT				0.9f
 #define PLANE_SPHERE_ELASTIC_CONSTANT	0.5f
-#define KINETIC_FRICTION_CONSTANT		0.1f
-#define STATIC_FRICTION_CONSTANT		0.1f
+#define KINETIC_FRICTION_CONSTANT		0.4f
+#define STATIC_FRICTION_CONSTANT		0.015f
 #define CUE_SPEED						0.001f
 #define LEFT_PLANE_DISTANCE				-1.68546724f
 #define RIGHT_PLANE_DISTANCE			-1.47883308f
@@ -45,6 +45,8 @@ static const mat3f	gSphereInverseTensor = mat4f((2.0f / 5.0f) * BALL_MASS * BALL
 static const mat3f	gPlaneInverseTensor;
 static const vec3f  gTablePosition = { -1.0f, 0.0f, 1.0f };
 static const vec3f  gSphereInverseTensorVector = vec3f(1.0f / (2.0f / 5.0f) * BALL_MASS * BALL_RADIUS * BALL_RADIUS);
+static const float  gKineticFriction = KINETIC_FRICTION_CONSTANT * BALL_MASS * GRAVITY_CONSTANT;
+static const float  gStaticFriction = STATIC_FRICTION_CONSTANT * BALL_MASS * GRAVITY_CONSTANT;
 
 char gMeshMemory[gMeshMemorySize];
 
@@ -60,18 +62,6 @@ public:
 		vec3f Position;
 		vec3f Normal;
 		vec2f UV;
-	};
-
-	struct RK4State
-	{
-		vec3f position;
-		vec3f velocity;
-	};
-
-	struct RK4Derivative
-	{
-		vec3f dxdt;
-		vec3f dvdt;
 	};
 
 	struct RigidBody
@@ -393,7 +383,7 @@ public:
 	void LoadBallTextures()
 	{
 		const wchar_t* filenames[16] = {
-			L"Textures\\0.png",
+			L"Textures\\1.png",
 			L"Textures\\1.png",
 			L"Textures\\2.png",
 			L"Textures\\3.png",
@@ -440,7 +430,7 @@ public:
 		D3D11_MAPPED_SUBRESOURCE mappedSubresource;
 		for (int i = 0; i < BALL_COUNT; i++)
 		{
-			for (int j = 0; j < textureDesc.MipLevels; j++)
+			for (auto j = 0; j < textureDesc.MipLevels; j++)
 			{
 				mDeviceContext->Map(ballTextures[i], j, D3D11_MAP_READ, 0, &mappedSubresource);
 				mDeviceContext->UpdateSubresource(textureArray, D3D11CalcSubresource(j, i, textureDesc.MipLevels), nullptr, mappedSubresource.pData, mappedSubresource.RowPitch, 0);
@@ -537,7 +527,7 @@ public:
 		DetectPlaneSphereCollisions(&mPlaneCollisions, mPlanes, PLANE_COUNT, mSpheres, mRigidBodies, BALL_COUNT);
 		ResolveSphereSphereCollisions(&mSphereCollisions, mSpheres, mBallTransforms, mRigidBodies);
 		ResolvePlaneSphereCollisions(&mPlaneCollisions, mPlanes, mSpheres, mRigidBodies);
-		ApplyFriction(mSpheres, mRigidBodies, BALL_COUNT);
+		//ApplyFriction(mSpheres, mRigidBodies, BALL_COUNT);
 		// Interpolate State (Optional)
 		
 		// Update rendering structures.
@@ -747,7 +737,7 @@ public:
 		while (accumulator >= PHYSICS_TIME_STEP)
 		{
 			Euler(mBallTransforms, mSpheres, mRigidBodies, PHYSICS_TIME_STEP, BALL_COUNT);
-			//RK4(mBallTransforms, mSpheres, mRigidBodies, dt, BALL_COUNT);
+			//RK4(mBallTransforms, mSpheres, mRigidBodies, PHYSICS_TIME_STEP, BALL_COUNT);
 			accumulator -= PHYSICS_TIME_STEP;
 			i++;
 		}
@@ -768,6 +758,8 @@ public:
 			rigidBodies[i].angularVelocity += angularAcceleration * dt;
 			rigidBodies[i].velocity += acceleration * dt;
 
+			rigidBodies[i].forces = rigidBodies[i].torques = vec3f(0.0f);
+
 			// Position
 			vec3f position = transforms[i].GetPosition();
 			position += rigidBodies[i].velocity * dt;
@@ -787,50 +779,51 @@ public:
 
 	void RK4(Transform* transforms, Sphere* spheres, RigidBody* rigidBodies, float dt, int count)
 	{
+		static float t = 0.0f;
+
 		for (int i = 0; i < BALL_COUNT; i++)
 		{
-			
-			RK4Derivative a, b, c, d;
-			RK4State state;
-			state.position = transforms[i].GetPosition();
-			state.velocity = rigidBodies[i].velocity;
+			vec3f v0, v1, v2, v3;
+			vec3f w0, w1, w2, w3;
+			vec3f a0, a1, a2, a3;
+			vec3f t0, t1, t2, t3;
+			quatf s0, s1, s2, s3;
+			quatf spin = transforms[i].GetRotation() * quatf(0.0f, rigidBodies[i].angularVelocity) * 0.5f;
 
-			float t = 0.0f;
-			a = RK4Evaluate(state, t, 0.0f, RK4Derivative());
-			b = RK4Evaluate(state, t, dt * 0.5f, a);
-			c = RK4Evaluate(state, t, dt * 0.5f, b);
-			d = RK4Evaluate(state, t, dt, c);
+			RK4Evaluate(transforms[i], rigidBodies[i], t, 0.0f, vec3f(0.0f), vec3f(0.0f), spin, v0, w0, a0, t0, s0);
+			RK4Evaluate(transforms[i], rigidBodies[i], t, dt * 0.5f, a0, t0, s0, v1, w1, a1, t1, s1);
+			RK4Evaluate(transforms[i], rigidBodies[i], t, dt * 0.5f, a1, t1, s1, v2, w2, a2, t2, s2);
+			RK4Evaluate(transforms[i], rigidBodies[i], t, dt, a2, t2, s2, v3, w3, a3, t3, s3);
 
-			vec3f dxdt = 1.0f / 6.0f *
-				(a.dxdt + 2.0f*(b.dxdt + c.dxdt) + d.dxdt);
+			vec3f vf = 1.0f / 6.0f * (v0 + 2.0f * (v1 + v2) + v3);
+			vec3f af = 1.0f / 6.0f * (a0 + 2.0f * (a1 + a2) + a3);
+			vec3f wf = 1.0f / 6.0f * (w0 + 2.0f * (w1 + w2) + w3);
+			quatf sf = (s0 + ((s1 + s2) * 2.0f) + s3) * 1.0f / 6.0f;
 
-			vec3f dvdt = 1.0f / 6.0f *
-				(a.dvdt + 2.0f*(b.dvdt + c.dvdt) + d.dvdt);
+			vec3f position = transforms[i].GetPosition() + vf * dt;
+			vec3f velocity = rigidBodies[i].velocity + af * dt;
+			vec3f angularVelocity = rigidBodies[i].angularVelocity + wf * dt;
+			quatf rotation = transforms[i].GetRotation() + sf * dt;
 
-			vec3f position = state.position * dxdt * dt;
-			vec3f velocity = state.position * dvdt * dt;
-
-			rigidBodies[i].velocity = velocity;
+			//transforms[i].SetRotation(cliqCity::graphicsMath::normalize(rotation));
 			transforms[i].SetPosition(position);
 			spheres[i].origin = position;
+			rigidBodies[i].velocity = velocity;
+			rigidBodies[i].angularVelocity = angularVelocity;
+
+			rigidBodies[i].forces = rigidBodies[i].torques = vec3f(0.0f);
 		}
+
+		t += dt;
 	}
 
-	RK4Derivative RK4Evaluate(const RK4State& initial, float t, float dt ,const RK4Derivative& derivative)
+	inline void RK4Evaluate(const Transform& transform, const RigidBody& rigidBody, float t, float dt, vec3f a0, vec3f t0, quatf s0, vec3f& v1, vec3f& w1, vec3f& a1, vec3f& t1, quatf& s1)
 	{
-		RK4State state;
-		state.position = initial.position * derivative.dxdt * dt;
-		state.velocity = initial.velocity * derivative.dvdt * dt;
-
-		RK4Derivative output;
-		output.dxdt = state.velocity;
-		output.dvdt = RK4Acceleration(state, t + dt);
-		return output;
-	}
-
-	vec3f RK4Acceleration(const RK4State& state, float t)
-	{
-		return vec3f(0.0f);
+		v1 = rigidBody.velocity + a0 * dt;
+		w1 = rigidBody.angularVelocity + t0 * dt;
+		s1 = transform.GetRotation() + s0 * dt;
+		a1 = rigidBody.forces * rigidBody.inverseMass;
+		t1 = rigidBody.torques * gSphereInverseTensorVector;
 	}
 
 	void DetectPlaneSphereCollisions(std::vector<Collision>* collisions, Plane* planes, int planeCount, Sphere* spheres, RigidBody* rigidBodies, int sphereCount)
@@ -887,7 +880,7 @@ public:
 
 	void ResolvePlaneSphereCollisions(std::vector<Collision>* collisions, Plane* planes, Sphere* spheres, RigidBody* rigidBodies)
 	{
-		for (int i = 0; i < collisions->size(); i++)
+		for (auto i = 0; i < collisions->size(); i++)
 		{
 			vec3f& poi = collisions->at(i).poi;
 			int i0 = collisions->at(i).s0;
@@ -904,7 +897,7 @@ public:
 
 	void ResolveSphereSphereCollisions(std::vector<Collision>* collisions, Sphere* spheres, Transform* transforms, RigidBody* rigidBodies)
 	{
-		for (int i = 0; i < collisions->size(); i++)
+		for (auto i = 0; i < collisions->size(); i++)
 		{
 			vec3f& poi = collisions->at(i).poi;
 			int i0 = collisions->at(i).s0;
@@ -963,18 +956,41 @@ public:
 
 	void ApplyFriction(Sphere* spheres, RigidBody* rigidBodies, int count)
 	{
-		vec3f down = { 0.0f, -BALL_RADIUS, 0.0f };
+		vec3f r = { 0.0f, -BALL_RADIUS, 0.0f };
 		for (int i = 0; i < count; i++)
 		{
 			// NOT MOVING
-
-			// SLIDING
-			if (mRigidBodies[i].velocity.x != 0.0f || mRigidBodies[i].velocity.z != 0.0f)
+			if (rigidBodies[i].velocity.x == 0.0f &&
+				rigidBodies[i].velocity.z == 0.0f &&
+				rigidBodies[i].angularVelocity.x == 0.0f &&
+				rigidBodies[i].angularVelocity.y == 0.0f &&
+				rigidBodies[i].angularVelocity.z == 0.0f)
 			{
-				mRigidBodies[i].torques += -cliqCity::graphicsMath::normalize(mRigidBodies[i].velocity) * KINETIC_FRICTION_CONSTANT * BALL_MASS * GRAVITY_CONSTANT;
+				continue;
 			}
-			// ROLLING
-			
+			else
+			{
+				float v = cliqCity::graphicsMath::magnitude(rigidBodies[i].velocity);
+				float rw = cliqCity::graphicsMath::magnitude(rigidBodies[i].angularVelocity * BALL_RADIUS);
+				vec3f n = -(rigidBodies[i].velocity / v);
+
+				if (v <= rw)
+				{
+					// ROLLING
+					vec3f f = n * gStaticFriction;
+					vec3f t = cliqCity::graphicsMath::cross(r, f);
+				//	rigidBodies[i].forces += f;
+					rigidBodies[i].torques -= t;
+				}
+				else
+				{
+					// SLIDING
+					vec3f f = n * gKineticFriction;
+					vec3f t = cliqCity::graphicsMath::cross(r, f);
+				//	rigidBodies[i].forces += f;
+					rigidBodies[i].torques += t;
+				}
+			}
 		}
 	}
 
