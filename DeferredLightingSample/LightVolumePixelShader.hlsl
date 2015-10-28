@@ -19,8 +19,8 @@ float4 main(Pixel pixel) : SV_TARGET
 	float  magnitude = length(lightDirection);
 	lightDirection /= magnitude;
 	
-	float3 lightAttenuation = { 0.0f, 1.0f, 0.0f };
-	float attenuation = 3.0f / dot(lightAttenuation, float3(1.0f, magnitude, magnitude * magnitude));
+	float3 lightAttenuation = { 0.0f, 1.0f, 1.0f };
+	float attenuation = saturate(1.0f - magnitude / 2.45f);// / 3.0f; // 0.1f / dot(lightAttenuation, float3(1.0f, magnitude, magnitude * magnitude));
 	float nDotL = saturate(dot(normal, lightDirection));
 	return nDotL * pixel.lightColor * attenuation;
 }

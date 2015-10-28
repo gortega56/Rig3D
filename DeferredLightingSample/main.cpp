@@ -16,12 +16,13 @@
 #define PI							3.1415926535f
 #define MULTITHREAD					1
 #define THREAD_COUNT				4
-#define MAX_LIGHTS					10
+#define MAX_LIGHTS					50
+#define MIN_LIGHTS					5
 #define LIGHT_POSITION_RADIUS		4.0f
 #define LIGHT_MOVEMENT_SPEED		0.001f
 #define MESH_COUNT					5
 #define POINT_LIGHT_SCALE			0.2f
-#define POINT_LIGHT_VOLUME_SCALE	3.0f
+#define POINT_LIGHT_VOLUME_SCALE	5.0f
 
 using namespace Rig3D;
 
@@ -29,7 +30,8 @@ typedef cliqCity::memory::LinearAllocator LinearAllocator;
 
 uint8_t gMemory[10240];
 uint8_t gTaskMemory[1024];
-static const vec4f gAmbientColor = { 0.01f, 0.2f, 0.2f, 1.0f };
+static const vec4f gAmbientColor = { 0.02f, 0.2f, 0.2f, 1.0f };
+static const float gRadian = PI / 180.f;
 
 struct Vertex2
 {
@@ -86,6 +88,7 @@ public:
 	mat4f							mPointLightWorldMatrices[MAX_LIGHTS];
 	mat4f							mPointLightVolumeWorldMatrices[MAX_LIGHTS];
 	PointLight						mPointLights[MAX_LIGHTS];
+	int								mPointLightCount;
 
 	MeshLibrary<LinearAllocator>	mMeshLibrary;
 	LinearAllocator					mAllocator;
@@ -121,7 +124,7 @@ public:
 	ID3D11ShaderResourceView*		mLightSRV;
 
 	ID3D11SamplerState*				mWrapSamplerState;
-	ID3D11SamplerState*				mBorderSamplerState;
+	ID3D11BlendState*				mBlendState;
 
 	ID3D11VertexShader*				mSceneVertexShader;
 	ID3D11PixelShader*				mScenePixelShader;
@@ -147,6 +150,7 @@ public:
 	D3D11_VIEWPORT					mNormalViewport;
 
 	DeferredLightingScene() : 
+		mPointLightCount(MIN_LIGHTS),
 		mAllocator(gMemory, gMemory + 10240),
 		mRenderer(nullptr),
 		mTorusMesh(nullptr),
@@ -174,7 +178,7 @@ public:
 		mNormalSRV(nullptr),
 		mLightSRV(nullptr),
 		mWrapSamplerState(nullptr),
-		mBorderSamplerState(nullptr),
+		mBlendState(nullptr),
 		mSceneVertexShader(nullptr),
 		mScenePixelShader(nullptr),
 		mPointLightVertexShader(nullptr),
@@ -219,7 +223,7 @@ public:
 		ReleaseMacro(mLightSRV);
 
 		ReleaseMacro(mWrapSamplerState);
-		ReleaseMacro(mBorderSamplerState);
+		ReleaseMacro(mBlendState);
 
 		ReleaseMacro(mSceneVertexShader);
 		ReleaseMacro(mScenePixelShader);
@@ -256,18 +260,37 @@ public:
 
 	void VUpdate(double milliseconds) override
 	{
+		HandleInput();
+
 		vec3f axis = { 0.0f, 1.0f, 0.0 };
 		mat4f physicalScale = mat4f::scale(vec3f(POINT_LIGHT_SCALE));
 		mat4f volumeScale = mat4f::scale(vec3f(POINT_LIGHT_VOLUME_SCALE));
+		static float t = 0.0f;
+
 		for (int i = 0; i < MAX_LIGHTS; i++)
 		{
 			vec3f linear	= cliqCity::graphicsMath::cross(mPointLights[i].Position, axis);
 			vec3f velocity	= cliqCity::graphicsMath::normalize(linear) * LIGHT_MOVEMENT_SPEED;
 			mPointLights[i].Position += velocity * static_cast<float>(milliseconds);
+			mPointLights[i].Position.y = 0.5f * sin(t + atan2(mPointLights[i].Position.z, mPointLights[i].Position.x));
 
 			mat4f translation = mat4f::translate(mPointLights[i].Position);
 			mPointLightWorldMatrices[i] = (physicalScale * translation).transpose();
 			mPointLightVolumeWorldMatrices[i] = (volumeScale * translation).transpose();
+		}
+
+		t += static_cast<float>(milliseconds / 1000.0f);
+	}
+
+	void HandleInput()
+	{
+		if (Input::SharedInstance().GetKeyDown(KEYCODE_UP))
+		{
+			mPointLightCount = min(mPointLightCount + 1, MAX_LIGHTS);
+		}
+		else if (Input::SharedInstance().GetKeyDown(KEYCODE_DOWN))
+		{
+			mPointLightCount = max(mPointLightCount - 1, MIN_LIGHTS);
 		}
 	}
 
@@ -312,8 +335,9 @@ public:
 		{
 			ID3D11ShaderResourceView* SRVs[2] = { mPositionSRV, mNormalSRV };
 
+			const float black[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 			mDeviceContext->OMSetRenderTargets(1, &mLightRTV, nullptr);
-			mDeviceContext->ClearRenderTargetView(mLightRTV,  color);
+			mDeviceContext->ClearRenderTargetView(mLightRTV,  black);
 
 			mDeviceContext->VSSetShader(mLightVolumeVertexShader, nullptr, 0);
 			mDeviceContext->PSSetShader(mLightVolumePixelShader, nullptr, 0);
@@ -321,8 +345,11 @@ public:
 			mDeviceContext->PSSetShaderResources(0, 2, SRVs);
 			mDeviceContext->PSSetSamplers(0, 1, &mWrapSamplerState);
 
+			float c[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+			mDeviceContext->OMSetBlendState(mBlendState, c, 0xffffffff);
+
 			mRenderer->VBindMesh(mSphereMesh);
-			for (int i = 0; i < MAX_LIGHTS; i++)
+			for (int i = 0; i < mPointLightCount; i++)
 			{
 				mMVP.Model = mPointLightVolumeWorldMatrices[i];
 				mDeviceContext->UpdateSubresource(mMVPBuffer, 0, nullptr, &mMVP, 0, 0);
@@ -331,11 +358,13 @@ public:
 				mDeviceContext->VSSetConstantBuffers(1, 1, &mLightBuffer);
 				mRenderer->VDrawIndexed(0, mSphereMesh->GetIndexCount());
 			}
+
+			mDeviceContext->OMSetBlendState(nullptr, c, 0xffffffff);
 		}
 
 		// Final Pass
 		{
-			ID3D11ShaderResourceView* SRVs[2] = { mColorSRV, mLightSRV };
+			ID3D11ShaderResourceView* SRVs[3] = { mColorSRV, mLightSRV, mDepthSRV };
 
 			mDeviceContext->OMSetRenderTargets(1, mRenderer->GetRenderTargetView(), nullptr);
 
@@ -343,7 +372,7 @@ public:
 			mDeviceContext->VSSetShader(mQuadVertexShader, nullptr, 0);
 			mDeviceContext->PSSetShader(mQuadPixelShader, nullptr, 0);
 
-			mDeviceContext->PSSetShaderResources(0, 2, SRVs);
+			mDeviceContext->PSSetShaderResources(0, 3, SRVs);
 			mDeviceContext->PSSetSamplers(0, 1, &mWrapSamplerState);
 
 			mDeviceContext->UpdateSubresource(mColorBuffer, 0, nullptr, &gAmbientColor, 0, 0);
@@ -361,7 +390,7 @@ public:
 			mDeviceContext->PSSetShader(mPointLightPixelShader, nullptr, 0);
 
 			mRenderer->VBindMesh(mSphereMesh);
-			for (int i = 0; i < MAX_LIGHTS; i++)
+			for (int i = 0; i < mPointLightCount; i++)
 			{
 				mMVP.Model = mPointLightWorldMatrices[i];
 				mDeviceContext->UpdateSubresource(mMVPBuffer, 0, nullptr, &mMVP, 0, 0);
@@ -636,7 +665,7 @@ public:
 
 		// Camera
 		{
-			mMVP.View = mat4f::lookAtLH(mSceneObjects[4].mTransform.GetPosition() - vec3f(0.0f, 0.0f, 1.0f), vec3f(0.0f, 15.0f, -10.0f), vec3f(0.0f, 1.0f, 0.0f)).transpose();
+			mMVP.View = mat4f::lookAtLH(mSceneObjects[4].mTransform.GetPosition() - vec3f(0.0f, 0.0f, 1.0f), vec3f(0.0f, 15.0f, -15.0f), vec3f(0.0f, 1.0f, 0.0f)).transpose();
 			mMVP.Projection = mat4f::normalizedPerspectiveLH(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
 		}
 	}
@@ -758,7 +787,7 @@ public:
 		mSceneObjects[3].mMesh = mCubeMesh;
 
 		mSceneObjects[4].mTransform.SetPosition(0.0f, -0.6f, 0.0f );
-		mSceneObjects[4].mTransform.SetScale(vec3f(15.0f));
+		mSceneObjects[4].mTransform.SetScale(vec3f(5.0f));
 		mSceneObjects[4].mColor = { 0.5f, 0.5f, 0.5f, 1.0f };
 		mSceneObjects[4].mMesh = mPlaneMesh;
 	}
@@ -857,19 +886,20 @@ public:
 
 		mDevice->CreateSamplerState(&wrapSamplerDesc, &mWrapSamplerState);
 
-		D3D11_SAMPLER_DESC borderSamplerDesc;
-		ZeroMemory(&borderSamplerDesc, sizeof(D3D11_SAMPLER_DESC));
-		borderSamplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
-		borderSamplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
-		borderSamplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
-		borderSamplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-		borderSamplerDesc.BorderColor[0] = 0.0f;
-		borderSamplerDesc.BorderColor[1] = 0.0f;
-		borderSamplerDesc.BorderColor[2] = 0.0f;
-		borderSamplerDesc.BorderColor[3] = 0.0f;
-		borderSamplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+		D3D11_BLEND_DESC blendDesc;
+		ZeroMemory(&blendDesc, sizeof(D3D11_BLEND_DESC));
+		blendDesc.AlphaToCoverageEnable = 0;
+		blendDesc.IndependentBlendEnable = 0;
+		blendDesc.RenderTarget[0].BlendEnable = 1;
+		blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+		blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+		blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+		blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+		blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+		blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
+		blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 
-		mDevice->CreateSamplerState(&borderSamplerDesc, &mBorderSamplerState);
+		mDevice->CreateBlendState(&blendDesc, &mBlendState);
 
 		VOnResize();
 	}
