@@ -408,7 +408,7 @@ public:
 
 		// G-Buffer Array Pass
 		{
-			ID3D11ShaderResourceView* SRVs[4] = { mPositionSRV, mDepthSRV, mColorSRV, mNormalSRV };
+			ID3D11ShaderResourceView* SRVs[4] = { mPositionSRV, mLightSRV, mColorSRV, mNormalSRV };
 
 			D3D11_VIEWPORT viewports[] = { mPositionViewport, mDepthViewport, mColorViewport, mNormalViewport };
 			mDeviceContext->IASetInputLayout(mQuadInputLayout);
