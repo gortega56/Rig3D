@@ -16,9 +16,12 @@
 #define PI							3.1415926535f
 #define MULTITHREAD					1
 #define THREAD_COUNT				4
-#define MAX_LIGHTS					50
-#define MIN_LIGHTS					5
-#define LIGHT_POSITION_RADIUS		4.0f
+#define MAX_LIGHTS					120
+#define MIN_LIGHTS					0
+#define LIGHT_POSITION_RADIUS_I		3.0f
+#define LIGHT_POSITION_RADIUS_O		6.0f
+#define LIGHT_POSITION_RADIUS_OO	9.0f
+#define LIGHT_POSITION_RADIUS_OOO	12.0f
 #define LIGHT_MOVEMENT_SPEED		0.001f
 #define MESH_COUNT					5
 #define POINT_LIGHT_SCALE			0.2f
@@ -98,7 +101,7 @@ public:
 	IMesh*							mCylinderMesh;
 	IMesh*							mSphereMesh;
 	IMesh*							mConeMesh;
-	IMesh*							mCubeMesh;
+	IMesh*							mHelixMesh;
 	IMesh*							mPlaneMesh;
 	IMesh*							mQuadMesh;
 
@@ -157,7 +160,7 @@ public:
 		mCylinderMesh(nullptr),
 		mSphereMesh(nullptr),
 		mConeMesh(nullptr),
-		mCubeMesh(nullptr),
+		mHelixMesh(nullptr),
 		mPlaneMesh(nullptr),
 		mQuadMesh(nullptr),
 		mDeviceContext(nullptr),
@@ -269,10 +272,12 @@ public:
 
 		for (int i = 0; i < MAX_LIGHTS; i++)
 		{
+			
 			vec3f linear	= cliqCity::graphicsMath::cross(mPointLights[i].Position, axis);
 			vec3f velocity	= cliqCity::graphicsMath::normalize(linear) * LIGHT_MOVEMENT_SPEED;
+			float wave = (i % 2 == 0) ? sin(t + atan2(mPointLights[i].Position.z, mPointLights[i].Position.x)) : cos(t + atan2(mPointLights[i].Position.z, mPointLights[i].Position.x));
 			mPointLights[i].Position += velocity * static_cast<float>(milliseconds);
-			mPointLights[i].Position.y = 0.5f * sin(t + atan2(mPointLights[i].Position.z, mPointLights[i].Position.x));
+			mPointLights[i].Position.y = 0.5f * wave;
 
 			mat4f translation = mat4f::translate(mPointLights[i].Position);
 			mPointLightWorldMatrices[i] = (physicalScale * translation).transpose();
@@ -438,7 +443,7 @@ public:
 		mSphereMesh->~IMesh();
 		mConeMesh->~IMesh();
 		mCylinderMesh->~IMesh();
-		mCubeMesh->~IMesh();
+		mHelixMesh->~IMesh();
 		mPlaneMesh->~IMesh();
 		mQuadMesh->~IMesh();
 		mAllocator.Free();
@@ -631,7 +636,7 @@ public:
 		{
 			float width = static_cast<float>(mRenderer->GetWindowWidth()) * 0.25f;
 			float windowHeight = static_cast<float>(mRenderer->GetWindowHeight());
-			float height = windowHeight / 4.0f;
+			float height = windowHeight / 6.0f;
 			float topY = windowHeight - height;
 
 			mPositionViewport.TopLeftX = 0.0f;
@@ -665,7 +670,7 @@ public:
 
 		// Camera
 		{
-			mMVP.View = mat4f::lookAtLH(mSceneObjects[4].mTransform.GetPosition() - vec3f(0.0f, 0.0f, 1.0f), vec3f(0.0f, 15.0f, -15.0f), vec3f(0.0f, 1.0f, 0.0f)).transpose();
+			mMVP.View = mat4f::lookAtLH(mSceneObjects[4].mTransform.GetPosition() - vec3f(0.0f, 0.0f, 5.0f), vec3f(0.0f, 20.0f, -20.0f), vec3f(0.0f, 1.0f, 0.0f)).transpose();
 			mMVP.Projection = mat4f::normalizedPerspectiveLH(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f).transpose();
 		}
 	}
@@ -679,7 +684,7 @@ public:
 			"Models\\torus.obj",
 			"Models\\cylinder.obj",
 			"Models\\cone.obj",
-			"Models\\cube.obj",
+			"Models\\helix.obj",
 			"Models\\sphere.obj"
 		};
 
@@ -687,7 +692,7 @@ public:
 			&mTorusMesh,
 			&mCylinderMesh,
 			&mConeMesh,
-			&mCubeMesh,
+			&mHelixMesh,
 			&mSphereMesh
 		};
 
@@ -713,7 +718,7 @@ public:
 		mMeshLibrary.LoadMesh(&mTorusMesh, mRenderer, torusResource);
 		mMeshLibrary.LoadMesh(&mCylinderMesh, mRenderer, cylinderResource);
 		mMeshLibrary.LoadMesh(&mConeMesh, mRenderer, coneResource);
-		mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, cubeResource);
+		mMeshLibrary.LoadMesh(&mHelixMesh, mRenderer, cubeResource);
 		mMeshLibrary.LoadMesh(&mSphereMesh, mRenderer, sphereResource);
 #endif
 	
@@ -756,13 +761,36 @@ public:
 	{
 		std::time_t now;
 		std::srand(static_cast<unsigned int>(std::time(&now)));
+		int eighthCount		= MAX_LIGHTS / 8;
+		int quarterCount	= MAX_LIGHTS / 4;
+		int halfCount		= MAX_LIGHTS / 2;
 
-		float angle = 2.0f * PI / MAX_LIGHTS;
+		float angle0 = 2.0f * PI / eighthCount;
+		float angle1 = 2.0f * PI / quarterCount;
+		float angle2 = 2.0f * PI / halfCount;
 
-		for (int i = 0; i < MAX_LIGHTS; i++)
+		for (int i = 0; i < eighthCount; i++)
 		{
 			mPointLights[i].Color = { SATURATE_RANDOM, SATURATE_RANDOM, SATURATE_RANDOM, 1.0f };
-			mPointLights[i].Position = { LIGHT_POSITION_RADIUS * cos(angle * i), 1.0f, LIGHT_POSITION_RADIUS * sin(angle * i) };
+			mPointLights[i].Position = { LIGHT_POSITION_RADIUS_I * cos(angle0 * i), 1.0f, LIGHT_POSITION_RADIUS_I * sin(angle0 * i) };
+		}
+
+		for (int i = eighthCount; i < quarterCount; i++)
+		{
+			mPointLights[i].Color = { SATURATE_RANDOM, SATURATE_RANDOM, SATURATE_RANDOM, 1.0f };
+			mPointLights[i].Position = { LIGHT_POSITION_RADIUS_O * cos(angle0 * i), 1.0f, LIGHT_POSITION_RADIUS_O * sin(angle0 * i) };
+		}
+
+		for (int i = quarterCount; i < halfCount; i++)
+		{
+			mPointLights[i].Color = { SATURATE_RANDOM, SATURATE_RANDOM, SATURATE_RANDOM, 1.0f };
+			mPointLights[i].Position = { LIGHT_POSITION_RADIUS_OO * cos(angle1 * i), 1.0f, LIGHT_POSITION_RADIUS_OO * sin(angle1 * i) };
+		}
+
+		for (int i = halfCount; i < MAX_LIGHTS; i++)
+		{
+			mPointLights[i].Color = { SATURATE_RANDOM, SATURATE_RANDOM, SATURATE_RANDOM, 1.0f };
+			mPointLights[i].Position = { LIGHT_POSITION_RADIUS_OOO * cos(angle2 * i), 1.0f, LIGHT_POSITION_RADIUS_OOO * sin(angle2 * i) };
 		}
 	}
 
@@ -770,24 +798,24 @@ public:
 	{
 		vec4f color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-		mSceneObjects[0].mTransform.SetPosition(-3.0f, 0.0f, 2.0f);
+		mSceneObjects[0].mTransform.SetPosition(-2.2f, 0.0f, 3.0f);
 		mSceneObjects[0].mColor = color;// { 1.0f, 1.0f, 0.0f, 1.0f };
 		mSceneObjects[0].mMesh = mTorusMesh;
 
-		mSceneObjects[1].mTransform.SetPosition(3.5f, -0.1f, 1.5f );
+		mSceneObjects[1].mTransform.SetPosition(3.9f, -0.1f, 1.5f );
 		mSceneObjects[1].mColor = color; // { 1.0f, 0.0f, 1.0f, 1.0f };
 		mSceneObjects[1].mMesh = mCylinderMesh;
 
-		mSceneObjects[2].mTransform.SetPosition(1.0f, 0.0f, -2.0f );
+		mSceneObjects[2].mTransform.SetPosition(3.7f, 0.0f, -3.0f );
 		mSceneObjects[2].mColor = color;// { 0.0f, 1.0f, 1.0f, 1.0f };
-		mSceneObjects[2].mMesh = mConeMesh;
+		mSceneObjects[2].mMesh = mHelixMesh;
 
-		mSceneObjects[3].mTransform.SetPosition(-2.0f, 0.0f, -2.0f );
+		mSceneObjects[3].mTransform.SetPosition(-3.5f, 0.0f, -2.0f );
 		mSceneObjects[3].mColor = color; //{ 1.0f, 0.0f, 0.0f, 1.0f };
-		mSceneObjects[3].mMesh = mCubeMesh;
+		mSceneObjects[3].mMesh = mConeMesh;
 
 		mSceneObjects[4].mTransform.SetPosition(0.0f, -0.6f, 0.0f );
-		mSceneObjects[4].mTransform.SetScale(vec3f(5.0f));
+		mSceneObjects[4].mTransform.SetScale(vec3f(30.0f, 1.0f, 20.0f));
 		mSceneObjects[4].mColor = { 0.5f, 0.5f, 0.5f, 1.0f };
 		mSceneObjects[4].mMesh = mPlaneMesh;
 	}
