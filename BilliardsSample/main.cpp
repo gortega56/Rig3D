@@ -24,20 +24,26 @@
 #define SURFACE_Y						2.15f
 #define PLANE_COUNT						4
 #define INVERSE_BALL_MASS				6.25f
-#define BALL_MASS						0.16f
+#define BALL_MASS						0.16f			// kg
 #define ELASTIC_CONSTANT				0.9f
 #define PLANE_SPHERE_ELASTIC_CONSTANT	0.5f
 #define KINETIC_FRICTION_CONSTANT		0.15f
 #define STATIC_FRICTION_CONSTANT		0.015f
-#define CUE_SPEED						0.005f
+#define CUE_SPEED						0.05f  // m/ms^2
+#define CUE_MASS						0.600f			// kg
+#define CUE_INVERSE_MASS				2.22222222222f
+#define PLANE_MASS						100.0f
+#define PLANE_INVERSE_MASS				0.01f
 #define LEFT_PLANE_DISTANCE				-1.68546724f
 #define RIGHT_PLANE_DISTANCE			-1.47883308f
 #define NEAR_PLANE_DISTANCE				-4.04303122f
 #define FAR_PLANE_DISTANCE				-1.89119351f
-#define PHYSICS_TIME_STEP				0.1f			// Milliseconds
-#define GRAVITY_CONSTANT				0.0000098196f
-#define LINEAR_VELOCITY_THRESHOLD		0.000009f
-#define ANGULAR_VELOCITY_THRESHOLD		0.009f
+#define TABLE_DEPTH						2.15183771f
+#define TABLE_WIDTH					0.20663416f
+#define PHYSICS_TIME_STEP				0.1f			// ms
+#define GRAVITY_CONSTANT				0.0000098196f	// m/ms^2
+#define LINEAR_VELOCITY_THRESHOLD		0.00095f
+#define ANGULAR_VELOCITY_THRESHOLD		0.0009f
 
 #define ROTATIONAL_DYNAMICS				1
 
@@ -46,7 +52,7 @@ using namespace Rig3D;
 static const int	gMeshMemorySize = 2048;
 
 static const mat3f	gSphereInverseTensor = mat4f((2.0f * BALL_MASS * BALL_RADIUS * BALL_RADIUS) / 5.0f).inverse();
-static const mat3f	gPlaneInverseTensor;
+static const mat3f	gPlaneInverseTensor = mat4f(12.0f * PLANE_INVERSE_MASS * ( 1.0f / (TABLE_DEPTH * TABLE_DEPTH + TABLE_WIDTH * TABLE_WIDTH)));
 static const vec3f  gTablePosition = { -1.0f, 0.0f, 1.0f };
 static const vec3f  gSphereInverseTensorVector = vec3f(1.0f / ((2.0f / 5.0f) * BALL_MASS * BALL_RADIUS * BALL_RADIUS));
 static const float  gKineticFriction = KINETIC_FRICTION_CONSTANT * BALL_MASS * GRAVITY_CONSTANT;
@@ -110,6 +116,7 @@ public:
 	Transform						mBallTransforms[BALL_COUNT];
 	mat4f							mBallWorldMatrices[BALL_COUNT];
 	mat4f							mTableWorldMatrix;
+	vec3f							mPrevBallPositions[BALL_COUNT];
 
 	RigidBody						mRigidBodies[BALL_COUNT];
 	Sphere							mSpheres[BALL_COUNT];
@@ -528,6 +535,7 @@ public:
 		static int frame = 0;
 		HandleInput();
 
+		
 		if (frame % 2 == 0)
 		{
 			// Physics
@@ -537,12 +545,13 @@ public:
 		else 
 		{
 			// Collisions
-			DetectSphereSphereCollisions(&mSphereCollisions, mSpheres, mRigidBodies, BALL_COUNT);
+			DetectSphereSphereCollisions(&mSphereCollisions, mSpheres, mRigidBodies, mPrevBallPositions, BALL_COUNT);
 			DetectPlaneSphereCollisions(&mPlaneCollisions, mPlanes, PLANE_COUNT, mSpheres, mRigidBodies, BALL_COUNT);
 
 			// Impulses
 			ResolveSphereSphereCollisions(&mSphereCollisions, mSpheres, mBallTransforms, mRigidBodies);
 			ResolvePlaneSphereCollisions(&mPlaneCollisions, mPlanes, mSpheres, mRigidBodies);
+			//ResolvePlaneSphereCollisions(&mPlaneCollisions, mPlanes, mSpheres, mBallTransforms, mRigidBodies);
 		}
 		
 		
@@ -565,6 +574,7 @@ public:
 		for (int i = 0; i < BALL_COUNT; i++)
 		{
 			mBallWorldMatrices[i] = mBallTransforms[i].GetWorldMatrix().transpose();
+			mPrevBallPositions[i] = mBallTransforms[i].GetPosition();
 		}
 
 		D3D11_MAPPED_SUBRESOURCE mappedSubresource;
@@ -765,10 +775,10 @@ public:
 		}
 
 		quatf r = mBallTransforms[0].GetRotation();
+		vec3f v = mRigidBodies[0].velocity;
 		float FPS = 1.0f / (frameTime / 1000.0f);
 		char str[256];
-		sprintf_s(str, "Billiards FPS %f FT %f STEPS %d CUE Rotation %3f %3f %3f %3f Angular Velocity %3f %3f %3f", FPS, frameTime, i, 
-			r.w, r.v.x, r.v.y, r.v.z, mRigidBodies[0].angularVelocity.x, mRigidBodies[0].angularVelocity.y, mRigidBodies[0].angularVelocity.z);
+		sprintf_s(str, "Billiards FPS %f FT %f STEPS %d CUE Velocity %3f %3f %3f Angular Velocity %3f %3f %3f", FPS, frameTime, i, v.x, v.y, v.z, mRigidBodies[0].angularVelocity.x, mRigidBodies[0].angularVelocity.y, mRigidBodies[0].angularVelocity.z);
 		mRenderer->SetWindowCaption(str);
 	}
 
@@ -883,7 +893,7 @@ public:
 		}
 	}
 
-	void DetectSphereSphereCollisions(std::vector<Collision>* collisions, Sphere* spheres, RigidBody* rigidBodies, int count)
+	void DetectSphereSphereCollisions(std::vector<Collision>* collisions, Sphere* spheres, RigidBody* rigidBodies, vec3f* previousPositions, int count)
 	{
 		vec3f poi;
 		float t;
@@ -898,7 +908,10 @@ public:
 					collisions->push_back(Collision(poi, t, i, j));
 				}
 #else
-				if (IntersectSphereSphere<vec3f>(spheres[i], spheres[j]))
+				float previousDistance = cliqCity::graphicsMath::magnitudeSquared(previousPositions[i] - previousPositions[j]);
+				float currentDistance = cliqCity::graphicsMath::magnitudeSquared(spheres[i].origin - spheres[j].origin);
+				
+				if (currentDistance <= previousDistance && IntersectSphereSphere<vec3f>(spheres[i], spheres[j]))
 				{
 					poi = (spheres[i].origin + spheres[j].origin) * 0.5f;
 					t = 0.0f;
@@ -907,6 +920,30 @@ public:
 #endif
 			}
 		}
+	}
+
+	void ResolvePlaneSphereCollisions(std::vector<Collision>* collisions, Plane* planes, Sphere* spheres, Transform* transforms, RigidBody* rigidBodies)
+	{
+		for (auto i = 0; i < collisions->size(); i++)
+		{
+			vec3f& poi = collisions->at(i).poi;
+			int i0 = collisions->at(i).s0;
+			int i1 = collisions->at(i).s1;
+			vec3f contactNormal = planes[i0].normal;
+			mat3f R1 = transforms[i].GetRotation().toMatrix3();
+			mat3f J1 = R1.transpose() * gSphereInverseTensor * R1;
+			float poiMag = cliqCity::graphicsMath::magnitudeSquared(poi);
+			float s = sqrt(poiMag - (planes[i0].distance * planes[i0].distance));
+			vec3f p0 =  cliqCity::graphicsMath::cross(vec3f(0.0f, 1.0f, 0.0f), contactNormal) * s;
+			vec3f p1 = poi - spheres[i].origin;
+
+			float k = CalculatePlaneSphereImpulse(spheres[i1],rigidBodies[i1], contactNormal);
+			vec3f g = k * contactNormal * rigidBodies[i1].inverseMass;
+			rigidBodies[i1].velocity += k * contactNormal * rigidBodies[i1].inverseMass;
+		}
+
+		collisions->clear();
+		collisions->reserve(BALL_COUNT);
 	}
 
 	void ResolvePlaneSphereCollisions(std::vector<Collision>* collisions, Plane* planes, Sphere* spheres, RigidBody* rigidBodies)
@@ -918,7 +955,7 @@ public:
 			int i1 = collisions->at(i).s1;
 			vec3f contactNormal = planes[i0].normal;
 
-			float k = CalculatePlaneSphereImpulse(spheres[i1], rigidBodies[i1], contactNormal, poi);
+			float k = CalculatePlaneSphereImpulse(spheres[i1], rigidBodies[i1], contactNormal);
 			rigidBodies[i1].velocity += k * contactNormal * rigidBodies[i1].inverseMass;
 		}
 
@@ -943,7 +980,6 @@ public:
 
 #if ROTATIONAL_DYNAMICS == 1
 			float k = CalculateSphereSphereImpulse(spheres[i0], spheres[i1], J0, J1, rigidBodies[i0], rigidBodies[i1], contactNormal, p0, p1);
-			vec3f s = k * contactNormal * rigidBodies[i0].inverseMass;
 			rigidBodies[i0].velocity -= k * contactNormal * rigidBodies[i0].inverseMass;
 			rigidBodies[i1].velocity += k * contactNormal * rigidBodies[i1].inverseMass;
 			rigidBodies[i0].angularVelocity -= cliqCity::graphicsMath::cross(p0, k * contactNormal) * gSphereInverseTensor;
@@ -988,7 +1024,22 @@ public:
 		return numerator / denominator;
 	}
 
-	inline float CalculatePlaneSphereImpulse(Sphere& sphere, RigidBody& rigidBody, vec3f& normal, vec3f& poi)
+	inline float CalculatePlaneSphereImpulse(Sphere& sphere, mat3f& J1, RigidBody& rigidBody, vec3f& normal, vec3f& poi0, vec3f& poi1)
+	{
+		//vec3f u1 = rigidBody.velocity + cliqCity::graphicsMath::cross(rigidBody.angularVelocity, poi1);
+		//vec3f uRel = 0.0f - u1;
+
+		//float numerator = (PLANE_SPHERE_ELASTIC_CONSTANT + 1.0f) * cliqCity::graphicsMath::dot(uRel, normal);
+		//vec3f sumInverseMassxN = (PLANE_INVERSE_MASS + rigidBody.inverseMass) * normal;
+		//vec3f p0CrossN = cliqCity::graphicsMath::cross(poi0, normal);
+		//vec3f p1CrossN = cliqCity::graphicsMath::cross(poi1, normal);
+		//vec3f p0CrossNxJ0 = p0CrossN * gPlaneInverseTensor;
+		//vec3f p1CrossNxJ1 = p1CrossN * J1;
+		//float denominator = cliqCity::graphicsMath::dot(sumInverseMassxN + cliqCity::graphicsMath::cross(p0CrossNxJ0, poi0) + cliqCity::graphicsMath::cross(p1CrossNxJ1, poi1), normal);
+		//return numerator / denominator;
+	}
+
+	inline float CalculatePlaneSphereImpulse(Sphere& sphere, RigidBody& rigidBody, vec3f& normal)
 	{
 		vec3f vRel = rigidBody.velocity;
 		float numerator = (PLANE_SPHERE_ELASTIC_CONSTANT + 1.0f) * cliqCity::graphicsMath::dot(-vRel, normal);
@@ -1000,7 +1051,7 @@ public:
 	{
 		vec3f vRel = incoming - rigidBody.velocity;
 		float numerator = (PLANE_SPHERE_ELASTIC_CONSTANT + 1.0f) * cliqCity::graphicsMath::dot(vRel, normal);
-		float denominator = (rigidBody.inverseMass) * cliqCity::graphicsMath::dot(normal, normal);
+		float denominator = (CUE_INVERSE_MASS + rigidBody.inverseMass) * cliqCity::graphicsMath::dot(normal, normal);
 		return numerator / denominator;
 	}
 
