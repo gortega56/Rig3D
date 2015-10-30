@@ -25,11 +25,11 @@
 #define PLANE_COUNT						4
 #define INVERSE_BALL_MASS				6.25f
 #define BALL_MASS						0.16f			// kg
-#define ELASTIC_CONSTANT				0.8f
+#define ELASTIC_CONSTANT				0.7f
 #define PLANE_SPHERE_ELASTIC_CONSTANT	0.5f
-#define KINETIC_FRICTION_CONSTANT		0.15f
+#define KINETIC_FRICTION_CONSTANT		0.4f
 #define STATIC_FRICTION_CONSTANT		0.015f
-#define CUE_SPEED						0.05f			// m/ms^2
+#define CUE_SPEED						0.03f			// m/ms^2
 #define CUE_MASS						0.600f			// kg
 #define CUE_INVERSE_MASS				2.22222222222f
 #define PLANE_MASS						100.0f
@@ -39,10 +39,10 @@
 #define NEAR_PLANE_DISTANCE				-4.04303122f
 #define FAR_PLANE_DISTANCE				-1.89119351f
 #define TABLE_DEPTH						2.15183771f
-#define TABLE_WIDTH					0.20663416f
+#define TABLE_WIDTH						0.20663416f
 #define PHYSICS_TIME_STEP				0.1f			// ms
 #define GRAVITY_CONSTANT				0.0000098196f	// m/ms^2
-#define LINEAR_VELOCITY_THRESHOLD		0.001f
+#define LINEAR_VELOCITY_THRESHOLD		0.000995f
 #define ANGULAR_VELOCITY_THRESHOLD		0.001f
 
 #define ROTATIONAL_DYNAMICS				1
@@ -116,7 +116,6 @@ public:
 	Transform						mBallTransforms[BALL_COUNT];
 	mat4f							mBallWorldMatrices[BALL_COUNT];
 	mat4f							mTableWorldMatrix;
-	vec3f							mPrevBallPositions[BALL_COUNT];
 
 	RigidBody						mRigidBodies[BALL_COUNT];
 	Sphere							mSpheres[BALL_COUNT];
@@ -545,7 +544,7 @@ public:
 		else 
 		{
 			// Collisions
-			DetectSphereSphereCollisions(&mSphereCollisions, mSpheres, mRigidBodies, mPrevBallPositions, BALL_COUNT);
+			DetectSphereSphereCollisions(&mSphereCollisions, mSpheres, mRigidBodies, BALL_COUNT);
 			DetectPlaneSphereCollisions(&mPlaneCollisions, mPlanes, PLANE_COUNT, mSpheres, mRigidBodies, BALL_COUNT);
 
 			// Impulses
@@ -564,6 +563,8 @@ public:
 	void UpdateCamera()
 	{
 		mViewProjection.view = mat4f::lookAtLH(mCamera.mTransform.GetPosition() + mCamera.mTransform.GetForward(), mCamera.mTransform.GetPosition(), vec3f(0.0f, 1.0f, 0.0f)).transpose();
+		//mViewProjection.view = mat4f::lookAtLH(gTablePosition, mCamera.mTransform.GetPosition(), vec3f(0.0f, 1.0f, 0.0f)).transpose();
+
 	}
 
 	void UpdateBallTransforms()
@@ -571,7 +572,6 @@ public:
 		for (int i = 0; i < BALL_COUNT; i++)
 		{
 			mBallWorldMatrices[i] = mBallTransforms[i].GetWorldMatrix().transpose();
-			mPrevBallPositions[i] = mBallTransforms[i].GetPosition();
 		}
 
 		D3D11_MAPPED_SUBRESOURCE mappedSubresource;
@@ -588,7 +588,7 @@ public:
 			mat3f rotMat = mCamera.mTransform.GetRotationMatrix();
 			vec3f f = vec3f(0.0f, 0.0f, 1.0f) * rotMat;
 			vec3f cameraForward = mCamera.mTransform.GetForward();
-			ApplyImpulse(mSpheres[0], mRigidBodies[0], vec3f(cameraForward.x, 0.0f, cameraForward.z));
+			ApplyImpulse(mSpheres[0], mRigidBodies[0], vec3f(0.0f, 0.0f, 1.0f));
 		}
 
 
@@ -847,7 +847,7 @@ public:
 
 			// Set Dynamics State
 			rigidBodies[i].forces = rigidBodies[i].torques = vec3f(0.0f);
-			rigidBodies[i].angularVelocity	= angularVelocity;
+			rigidBodies[i].angularVelocity	= angularVelocity * vec3f(1.0f, 0.02f, 1.0f);
 			rigidBodies[i].velocity			= velocity;
 			spheres[i].origin				= position;
 			transforms[i].SetPosition(position);
@@ -890,7 +890,7 @@ public:
 		}
 	}
 
-	void DetectSphereSphereCollisions(std::vector<Collision>* collisions, Sphere* spheres, RigidBody* rigidBodies, vec3f* previousPositions, int count)
+	void DetectSphereSphereCollisions(std::vector<Collision>* collisions, Sphere* spheres, RigidBody* rigidBodies, int count)
 	{
 		vec3f poi;
 		float t;
@@ -979,8 +979,8 @@ public:
 			float k = CalculateSphereSphereImpulse(spheres[i0], spheres[i1], J0, J1, rigidBodies[i0], rigidBodies[i1], contactNormal, p0, p1);
 			rigidBodies[i0].velocity -= k * contactNormal * rigidBodies[i0].inverseMass;
 			rigidBodies[i1].velocity += k * contactNormal * rigidBodies[i1].inverseMass;
-			rigidBodies[i0].angularVelocity -= cliqCity::graphicsMath::cross(p0, k * contactNormal) * gSphereInverseTensor;
-			rigidBodies[i1].angularVelocity += cliqCity::graphicsMath::cross(p1, k * contactNormal) * gSphereInverseTensor;
+			//rigidBodies[i0].angularVelocity -= cliqCity::graphicsMath::cross(p0, k * contactNormal) * gSphereInverseTensor;
+			//rigidBodies[i1].angularVelocity += cliqCity::graphicsMath::cross(p1, k * contactNormal) * gSphereInverseTensor;
 #else
 			float k = CalculateSphereSphereImpulse(spheres[i0], spheres[i1], rigidBodies[i0], rigidBodies[i1], contactNormal);
 			rigidBodies[i0].velocity -= k * contactNormal * rigidBodies[i0].inverseMass;
@@ -992,8 +992,8 @@ public:
 			vec3f iPos = spheres[i1].origin + contactNormal * m;
 			spheres[i0].origin = jPos;
 			spheres[i1].origin = iPos;
-			mBallTransforms[i0].SetPosition(jPos);
-			mBallTransforms[i1].SetPosition(iPos);
+			transforms[i0].SetPosition(jPos);
+			transforms[i1].SetPosition(iPos);
 		}
 
 		collisions->clear();
@@ -1067,10 +1067,7 @@ public:
 
 			// NOT MOVING
 			if ((-LINEAR_VELOCITY_THRESHOLD <= rigidBodies[i].velocity.x && rigidBodies[i].velocity.x <= LINEAR_VELOCITY_THRESHOLD) &&
-				(-LINEAR_VELOCITY_THRESHOLD <= rigidBodies[i].velocity.z && rigidBodies[i].velocity.z <= LINEAR_VELOCITY_THRESHOLD) &&
-				(-ANGULAR_VELOCITY_THRESHOLD <= rigidBodies[i].angularVelocity.x && rigidBodies[i].angularVelocity.x <= ANGULAR_VELOCITY_THRESHOLD) &&
-				(-ANGULAR_VELOCITY_THRESHOLD <= rigidBodies[i].angularVelocity.y && rigidBodies[i].angularVelocity.y <= ANGULAR_VELOCITY_THRESHOLD) &&
-				(-ANGULAR_VELOCITY_THRESHOLD <= rigidBodies[i].angularVelocity.z && rigidBodies[i].angularVelocity.z <= ANGULAR_VELOCITY_THRESHOLD))
+				(-LINEAR_VELOCITY_THRESHOLD <= rigidBodies[i].velocity.z && rigidBodies[i].velocity.z <= LINEAR_VELOCITY_THRESHOLD))
 			{
 				rigidBodies[i].velocity = rigidBodies[i].angularVelocity = vec3f(0.0f);
 			}
