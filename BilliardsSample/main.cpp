@@ -525,25 +525,34 @@ public:
 
 	void VUpdate(double milliseconds) override
 	{
+		static int frame = 0;
 		HandleInput();
 
-		// Physics
-		ApplyFriction(mSpheres, mRigidBodies, BALL_COUNT);
-		IntegrateBalls(milliseconds);
+		if (frame % 2 == 0)
+		{
+			// Physics
+			ApplyFriction(mSpheres, mRigidBodies, BALL_COUNT);
+			IntegrateBalls(milliseconds);
+		}
+		else 
+		{
+			// Collisions
+			DetectSphereSphereCollisions(&mSphereCollisions, mSpheres, mRigidBodies, BALL_COUNT);
+			DetectPlaneSphereCollisions(&mPlaneCollisions, mPlanes, PLANE_COUNT, mSpheres, mRigidBodies, BALL_COUNT);
 
-		// Collisions
-		DetectSphereSphereCollisions(&mSphereCollisions, mSpheres, mRigidBodies, BALL_COUNT);
-		DetectPlaneSphereCollisions(&mPlaneCollisions, mPlanes, PLANE_COUNT, mSpheres, mRigidBodies, BALL_COUNT);
+			// Impulses
+			ResolveSphereSphereCollisions(&mSphereCollisions, mSpheres, mBallTransforms, mRigidBodies);
+			ResolvePlaneSphereCollisions(&mPlaneCollisions, mPlanes, mSpheres, mRigidBodies);
+		}
 		
-		// Impulses
-		ResolveSphereSphereCollisions(&mSphereCollisions, mSpheres, mBallTransforms, mRigidBodies);
-		ResolvePlaneSphereCollisions(&mPlaneCollisions, mPlanes, mSpheres, mRigidBodies);
 		
 		// TO DO: Interpolate State 
 		
 		// Update Renderable Structures
 		UpdateBallTransforms();
 		UpdateCamera();
+
+		frame++;
 	}
 
 	void UpdateCamera()
