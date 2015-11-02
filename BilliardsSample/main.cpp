@@ -27,7 +27,7 @@
 #define BALL_MASS						0.16f			// kg
 #define ELASTIC_CONSTANT				0.7f
 #define PLANE_SPHERE_ELASTIC_CONSTANT	0.5f
-#define KINETIC_FRICTION_CONSTANT		0.4f
+#define KINETIC_FRICTION_CONSTANT		0.9f
 #define STATIC_FRICTION_CONSTANT		0.015f
 #define CUE_SPEED						0.03f			// m/ms^2
 #define CUE_MASS						0.600f			// kg
@@ -45,7 +45,7 @@
 #define LINEAR_VELOCITY_THRESHOLD		0.000995f
 #define ANGULAR_VELOCITY_THRESHOLD		0.001f
 
-#define ROTATIONAL_DYNAMICS				1
+#define ROTATIONAL_DYNAMICS				0
 
 using namespace Rig3D;
 
@@ -280,7 +280,7 @@ public:
 				i++;
 			}
 
-			xOffset = -(BALL_RADIUS * xCount * 0.5f);
+			xOffset = -(BALL_RADIUS * xCount);
 			zOffset += diameter + FLT_EPSILON;
 			xCount++;
 		}
@@ -979,8 +979,8 @@ public:
 			float k = CalculateSphereSphereImpulse(spheres[i0], spheres[i1], J0, J1, rigidBodies[i0], rigidBodies[i1], contactNormal, p0, p1);
 			rigidBodies[i0].velocity -= k * contactNormal * rigidBodies[i0].inverseMass;
 			rigidBodies[i1].velocity += k * contactNormal * rigidBodies[i1].inverseMass;
-			//rigidBodies[i0].angularVelocity -= cliqCity::graphicsMath::cross(p0, k * contactNormal) * gSphereInverseTensor;
-			//rigidBodies[i1].angularVelocity += cliqCity::graphicsMath::cross(p1, k * contactNormal) * gSphereInverseTensor;
+			rigidBodies[i0].angularVelocity -= cliqCity::graphicsMath::cross(p0, k * contactNormal) * gSphereInverseTensor;
+			rigidBodies[i1].angularVelocity += cliqCity::graphicsMath::cross(p1, k * contactNormal) * gSphereInverseTensor;
 #else
 			float k = CalculateSphereSphereImpulse(spheres[i0], spheres[i1], rigidBodies[i0], rigidBodies[i1], contactNormal);
 			rigidBodies[i0].velocity -= k * contactNormal * rigidBodies[i0].inverseMass;
