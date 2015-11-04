@@ -1,5 +1,5 @@
 #pragma once
-#include "rig_defines.h"
+#include "Rig3D/rig_defines.h"
 #include <d3d11.h>
 
 namespace Rig3D

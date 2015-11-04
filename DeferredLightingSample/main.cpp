@@ -4,8 +4,8 @@
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "Rig3D\Graphics\Interface\IMesh.h"
 #include "Rig3D\Common\Transform.h"
-#include "Memory\Memory\LinearAllocator.h"
-#include "Rig3D\MeshLibrary.h"
+#include "Memory\Memory\Memory.h"
+#include "Rig3D\Graphics\MeshLibrary.h"
 #include "Rig3D/TaskDispatch/TaskDispatcher.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -28,8 +28,6 @@
 #define POINT_LIGHT_VOLUME_SCALE	5.0f
 
 using namespace Rig3D;
-
-typedef cliqCity::memory::LinearAllocator LinearAllocator;
 
 uint8_t gMemory[10240];
 uint8_t gTaskMemory[1024];

@@ -51,13 +51,7 @@
     <ClInclude Include="Graphics\DirectX11\DX11Mesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="rig_graphics_api_conversions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Common\Input.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="MeshLibrary.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="TaskDispatch\Task.h">
@@ -70,6 +64,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Intersection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\MeshLibrary.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\rig_graphics_api_conversions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Interface\IShader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\DirectX11\DX11Shader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -114,6 +120,12 @@
       <Filter>Header Files</Filter>
     </ClCompile>
     <ClCompile Include="TaskDispatch\TaskDispatcher.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Interface\IShader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\DirectX11\DX11Shader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

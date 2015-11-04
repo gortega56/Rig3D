@@ -4,9 +4,9 @@
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "Rig3D\Graphics\Interface\IMesh.h"
 #include "Rig3D\Common\Transform.h"
-#include "Memory\Memory\LinearAllocator.h"
+#include "Memory\Memory\Memory.h"
 #include "Rig3D\Graphics\DirectX11\DirectXTK\Inc\WICTextureLoader.h"
-#include "Rig3D\MeshLibrary.h"
+#include "Rig3D\Graphics\MeshLibrary.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <Rig3D/Graphics/Camera.h>
@@ -63,7 +63,6 @@ char gMeshMemory[gMeshMemorySize];
 class BilliardsSample : public IScene, public virtual IRendererDelegate
 {
 public:
-	typedef cliqCity::memory::LinearAllocator LinearAllocator;
 	typedef Plane<vec3f>	Plane;
 	typedef Sphere<vec3f>	Sphere;
 

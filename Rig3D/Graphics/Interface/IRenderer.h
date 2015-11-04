@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <stdint.h>
 #include "Rig3D\Options.h"
+#include "Memory/Memory/Memory.h"
 
 #ifdef _WINDLL
 #define RIG3D __declspec(dllexport)
@@ -9,10 +10,12 @@
 #define RIG3D __declspec(dllimport)
 #endif
 
+
 namespace Rig3D 
 {
 	class IScene;
 	class IMesh;
+	class IShader;
 
 	class RIG3D IRendererDelegate
 	{
@@ -42,6 +45,12 @@ namespace Rig3D
 		virtual void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage) = 0;
 		virtual void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage) = 0;
 		virtual void    VBindMesh(IMesh* mesh) = 0;
+
+		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator& allocator) = 0;
+		virtual void	VLoadPixelShader(IShader* pixelShader, const char* filename) = 0;
+
+		virtual void	VSetVertexShader(IShader* shader) = 0;
+		virtual void	VSetPixelShader(IShader* shader) = 0;
 
 		virtual void    VSwapBuffers() = 0;
 

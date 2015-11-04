@@ -4,9 +4,9 @@
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "Rig3D\Graphics\Interface\IMesh.h"
 #include "Rig3D\Common\Transform.h"
-#include "Memory\Memory\LinearAllocator.h"
+#include "Memory\Memory\Memory.h"
 #include "Rig3D\Graphics\DirectX11\DirectXTK\Inc\WICTextureLoader.h"
-#include "Rig3D\MeshLibrary.h"
+#include "Rig3D\Graphics\MeshLibrary.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <random>
@@ -29,9 +29,6 @@ static const float ANIMATION_DURATION	= 20000.0f; // 20 Seconds
 class Rig3DSampleScene : public IScene, public virtual IRendererDelegate
 {
 public:
-
-	typedef cliqCity::memory::LinearAllocator LinearAllocator;
-
 	enum BlurType
 	{
 		BLUR_TYPE_NONE,

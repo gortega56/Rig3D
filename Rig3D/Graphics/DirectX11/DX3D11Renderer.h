@@ -1,9 +1,10 @@
 #pragma once
 #include "Rig3D\Graphics\Interface\IRenderer.h"
 #include "Rig3D\Common\WMEventHandler.h"
-#include "Rig3D\rig_graphics_api_conversions.h"
+#include "Rig3D\Graphics\rig_graphics_api_conversions.h"
 #include "Rig3D\Graphics\DirectX11\dxerr.h"
 #include <assert.h>
+#include <d3dcompiler.h>
 
 #ifdef _WINDLL
 #define RIG3D __declspec(dllexport)
@@ -55,6 +56,12 @@ namespace Rig3D
 		void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage) override;
 		void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage) override;
 		void    VBindMesh(IMesh* mesh) override;
+
+		void	VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator& allocator) override;
+		void	VLoadPixelShader(IShader* pixelShader, const char* filename) override;
+
+		void	VSetVertexShader(IShader* shader) override;
+		void	VSetPixelShader(IShader* shader) override;
 
 		void	VSwapBuffers() override;
 

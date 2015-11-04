@@ -1,5 +1,6 @@
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "Graphics\DirectX11\DX11Mesh.h"
+#include "Graphics/DirectX11/DX11Shader.h"
 #include "Rig3D\Engine.h"
 #include "rig_defines.h"
 #include "Rig3D\Graphics\Interface\IScene.h"
@@ -20,7 +21,6 @@ DX3D11Renderer::DX3D11Renderer()
 {
 	mGraphicsAPI = GRAPHICS_API_DIRECTX11;
 }
-
 
 DX3D11Renderer::~DX3D11Renderer()
 {
@@ -186,6 +186,118 @@ void DX3D11Renderer::VBindMesh(IMesh* mesh)
 	uint32_t offset = 0;
 	mDeviceContext->IASetVertexBuffers(0, 1, &dxMesh->mVertexBuffer, &dxMesh->mVertexStride, &offset);
 	mDeviceContext->IASetIndexBuffer(dxMesh->mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+}
+
+void DX3D11Renderer::VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator& allocator)
+{
+	DX11Shader* dxShader = reinterpret_cast<DX11Shader*>(vertexShader);
+
+	const wchar_t* wFilename;
+	CSTR2WSTR(filename, wFilename);
+
+	ID3DBlob* vsBlob;
+	D3DReadFileToBlob(wFilename, &vsBlob);
+
+	ID3D11ShaderReflection* reflection = nullptr;
+	D3DReflect(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), IID_ID3D11ShaderReflection, reinterpret_cast<void**>(&reflection));
+
+	D3D11_SHADER_DESC shaderDesc;
+	reflection->GetDesc(&shaderDesc);
+
+	std::vector<D3D11_INPUT_ELEMENT_DESC> inputLayoutDesc;
+	for (UINT i = 0; i < shaderDesc.InputParameters; i++)
+	{
+		D3D11_SIGNATURE_PARAMETER_DESC parameterDesc;
+		reflection->GetInputParameterDesc(i, &parameterDesc);
+
+		D3D11_INPUT_ELEMENT_DESC elementDesc;
+		elementDesc.InputSlot				= 0;
+		elementDesc.SemanticIndex			= parameterDesc.SemanticIndex;
+		elementDesc.SemanticName			= parameterDesc.SemanticName;
+		elementDesc.AlignedByteOffset		= D3D11_APPEND_ALIGNED_ELEMENT;
+		elementDesc.InputSlotClass			= D3D11_INPUT_PER_VERTEX_DATA;
+		elementDesc.InstanceDataStepRate	= 0;
+
+		if (parameterDesc.Mask == 1)
+		{
+			if		(parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_UINT32)	{ elementDesc.Format = DXGI_FORMAT_R32_UINT; }
+			else if (parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_SINT32)	{ elementDesc.Format = DXGI_FORMAT_R32_SINT; }
+			else if (parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_FLOAT32) { elementDesc.Format = DXGI_FORMAT_R32_FLOAT; }
+		}
+		else if (parameterDesc.Mask <= 3)
+		{
+			if		(parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_UINT32)	{ elementDesc.Format = DXGI_FORMAT_R32G32_UINT; }
+			else if (parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_SINT32)	{ elementDesc.Format = DXGI_FORMAT_R32G32_SINT; }
+			else if (parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_FLOAT32) { elementDesc.Format = DXGI_FORMAT_R32G32_FLOAT; }
+		}
+		else if (parameterDesc.Mask <= 7)
+		{
+			if		(parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_UINT32)	{ elementDesc.Format = DXGI_FORMAT_R32G32B32_UINT; }
+			else if (parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_SINT32)	{ elementDesc.Format = DXGI_FORMAT_R32G32B32_SINT; }
+			else if (parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_FLOAT32) { elementDesc.Format = DXGI_FORMAT_R32G32B32_FLOAT; }
+		}
+		else if (parameterDesc.Mask <= 15)
+		{
+			if		(parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_UINT32)	{ elementDesc.Format = DXGI_FORMAT_R32G32B32A32_UINT; }
+			else if (parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_SINT32)	{ elementDesc.Format = DXGI_FORMAT_R32G32B32A32_SINT; }
+			else if (parameterDesc.ComponentType == D3D_REGISTER_COMPONENT_FLOAT32) { elementDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; }
+		}
+
+		inputLayoutDesc.push_back(elementDesc);
+	}
+
+	void* buffers = allocator.Allocate(sizeof(DX11ShaderBuffer) * shaderDesc.ConstantBuffers, alignof(DX11ShaderBuffer), 0);
+	dxShader->SetBuffers(reinterpret_cast<DX11ShaderBuffer*>(buffers), shaderDesc.ConstantBuffers);
+
+	for (UINT i = 0; i < shaderDesc.ConstantBuffers; i++)
+	{
+		ID3D11ShaderReflectionConstantBuffer* cBufferReflection = reflection->GetConstantBufferByIndex(i);
+
+		D3D11_SHADER_BUFFER_DESC shaderBufferDesc;
+		cBufferReflection->GetDesc(&shaderBufferDesc);
+
+		DX11ShaderBuffer* shaderBuffer = dxShader->GetShaderBufferAtIndex(i);
+		shaderBuffer->Data = allocator.Allocate(shaderBufferDesc.Size, 16, 0);
+		ZeroMemory(shaderBuffer->Data, shaderBufferDesc.Size);
+
+		D3D11_BUFFER_DESC bufferDesc;
+		bufferDesc.Usage				= D3D11_USAGE_DEFAULT;
+		bufferDesc.ByteWidth			= shaderBufferDesc.Size;
+		bufferDesc.BindFlags			= D3D11_BIND_CONSTANT_BUFFER;
+		bufferDesc.CPUAccessFlags		= 0;
+		bufferDesc.MiscFlags			= 0;
+		bufferDesc.StructureByteStride	= 0;
+		mDevice->CreateBuffer(&bufferDesc, nullptr, &shaderBuffer->ConstantBuffer);
+
+		//for (UINT j = 0; j < shaderBufferDesc.Variables; j++)
+		//{
+		//	ID3D11ShaderReflectionVariable* variableReflection = cBufferReflection->GetVariableByIndex(j);
+
+		//	D3D11_SHADER_VARIABLE_DESC variableDesc;
+		//	variableReflection->GetDesc(&variableDesc);
+		//}
+	}
+
+	dxShader->SetInputLayout(mDevice, vsBlob, &inputLayoutDesc[0], inputLayoutDesc.size());
+	dxShader->SetVertexShader(mDevice, vsBlob);
+
+	ReleaseMacro(reflection);
+	ReleaseMacro(vsBlob);
+}
+
+void DX3D11Renderer::VLoadPixelShader(IShader* pixelShader, const char* filename)
+{
+
+}
+
+void DX3D11Renderer::VSetVertexShader(IShader* shader)
+{
+	mDeviceContext->VSSetShader(static_cast<DX11Shader*>(shader)->GetVertexShader(), nullptr, 0);
+}
+
+void DX3D11Renderer::VSetPixelShader(IShader* shader)
+{
+	mDeviceContext->PSSetShader(static_cast<DX11Shader*>(shader)->GetPixelShader(), nullptr, 0);
 }
 
 void DX3D11Renderer::VSetPrimitiveType(GPUPrimitiveType type)
