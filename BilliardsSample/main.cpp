@@ -491,7 +491,7 @@ public:
 		ballTransformBufferDesc.ByteWidth = sizeof(mat4f) * BALL_COUNT;
 		ballTransformBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
 		ballTransformBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-		ballTransformBufferDesc.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
+		ballTransformBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		ballTransformBufferDesc.MiscFlags = 0;
 		ballTransformBufferDesc.StructureByteStride = 0;
 

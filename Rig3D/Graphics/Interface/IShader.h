@@ -9,8 +9,6 @@ namespace Rig3D
 	public:
 		IShader();
 		virtual ~IShader();
-
-		virtual void VLoad(const char* filename) = 0;
 	};
 }
 

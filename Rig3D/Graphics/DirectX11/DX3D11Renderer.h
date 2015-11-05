@@ -45,15 +45,24 @@ namespace Rig3D
 		static DX3D11Renderer& SharedInstance();
 
 		int		VInitialize(HINSTANCE hInstance, HWND hwnd, Options options) override;
+		void	VOnResize() override;
 		void	VUpdateScene(const double& milliseconds) override;
 		void	VRenderScene() override;
-		void	VOnResize() override;
 		void	VShutdown() override;
-		void	HandleEvent(const IEvent& iEvent) override;
 
 		inline void	VSetPrimitiveType(GPUPrimitiveType type) override;
 		inline void	VDrawIndexed(GPUPrimitiveType type, uint32_t startIndex, uint32_t count) override;
 		inline void	VDrawIndexed(uint32_t startIndex, uint32_t count) override;
+
+		void	VCreateVertexBuffer(void* buffer, void* vertices, const size_t& size) override;
+		void	VCreateStaticVertexBuffer(void* buffer, void* vertices, const size_t& size) override;
+		void	VCreateDynamicVertexBuffer(void* buffer, void* vertices, const size_t& size) override;
+		void	VCreateInstanceBuffer(void* buffer, void* data, const size_t& size) override;
+		void	VCreateStaticInstanceBuffer(void* buffer, void* data, const size_t& size) override;
+		void	VCreateDynamicInstanceBuffer(void* buffer, void* data, const size_t& size) override;
+		void	VCreateConstantBuffer(GPUBuffer* buffer, void* data, const size_t& size) override;
+		void	VCreateStaticConstantBuffer(void* buffer, void* data, const size_t& size) override;
+		void	VCreateDynamicConstantBuffer(void* buffer, void* data, const size_t& size) override;
 
 		void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage) override;
 		void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage) override;
@@ -69,6 +78,7 @@ namespace Rig3D
 
 		void	VSwapBuffers() override;
 
+
 		int						InitializeD3D11();
 		ID3D11Device*			GetDevice()				const;
 		ID3D11DeviceContext*	GetDeviceContext()		const;
@@ -77,6 +87,8 @@ namespace Rig3D
 		ID3D11RenderTargetView* const* GetRenderTargetView()	const;
 		ID3D11DepthStencilView* GetDepthStencilView()	const;
 		D3D11_VIEWPORT const&	GetViewport()			const;
+
+		void	HandleEvent(const IEvent& iEvent) override;
 
 	private:
 		UINT					mMSAA4xQuality;

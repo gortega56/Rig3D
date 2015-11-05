@@ -9,6 +9,8 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <fstream>
+#include "Rig3D\Graphics\Interface\Buffer.h"
+#include "Rig3D\Graphics\Interface\IShader.h"
 
 #define PI 3.1415926535f
 
@@ -62,13 +64,14 @@ public:
 	LinearAllocator			mAllocator;
 	KeyFrame				mKeyFrames[KEY_FRAME_COUNT];
 
+	GPUBuffer				mConstantBuffer;
+
 	DX3D11Renderer*			mRenderer;
 	ID3D11Device*			mDevice;
 	ID3D11DeviceContext*	mDeviceContext;
-	ID3D11Buffer*			mConstantBuffer;
 	ID3D11InputLayout*		mInputLayout;
-	ID3D11VertexShader*		mVertexShader;
-	ID3D11PixelShader*		mPixelShader;
+	IShader					mVertexShader;
+	IShader					mPixelShader;
 
 	InterpolationMode		mInterpolationMode;
 	TCBProperties			mTCBProperties;
@@ -92,9 +95,8 @@ public:
 
 	~Rig3DSampleScene()
 	{
-		ReleaseMacro(mVertexShader);
-		ReleaseMacro(mPixelShader);
-		ReleaseMacro(mConstantBuffer);
+		//ReleaseMacro(mVertexShader);
+		//ReleaseMacro(mPixelShader);
 		ReleaseMacro(mInputLayout);
 	}
 
@@ -284,15 +286,8 @@ public:
 		psBlob->Release();
 
 		// Constant buffers ----------------------------------------
-		D3D11_BUFFER_DESC cBufferTransformDesc;
-		cBufferTransformDesc.ByteWidth = sizeof(mMatrixBuffer);
-		cBufferTransformDesc.Usage = D3D11_USAGE_DEFAULT;
-		cBufferTransformDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-		cBufferTransformDesc.CPUAccessFlags = 0;
-		cBufferTransformDesc.MiscFlags = 0;
-		cBufferTransformDesc.StructureByteStride = 0;
 
-		mDevice->CreateBuffer(&cBufferTransformDesc, NULL, &mConstantBuffer);
+		mRenderer->VCreateConstantBuffer(&mConstantBuffer, nullptr, sizeof(mMatrixBuffer));
 	}
 
 	void InitializeCamera()
@@ -467,7 +462,7 @@ public:
 		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
 
 		mDeviceContext->UpdateSubresource(
-			mConstantBuffer,
+			*mConstantBuffer.GetDX11(),
 			0,
 			NULL,
 			&mMatrixBuffer,
@@ -477,7 +472,7 @@ public:
 		mDeviceContext->VSSetConstantBuffers(
 			0,
 			1,
-			&mConstantBuffer);
+			mConstantBuffer.GetDX11());
 
 		mRenderer->VBindMesh(mCubeMesh);
 

@@ -7,20 +7,6 @@ namespace Rig3D
 {
 	class DXD11Renderer;
 
-	struct DX11ShaderVariable
-	{
-		uint32_t ByteOffset;
-		uint32_t Size;
-		uint32_t BufferIndex;
-	};
-
-	struct DX11ShaderBuffer
-	{
-		ID3D11Buffer*	ConstantBuffer;
-		void*			Data;
-		uint8_t			BindIndex;
-	};
-
 	class DX11Shader : public IShader
 	{
 	public:
@@ -42,45 +28,60 @@ namespace Rig3D
 			return mPixelShader;
 		}
 
-		inline void SetVertexShader(ID3D11Device* device, ID3DBlob* vsBlob)
+		inline void CreateVertexShader(ID3D11Device* device, ID3DBlob* vsBlob)
 		{
 			device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &mVertexShader);
 		}
 
-		inline void SetInputLayout(ID3D11Device* device, ID3DBlob* vsBlob, D3D11_INPUT_ELEMENT_DESC* inputLayoutDesc, UINT inputElementCount)
+		inline void CreateInputLayout(ID3D11Device* device, ID3DBlob* vsBlob, D3D11_INPUT_ELEMENT_DESC* inputLayoutDesc, UINT inputElementCount)
 		{
 			device->CreateInputLayout(inputLayoutDesc, inputElementCount, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mInputLayout);
 		}
 
-		inline void SetBuffers(DX11ShaderBuffer* buffers, uint32_t bufferCount)
+		inline void SetConstantBuffers(ID3D11Buffer** buffers, uint8_t count)
 		{
 			mBuffers = buffers;
-			mBufferCount = mBufferCount;
+			mBufferCount = count;
 		}
 
-		inline DX11ShaderBuffer* GetShaderBufferAtIndex(uint32_t index)
+		inline void SetShaderResourceViews(ID3D11ShaderResourceView** srvs, uint8_t count)
 		{
-			return &mBuffers[index];
+			mShaderResourceViews = srvs;
+			mShaderResourceViewCount = count;
 		}
 
-		//inline ID3D11Buffer** GetBufferAtIndex(uint32_t index)
-		//{
-		//	return &mBuffers[index].ConstantBuffer;
-		//}
+		inline void SetSamperStates(ID3D11SamplerState** samplerStates, uint8_t count)
+		{
+			mSamplerStates = samplerStates;
+			mSamplerStateCount = count;
+		}
 
-		inline void SetPixelShader(ID3D11Device* device, ID3DBlob* psBlob)
+		inline void CreatePixelShader(ID3D11Device* device, ID3DBlob* psBlob)
 		{
 			device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &mPixelShader);
 		}
 
-		inline void UpdateConstantBufferForKey(ID3D11DeviceContext* deviceContext, const char* key, void* data)
+		inline void UpdateConstantBuffer(ID3D11DeviceContext* deviceContext, void* data, uint8_t index)
 		{
-			deviceContext->UpdateSubresource(mConstantBufferMap.at(key), 0, nullptr, data, 0, 0);
+			deviceContext->UpdateSubresource(mBuffers[index], 0, nullptr, data, 0, 0);
 		}
 
 		inline void SetVSResources(ID3D11DeviceContext* deviceContext) const
 		{
-			
+			if (mBuffers)
+			{
+				deviceContext->VSSetConstantBuffers(0, mBufferCount, mBuffers);
+			}
+
+			if (mShaderResourceViews)
+			{
+				deviceContext->VSSetShaderResources(0, mShaderResourceViewCount, mShaderResourceViews);
+			}
+
+			if (mSamplerStates)
+			{
+				deviceContext->VSSetSamplers(0, mSamplerStateCount, mSamplerStates);
+			}
 		}
 
 		inline void SetPSResources(ID3D11DeviceContext* deviceContext) const
@@ -89,7 +90,9 @@ namespace Rig3D
 		}
 
 	private:
-		uint32_t								mBufferCount;
+		uint8_t					mBufferCount;
+		uint8_t					mShaderResourceViewCount;
+		uint8_t					mSamplerStateCount;
 
 		union
 		{
@@ -106,10 +109,8 @@ namespace Rig3D
 			};
 		};
 
-		DX11ShaderBuffer*						mBuffers;
-
-		std::map<const char*, ID3D11Buffer*>	mConstantBufferMap;
-		std::map<const char*, UINT>				mShaderResourceViewMap;
-		std::map<const char*, UINT>				mSamplerStateMap;
+		ID3D11Buffer**				mBuffers;
+		ID3D11ShaderResourceView**	mShaderResourceViews;
+		ID3D11SamplerState**		mSamplerStates;
 	};
 }

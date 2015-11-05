@@ -16,6 +16,7 @@ namespace Rig3D
 	class IScene;
 	class IMesh;
 	class IShader;
+	class GPUBuffer;
 
 	class RIG3D IRendererDelegate
 	{
@@ -42,9 +43,25 @@ namespace Rig3D
 		virtual void	VDrawIndexed(GPUPrimitiveType type, uint32_t startIndex, uint32_t count) = 0;
 		virtual void    VDrawIndexed(uint32_t startIndex, uint32_t count) = 0;
 
+#pragma region Buffer
+
+		virtual void	VCreateVertexBuffer(void* buffer, void* vertices, const size_t& size) = 0;
+		virtual void	VCreateStaticVertexBuffer(void* buffer, void* vertices, const size_t& size) = 0;
+		virtual void	VCreateDynamicVertexBuffer(void* buffer, void* vertices, const size_t& size) = 0;
+		virtual void	VCreateInstanceBuffer(void* buffer, void* data, const size_t& size) = 0;
+		virtual void	VCreateStaticInstanceBuffer(void* buffer, void* data, const size_t& size) = 0;
+		virtual void	VCreateDynamicInstanceBuffer(void* buffer, void* data, const size_t& size) = 0;
+		virtual void	VCreateConstantBuffer(GPUBuffer* buffer, void* data, const size_t& size) = 0;
+		virtual void	VCreateStaticConstantBuffer(void* buffer, void* data, const size_t& size) = 0;
+		virtual void	VCreateDynamicConstantBuffer(void* buffer, void* data, const size_t& size) = 0;
+
+#pragma endregion
+
 		virtual void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage) = 0;
 		virtual void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage) = 0;
 		virtual void    VBindMesh(IMesh* mesh) = 0;
+
+#pragma region Shaders
 
 		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) = 0;
 		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename) = 0;
@@ -54,14 +71,16 @@ namespace Rig3D
 		virtual void	VSetVertexShader(IShader* shader) = 0;
 		virtual void	VSetPixelShader(IShader* shader) = 0;
 
+#pragma endregion
+
 		virtual void    VSwapBuffers() = 0;
 
 		void SetWindowCaption(const char* caption);
 		
-		inline float		GetAspectRatio() const { return (float)mWindowWidth / mWindowHeight; };
+		inline float		GetAspectRatio() const { return static_cast<float>(mWindowWidth) / mWindowHeight; };
 		inline const int&	GetWindowWidth() const { return mWindowWidth; };
 		inline const int&	GetWindowHeight() const { return mWindowHeight; };
-		inline GraphicsAPI GetGraphicsAPI() const { return mGraphicsAPI; };
+		inline GraphicsAPI	GetGraphicsAPI() const { return mGraphicsAPI; };
 	
 		inline void SetDelegate(IRendererDelegate* renderDelegate) { mDelegate = renderDelegate; };
 
