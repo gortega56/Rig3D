@@ -68,6 +68,11 @@ namespace Rig3D
 		//	return &mBuffers[index].ConstantBuffer;
 		//}
 
+		inline void SetPixelShader(ID3D11Device* device, ID3DBlob* psBlob)
+		{
+			device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &mPixelShader);
+		}
+
 		inline void UpdateConstantBufferForKey(ID3D11DeviceContext* deviceContext, const char* key, void* data)
 		{
 			deviceContext->UpdateSubresource(mConstantBufferMap.at(key), 0, nullptr, data, 0, 0);

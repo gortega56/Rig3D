@@ -46,9 +46,9 @@ namespace Rig3D
 		virtual void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage) = 0;
 		virtual void    VBindMesh(IMesh* mesh) = 0;
 
-		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator& allocator) = 0;
+		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) = 0;
 		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename) = 0;
-		virtual void	VLoadPixelShader(IShader* vertexShader, const char* filename, LinearAllocator& allocator) = 0;
+		virtual void	VLoadPixelShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) = 0;
 		virtual void	VLoadPixelShader(IShader* pixelShader, const char* filename) = 0;
 
 		virtual void	VSetVertexShader(IShader* shader) = 0;

@@ -188,7 +188,7 @@ void DX3D11Renderer::VBindMesh(IMesh* mesh)
 	mDeviceContext->IASetIndexBuffer(dxMesh->mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
 }
 
-void DX3D11Renderer::VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator& allocator)
+void DX3D11Renderer::VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator)
 {
 	DX11Shader* dxShader = reinterpret_cast<DX11Shader*>(vertexShader);
 
@@ -204,48 +204,9 @@ void DX3D11Renderer::VLoadVertexShader(IShader* vertexShader, const char* filena
 	D3D11_SHADER_DESC shaderDesc;
 	reflection->GetDesc(&shaderDesc);
 
-	SetVertexShaderInputLayout(reflection, vsBlob, shaderDesc, dxShader);
-
-	void* buffers = allocator.Allocate(sizeof(DX11ShaderBuffer) * shaderDesc.ConstantBuffers, alignof(DX11ShaderBuffer), 0);
-	dxShader->SetBuffers(reinterpret_cast<DX11ShaderBuffer*>(buffers), shaderDesc.ConstantBuffers);
-
-	for (UINT i = 0; i < shaderDesc.ConstantBuffers; i++)
-	{
-		ID3D11ShaderReflectionConstantBuffer* cBufferReflection = reflection->GetConstantBufferByIndex(i);
-
-		D3D11_SHADER_BUFFER_DESC shaderBufferDesc;
-		cBufferReflection->GetDesc(&shaderBufferDesc);
-
-		DX11ShaderBuffer* shaderBuffer = dxShader->GetShaderBufferAtIndex(i);
-		shaderBuffer->Data = allocator.Allocate(shaderBufferDesc.Size, 16, 0);
-		ZeroMemory(shaderBuffer->Data, shaderBufferDesc.Size);
-
-		D3D11_BUFFER_DESC bufferDesc;
-		bufferDesc.Usage				= D3D11_USAGE_DEFAULT;
-		bufferDesc.ByteWidth			= shaderBufferDesc.Size;
-		bufferDesc.BindFlags			= D3D11_BIND_CONSTANT_BUFFER;
-		bufferDesc.CPUAccessFlags		= 0;
-		bufferDesc.MiscFlags			= 0;
-		bufferDesc.StructureByteStride	= 0;
-		mDevice->CreateBuffer(&bufferDesc, nullptr, &shaderBuffer->ConstantBuffer);
-
-
-
-		//for (UINT j = 0; j < shaderBufferDesc.Variables; j++)
-		//{
-		//	ID3D11ShaderReflectionVariable* variableReflection = cBufferReflection->GetVariableByIndex(j);
-
-		//	D3D11_SHADER_VARIABLE_DESC variableDesc;
-		//	variableReflection->GetDesc(&variableDesc);
-
-		//	DX11ShaderVariable shaderVariable;
-		//	shaderVariable.BufferIndex	= i;
-		//	shaderVariable.ByteOffset	= variableDesc.StartOffset;
-		//	shaderVariable.Size			= variableDesc.Size;
-		//}
-	}
-
-	dxShader->SetInputLayout(mDevice, vsBlob, &inputLayoutDesc[0], inputLayoutDesc.size());
+	SetVertexShaderInputLayout(reflection, vsBlob, &shaderDesc, dxShader);
+	SetShaderConstantBuffers(reflection, &shaderDesc, dxShader, allocator);
+	SetShaderResources(reflection, &shaderDesc, dxShader);
 	dxShader->SetVertexShader(mDevice, vsBlob);
 
 	ReleaseMacro(reflection);
@@ -254,34 +215,54 @@ void DX3D11Renderer::VLoadVertexShader(IShader* vertexShader, const char* filena
 
 void DX3D11Renderer::VLoadVertexShader(IShader* vertexShader, const char* filename)
 {
+	DX11Shader* dxShader = reinterpret_cast<DX11Shader*>(vertexShader);
 
+	const wchar_t* wFilename;
+	CSTR2WSTR(filename, wFilename);
+
+	ID3DBlob* vsBlob;
+	D3DReadFileToBlob(wFilename, &vsBlob);
+
+	dxShader->SetVertexShader(mDevice, vsBlob);
+
+	ReleaseMacro(vsBlob);
 }
 
-void DX3D11Renderer::VLoadPixelShader(IShader* vertexShader, const char* filename, LinearAllocator& allocator)
+void DX3D11Renderer::VLoadPixelShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator)
 {
 
 }
 
 void DX3D11Renderer::VLoadPixelShader(IShader* pixelShader, const char* filename)
 {
+	DX11Shader* dxShader = reinterpret_cast<DX11Shader*>(pixelShader);
 
+	const wchar_t* wFilename;
+	CSTR2WSTR(filename, wFilename);
+
+	ID3DBlob* psBlob;
+	D3DReadFileToBlob(wFilename, &psBlob);
+
+	dxShader->SetPixelShader(mDevice, psBlob);
+
+	ReleaseMacro(psBlob);
 }
 
-void DX3D11Renderer::SetVertexShaderInputLayout(ID3D11ShaderReflection* reflection, ID3DBlob* vsBlob, D3D11_SHADER_DESC& shaderDesc, DX11Shader* vertexShader)
+void DX3D11Renderer::SetVertexShaderInputLayout(ID3D11ShaderReflection* reflection, ID3DBlob* vsBlob, D3D11_SHADER_DESC* shaderDesc, DX11Shader* vertexShader)
 {
 	std::vector<D3D11_INPUT_ELEMENT_DESC> inputLayoutDesc;
-	for (UINT i = 0; i < shaderDesc.InputParameters; i++)
+	for (UINT i = 0; i < shaderDesc->InputParameters; i++)
 	{
 		D3D11_SIGNATURE_PARAMETER_DESC parameterDesc;
 		reflection->GetInputParameterDesc(i, &parameterDesc);
 
 		D3D11_INPUT_ELEMENT_DESC elementDesc;
-		elementDesc.InputSlot = 0;
-		elementDesc.SemanticIndex = parameterDesc.SemanticIndex;
-		elementDesc.SemanticName = parameterDesc.SemanticName;
-		elementDesc.AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
-		elementDesc.InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-		elementDesc.InstanceDataStepRate = 0;
+		elementDesc.InputSlot				= 0;
+		elementDesc.SemanticIndex			= parameterDesc.SemanticIndex;
+		elementDesc.SemanticName			= parameterDesc.SemanticName;
+		elementDesc.AlignedByteOffset		= D3D11_APPEND_ALIGNED_ELEMENT;
+		elementDesc.InputSlotClass			= D3D11_INPUT_PER_VERTEX_DATA;
+		elementDesc.InstanceDataStepRate	= 0;
 
 		if (parameterDesc.Mask == 1)
 		{
@@ -314,14 +295,66 @@ void DX3D11Renderer::SetVertexShaderInputLayout(ID3D11ShaderReflection* reflecti
 	vertexShader->SetInputLayout(mDevice, vsBlob, &inputLayoutDesc[0], inputLayoutDesc.size());
 }
 
-void DX3D11Renderer::SetShaderConstantBuffers(ID3D11ShaderReflection* reflection, D3D11_SHADER_DESC& shaderDesc, DX11Shader* shader)
+void DX3D11Renderer::SetShaderConstantBuffers(ID3D11ShaderReflection* reflection, D3D11_SHADER_DESC* shaderDesc, DX11Shader* shader, LinearAllocator* allocator)
 {
+	void* buffers = allocator->Allocate(sizeof(DX11ShaderBuffer) * shaderDesc->ConstantBuffers, alignof(DX11ShaderBuffer), 0);
+	shader->SetBuffers(reinterpret_cast<DX11ShaderBuffer*>(buffers), shaderDesc->ConstantBuffers);
 
+	for (UINT i = 0; i < shaderDesc->ConstantBuffers; i++)
+	{
+		ID3D11ShaderReflectionConstantBuffer* cBufferReflection = reflection->GetConstantBufferByIndex(i);
+
+		D3D11_SHADER_BUFFER_DESC shaderBufferDesc;
+		cBufferReflection->GetDesc(&shaderBufferDesc);
+
+		DX11ShaderBuffer* shaderBuffer = shader->GetShaderBufferAtIndex(i);
+		shaderBuffer->Data = allocator->Allocate(shaderBufferDesc.Size, 16, 0);
+		ZeroMemory(shaderBuffer->Data, shaderBufferDesc.Size);
+
+		D3D11_BUFFER_DESC bufferDesc;
+		bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		bufferDesc.ByteWidth = shaderBufferDesc.Size;
+		bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		bufferDesc.CPUAccessFlags = 0;
+		bufferDesc.MiscFlags = 0;
+		bufferDesc.StructureByteStride = 0;
+		mDevice->CreateBuffer(&bufferDesc, nullptr, &shaderBuffer->ConstantBuffer);
+
+		//for (UINT j = 0; j < shaderBufferDesc.Variables; j++)
+		//{
+		//	ID3D11ShaderReflectionVariable* variableReflection = cBufferReflection->GetVariableByIndex(j);
+
+		//	D3D11_SHADER_VARIABLE_DESC variableDesc;
+		//	variableReflection->GetDesc(&variableDesc);
+
+		//	DX11ShaderVariable shaderVariable;
+		//	shaderVariable.BufferIndex	= i;
+		//	shaderVariable.ByteOffset	= variableDesc.StartOffset;
+		//	shaderVariable.Size			= variableDesc.Size;
+		//}
+	}
 }
 
-void DX3D11Renderer::SetShaderResources(ID3D11ShaderReflection* reflection, D3D11_SHADER_DESC& shaderDesc, DX11Shader* shader)
+void DX3D11Renderer::SetShaderResources(ID3D11ShaderReflection* reflection, D3D11_SHADER_DESC* shaderDesc, DX11Shader* shader)
 {
+	for (unsigned int r = 0; r < shaderDesc->BoundResources; r++)
+	{
+		// Get this resource's description
+		D3D11_SHADER_INPUT_BIND_DESC resourceDesc;
+		reflection->GetResourceBindingDesc(r, &resourceDesc);
 
+		// Check the type
+		switch (resourceDesc.Type)
+		{
+		case D3D_SIT_TEXTURE: // A texture resource
+		//	textureTable.insert(std::pair<std::string, unsigned int>(resourceDesc.Name, resourceDesc.BindPoint));
+			break;
+
+		case D3D_SIT_SAMPLER: // A sampler resource
+		//	samplerTable.insert(std::pair<std::string, unsigned int>(resourceDesc.Name, resourceDesc.BindPoint));
+			break;
+		}
+	}
 }
 
 void DX3D11Renderer::VSetVertexShader(IShader* shader)

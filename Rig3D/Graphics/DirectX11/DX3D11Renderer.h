@@ -59,9 +59,9 @@ namespace Rig3D
 		void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage) override;
 		void    VBindMesh(IMesh* mesh) override;
 
-		void	VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator& allocator) override;
+		void	VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) override;
 		void	VLoadVertexShader(IShader* vertexShader, const char* filename) override;
-		void	VLoadPixelShader(IShader* vertexShader, const char* filename, LinearAllocator& allocator) override;
+		void	VLoadPixelShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) override;
 		void	VLoadPixelShader(IShader* pixelShader, const char* filename) override;
 
 		void	VSetVertexShader(IShader* shader) override;
@@ -103,8 +103,8 @@ namespace Rig3D
 		void operator=(DX3D11Renderer const&) = delete;
 	
 		void SetVertexShaderInputLayout(ID3D11ShaderReflection* reflection, ID3DBlob* vsBlob, D3D11_SHADER_DESC* shaderDesc, DX11Shader* vertexShader);
-		void SetShaderConstantBuffers(ID3D11ShaderReflection* reflection, D3D11_SHADER_DESC& shaderDesc, DX11Shader* shader, LinearAllocator* allocator);
-		void SetShaderResources(ID3D11ShaderReflection* reflection, D3D11_SHADER_DESC& shaderDesc, DX11Shader* shader);
+		void SetShaderConstantBuffers(ID3D11ShaderReflection* reflection, D3D11_SHADER_DESC* shaderDesc, DX11Shader* shader, LinearAllocator* allocator);
+		void SetShaderResources(ID3D11ShaderReflection* reflection, D3D11_SHADER_DESC* shaderDesc, DX11Shader* shader);
 	};
 }
 
