@@ -4,14 +4,8 @@
 using namespace Rig3D;
 
 DX11Shader::DX11Shader() : 
-	mBufferCount(0), 
-	mShaderResourceViewCount(0), 
-	mSamplerStateCount(0), 
 	mVertexShader(nullptr),
-	mInputLayout(nullptr),
-	mBuffers(nullptr), 
-	mShaderResourceViews(nullptr), 
-	mSamplerStates(nullptr)
+	mInputLayout(nullptr)
 {
 }
 
@@ -22,8 +16,88 @@ DX11Shader::~DX11Shader()
 	ReleaseMacro(mInputLayout);
 	ReleaseMacro(mPixelShader);
 
-	//for (std::map<const char*, ID3D11Buffer*>::iterator iterator = mConstantBufferMap.begin(); iterator != mConstantBufferMap.end(); ++iterator)
-	//{
-	//	ReleaseMacro(iterator->second);
-	//}
+	ClearBuffers();
+	ClearShaderResourceViews();
+	ClearSamplerStates();
+}
+
+ID3D11Buffer**	DX11Shader::GetBuffers()
+{
+	return &mBuffers[0];
+}
+
+ID3D11ShaderResourceView** DX11Shader::GetShaderResourceViews()
+{
+	return &mShaderResourceViews[0];
+}
+
+ID3D11SamplerState** DX11Shader::GetSamplerStates()
+{
+	return &mSamplerStates[0];
+}
+
+uint32_t DX11Shader::GetBufferCount() const
+{
+	return mBuffers.size();
+}
+
+uint32_t DX11Shader::GetShaderResourceViewCount() const
+{
+	return mShaderResourceViews.size();
+}
+
+uint32_t DX11Shader::GetSamplerStateCount() const
+{
+	return mSamplerStates.size();
+}
+
+void DX11Shader::SetBuffers(std::vector<ID3D11Buffer*>& buffers)
+{
+	ClearBuffers();
+
+	mBuffers = buffers;
+}
+
+void DX11Shader::SetShaderResourceViews(std::vector<ID3D11ShaderResourceView*>& shaderResourceViews)
+{
+	ClearShaderResourceViews();
+
+	mShaderResourceViews = shaderResourceViews;
+}
+
+void DX11Shader::SetSamplerStates(std::vector<ID3D11SamplerState*>& samplerStates)
+{
+	ClearSamplerStates();
+
+	mSamplerStates = samplerStates;
+}
+
+void DX11Shader::ClearBuffers()
+{
+	for (uint32_t i = 0; i < mBuffers.size(); i++)
+	{
+		ReleaseMacro(mBuffers[i]);
+	}
+
+	mBuffers.clear();
+}
+
+void DX11Shader::ClearShaderResourceViews()
+{
+	for (uint32_t i = 0; i < mShaderResourceViews.size(); i++)
+	{
+		ReleaseMacro(mShaderResourceViews[i]);
+	}
+
+	mShaderResourceViews.clear();
+}
+
+void DX11Shader::ClearSamplerStates()
+{
+	for (uint32_t i = 0; i < mSamplerStates.size(); i++)
+	{
+		ReleaseMacro(mSamplerStates[i]);
+	}
+
+	mSamplerStates.clear();
 }

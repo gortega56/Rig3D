@@ -60,11 +60,11 @@ namespace Rig3D
 		void	VCreateInstanceBuffer(void* buffer, void* data, const size_t& size) override;
 		void	VCreateStaticInstanceBuffer(void* buffer, void* data, const size_t& size) override;
 		void	VCreateDynamicInstanceBuffer(void* buffer, void* data, const size_t& size) override;
-		void	VCreateConstantBuffer(GPUBuffer* buffer, void* data, const size_t& size) override;
+		void	VCreateConstantBuffer(void* buffer, void* data, const size_t& size) override;
 		void	VCreateStaticConstantBuffer(void* buffer, void* data, const size_t& size) override;
 		void	VCreateDynamicConstantBuffer(void* buffer, void* data, const size_t& size) override;
 
-		void	VUpdateConstantBuffer(GPUBuffer* buffer, void* data) override;
+		void	VUpdateConstantBuffer(void* buffer, void* data) override;
 
 		void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage) override;
 		void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage) override;
@@ -84,7 +84,8 @@ namespace Rig3D
 
 		void	VSetPixelShader(IShader* shader) override;
 
-		void	VSetConstantBuffer(IShader* shader, GPUBuffer* buffer) override;
+		void	VSetConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) override;
+		void	VUpdateConstantBuffer(IShader* shader, void* data, uint32_t index) override;
 
 		void	VSwapBuffers() override;
 

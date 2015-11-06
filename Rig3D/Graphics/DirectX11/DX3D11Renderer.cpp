@@ -9,7 +9,6 @@
 #include <sstream>
 #include <d3dcompiler.h>
 #include <d3d11shader.h>
-#include "Rig3D\Graphics\Interface\Buffer.h"
 
 static wchar_t* WINDOW_CLASS_NAME = L"Rig3D DirectX11 Window";
 
@@ -375,7 +374,7 @@ void DX3D11Renderer::VCreateDynamicInstanceBuffer(void* buffer, void* data, cons
 	mDevice->CreateBuffer(&ibd, pInstanceData, reinterpret_cast<ID3D11Buffer**>(&buffer));
 }
 
-void DX3D11Renderer::VCreateConstantBuffer(GPUBuffer* buffer, void* data, const size_t& size)
+void DX3D11Renderer::VCreateConstantBuffer(void* buffer, void* data, const size_t& size)
 {
 	D3D11_BUFFER_DESC bufferDesc;
 	bufferDesc.ByteWidth = size;
@@ -392,8 +391,7 @@ void DX3D11Renderer::VCreateConstantBuffer(GPUBuffer* buffer, void* data, const 
 		bufferData.pSysMem = data;
 		pBufferData = &bufferData;
 	}
-
-	mDevice->CreateBuffer(&bufferDesc, pBufferData, buffer->GetDX11());
+	mDevice->CreateBuffer(&bufferDesc, pBufferData, reinterpret_cast<ID3D11Buffer**>(buffer));
 }
 
 void DX3D11Renderer::VCreateStaticConstantBuffer(void* buffer, void* data, const size_t& size)
@@ -438,9 +436,9 @@ void DX3D11Renderer::VCreateDynamicConstantBuffer(void* buffer, void* data, cons
 	mDevice->CreateBuffer(&bufferDesc, pBufferData, reinterpret_cast<ID3D11Buffer**>(&buffer));
 }
 
-void DX3D11Renderer::VUpdateConstantBuffer(GPUBuffer* buffer, void* data)
+void DX3D11Renderer::VUpdateConstantBuffer(void* buffer, void* data)
 {
-	mDeviceContext->UpdateSubresource(*buffer->GetDX11(), 0, nullptr, data, 0, 0);
+	mDeviceContext->UpdateSubresource(static_cast<ID3D11Buffer*>(buffer), 0, nullptr, data, 0, 0);
 }
 
 void DX3D11Renderer::VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage)
@@ -585,7 +583,7 @@ void DX3D11Renderer::VLoadVertexShader(IShader* vertexShader, const char* filena
 	ID3DBlob* vsBlob;
 	D3DReadFileToBlob(wFilename, &vsBlob);
 
-	dxShader->CreateVertexShader(mDevice, vsBlob);
+	mDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &dxShader->mVertexShader);
 
 	ReleaseMacro(vsBlob);
 }
@@ -605,7 +603,7 @@ void DX3D11Renderer::VLoadPixelShader(IShader* pixelShader, const char* filename
 	ID3DBlob* psBlob;
 	D3DReadFileToBlob(wFilename, &psBlob);
 
-	dxShader->CreatePixelShader(mDevice, psBlob);
+	mDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &dxShader->mPixelShader);
 
 	ReleaseMacro(psBlob);
 }
@@ -654,7 +652,7 @@ void DX3D11Renderer::SetVertexShaderInputLayout(ID3D11ShaderReflection* reflecti
 		inputLayoutDesc.push_back(elementDesc);
 	}
 
-	vertexShader->CreateInputLayout(mDevice, vsBlob, &inputLayoutDesc[0], inputLayoutDesc.size());
+	mDevice->CreateInputLayout(&inputLayoutDesc[0], inputLayoutDesc.size(), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &vertexShader->mInputLayout);
 }
 
 void DX3D11Renderer::SetShaderConstantBuffers(ID3D11ShaderReflection* reflection, D3D11_SHADER_DESC* shaderDesc, DX11Shader* shader, LinearAllocator* allocator)
@@ -734,35 +732,51 @@ void DX3D11Renderer::VSetVertexShaderInputLayout(IShader* vertexShader)
 void DX3D11Renderer::VSetVertexShaderResources(IShader* vertexShader)
 {
 	DX11Shader* shader = static_cast<DX11Shader*>(vertexShader);
-	if (shader->mBuffers) 
+	uint8_t bufferCount = shader->GetBufferCount();
+	if (bufferCount) 
 	{
-		mDeviceContext->VSSetConstantBuffers(0, shader->mBufferCount, shader->mBuffers);
+		mDeviceContext->VSSetConstantBuffers(0, bufferCount, shader->GetBuffers());
 	}
 
-	if (shader->mShaderResourceViews)
+	uint8_t srvCount = shader->GetShaderResourceViewCount();
+	if (srvCount)
 	{
-		mDeviceContext->VSSetShaderResources(0, shader->mShaderResourceViewCount, shader->mShaderResourceViews);
+		mDeviceContext->VSSetShaderResources(0, srvCount, shader->GetShaderResourceViews());
 	}
 
-	if (shader->mSamplerStates)
+	uint8_t samplerStateCount = shader->GetSamplerStateCount();
+	if (samplerStateCount)
 	{
-		mDeviceContext->VSSetSamplers(0, shader->mSamplerStateCount, shader->mSamplerStates);
+		mDeviceContext->VSSetSamplers(0, samplerStateCount, shader->GetSamplerStates());
 	}
 }
 
 void DX3D11Renderer::VSetVertexShader(IShader* shader)
 {
-	mDeviceContext->VSSetShader(static_cast<DX11Shader*>(shader)->GetVertexShader(), nullptr, 0);
+	mDeviceContext->VSSetShader(static_cast<DX11Shader*>(shader)->mVertexShader, nullptr, 0);
 }
 
 void DX3D11Renderer::VSetPixelShader(IShader* shader)
 {
-	mDeviceContext->PSSetShader(static_cast<DX11Shader*>(shader)->GetPixelShader(), nullptr, 0);
+	mDeviceContext->PSSetShader(static_cast<DX11Shader*>(shader)->mPixelShader, nullptr, 0);
 }
 
-void DX3D11Renderer::VSetConstantBuffer(IShader* shader, GPUBuffer* buffer)
+void DX3D11Renderer::VSetConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count)
 {
-	static_cast<DX11Shader*>(shader)->SetConstantBuffers(buffer->GetDX11(), 1);
+	std::vector<ID3D11Buffer*> constantBuffers(count);
+
+	for (uint32_t i = 0; i < count; i++)
+	{
+		VCreateConstantBuffer(&constantBuffers[i], data[i], sizes[i]);
+	}
+
+	static_cast<DX11Shader*>(shader)->SetBuffers(constantBuffers);
+}
+
+void DX3D11Renderer::VUpdateConstantBuffer(IShader* shader, void* data, uint32_t index)
+{
+	ID3D11Buffer** constantBuffers = static_cast<DX11Shader*>(shader)->GetBuffers();
+	mDeviceContext->UpdateSubresource(constantBuffers[index], 0, nullptr, data, 0, 0);
 }
 
 void DX3D11Renderer::VSwapBuffers()

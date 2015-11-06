@@ -81,7 +81,6 @@
     <ClInclude Include="Graphics\DirectX11\DX11ShaderReflection.h" />
     <ClInclude Include="Graphics\DirectX11\DX3D11Renderer.h" />
     <ClInclude Include="Graphics\DirectX11\dxerr.h" />
-    <ClInclude Include="Graphics\Interface\Buffer.h" />
     <ClInclude Include="Graphics\Interface\IMesh.h" />
     <ClInclude Include="Graphics\Interface\IRenderer.h" />
     <ClInclude Include="Graphics\Interface\IScene.h" />
@@ -105,7 +104,6 @@
     <ClCompile Include="Graphics\DirectX11\DX11ShaderReflection.cpp" />
     <ClCompile Include="Graphics\DirectX11\DX3D11Renderer.cpp" />
     <ClCompile Include="Graphics\DirectX11\dxerr.cpp" />
-    <ClCompile Include="Graphics\Interface\Buffer.cpp" />
     <ClCompile Include="Graphics\Interface\IMesh.cpp" />
     <ClCompile Include="Graphics\Interface\IRenderer.cpp" />
     <ClCompile Include="Graphics\Interface\IScene.cpp" />

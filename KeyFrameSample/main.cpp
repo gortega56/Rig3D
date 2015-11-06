@@ -9,7 +9,6 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <fstream>
-#include "Rig3D\Graphics\Interface\Buffer.h"
 #include "Rig3D\Graphics\Interface\IShader.h"
 
 #define PI 3.1415926535f
@@ -64,14 +63,13 @@ public:
 	LinearAllocator			mAllocator;
 	KeyFrame				mKeyFrames[KEY_FRAME_COUNT];
 
-	GPUBuffer				mConstantBuffer;
+	IShader*				mVertexShader;
+	IShader*				mPixelShader;
 
 	DX3D11Renderer*			mRenderer;
 	ID3D11Device*			mDevice;
 	ID3D11DeviceContext*	mDeviceContext;
-	IShader*				mVertexShader;
-	IShader*				mPixelShader;
-
+	
 	InterpolationMode		mInterpolationMode;
 	TCBProperties			mTCBProperties;
 	float					mAnimationTime;
@@ -254,8 +252,9 @@ public:
 
 		// Constant buffers ----------------------------------------
 
-		mRenderer->VCreateConstantBuffer(&mConstantBuffer, nullptr, sizeof(mMatrixBuffer));
-		mRenderer->VSetConstantBuffer(mVertexShader, &mConstantBuffer);
+		void* data[] = { &mMatrixBuffer };
+		size_t sizes[] = { sizeof(SampleMatrixBuffer) };
+		mRenderer->VSetConstantBuffers(mVertexShader, data, sizes, 1);
 	}
 
 	void InitializeCamera()
@@ -429,21 +428,8 @@ public:
 		mRenderer->VSetVertexShader(mVertexShader);
 		mRenderer->VSetPixelShader(mPixelShader);
 
-		mRenderer->VUpdateConstantBuffer(&mConstantBuffer, &mMatrixBuffer);
+		mRenderer->VUpdateConstantBuffer(mVertexShader, &mMatrixBuffer, 0);
 		mRenderer->VSetVertexShaderResources(mVertexShader);
-
-		/*mDeviceContext->UpdateSubresource(
-			*mConstantBuffer.GetDX11(),
-			0,
-			NULL,
-			&mMatrixBuffer,
-			0,
-			0);*/
-
-	/*	mDeviceContext->VSSetConstantBuffers(
-			0,
-			1,
-			mConstantBuffer.GetDX11());*/
 
 		mRenderer->VBindMesh(mCubeMesh);
 

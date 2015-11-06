@@ -16,7 +16,6 @@ namespace Rig3D
 	class IScene;
 	class IMesh;
 	class IShader;
-	class GPUBuffer;
 
 	enum InputClass
 	{
@@ -75,12 +74,11 @@ namespace Rig3D
 		virtual void	VCreateInstanceBuffer(void* buffer, void* data, const size_t& size) = 0;
 		virtual void	VCreateStaticInstanceBuffer(void* buffer, void* data, const size_t& size) = 0;
 		virtual void	VCreateDynamicInstanceBuffer(void* buffer, void* data, const size_t& size) = 0;
-		virtual void	VCreateConstantBuffer(GPUBuffer* buffer, void* data, const size_t& size) = 0;
+		virtual void	VCreateConstantBuffer(void* buffer, void* data, const size_t& size) = 0;
 		virtual void	VCreateStaticConstantBuffer(void* buffer, void* data, const size_t& size) = 0;
 		virtual void	VCreateDynamicConstantBuffer(void* buffer, void* data, const size_t& size) = 0;
 
-		virtual void	VUpdateConstantBuffer(GPUBuffer* buffer, void* data) = 0;
-
+		virtual void	VUpdateConstantBuffer(void* buffer, void* data) = 0;
 #pragma endregion
 
 		virtual void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage) = 0;
@@ -100,7 +98,9 @@ namespace Rig3D
 		virtual void	VSetVertexShaderResources(IShader* vertexShader) = 0;
 		virtual void	VSetVertexShader(IShader* shader) = 0;
 		virtual void	VSetPixelShader(IShader* shader) = 0;
-		virtual void	VSetConstantBuffer(IShader* shader, GPUBuffer* buffer) = 0;
+
+		virtual void	VSetConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) = 0;
+		virtual void	VUpdateConstantBuffer(IShader* shader, void* data, uint32_t index) = 0;
 
 #pragma endregion
 
