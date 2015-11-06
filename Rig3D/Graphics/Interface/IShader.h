@@ -1,6 +1,4 @@
 #pragma once
-#include "Memory/Memory/LinearAllocator.h"
-#include <new>
 
 namespace Rig3D
 {
@@ -11,4 +9,3 @@ namespace Rig3D
 		virtual ~IShader();
 	};
 }
-

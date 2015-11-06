@@ -18,6 +18,30 @@ namespace Rig3D
 	class IShader;
 	class GPUBuffer;
 
+	enum InputClass
+	{
+		INPUT_CLASS_PER_VERTEX,
+		INPUT_CLASS_PER_INSTANCE
+	};
+
+	enum InputFormat
+	{
+		FLOAT2,
+		FLOAT3,
+		FLOAT4
+	};
+
+	struct InputElement
+	{
+		const char* Name;
+		uint32_t	Index;
+		uint32_t	InputSlot;
+		uint32_t	ByteOffset;
+		uint32_t	InstanceStepRate;
+		InputFormat	Format;
+		InputClass	InputSlotClass;
+	};
+
 	class RIG3D IRendererDelegate
 	{
 	public:
@@ -62,12 +86,15 @@ namespace Rig3D
 		virtual void    VBindMesh(IMesh* mesh) = 0;
 
 #pragma region Shaders
-
+		virtual void	VCreateShader(IShader** shader, LinearAllocator* allocator) = 0;
+		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename, InputElement* inputElements, const uint32_t& count) = 0;
 		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) = 0;
 		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename) = 0;
 		virtual void	VLoadPixelShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) = 0;
 		virtual void	VLoadPixelShader(IShader* pixelShader, const char* filename) = 0;
 
+		virtual void	VSetInputLayout(IShader* vertexShader) = 0;
+		virtual void	VSetVertexShaderInputLayout(IShader* vertexShader) = 0;
 		virtual void	VSetVertexShader(IShader* shader) = 0;
 		virtual void	VSetPixelShader(IShader* shader) = 0;
 

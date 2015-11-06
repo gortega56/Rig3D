@@ -89,7 +89,6 @@ namespace Rig3D
 			
 		}
 
-	private:
 		uint8_t					mBufferCount;
 		uint8_t					mShaderResourceViewCount;
 		uint8_t					mSamplerStateCount;

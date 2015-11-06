@@ -482,6 +482,69 @@ void DX3D11Renderer::VBindMesh(IMesh* mesh)
 	mDeviceContext->IASetIndexBuffer(dxMesh->mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
 }
 
+void DX3D11Renderer::VCreateShader(IShader** shader, LinearAllocator* allocator)
+{
+	RIG_NEW(DX11Shader, allocator, *shader);
+}
+
+void DX3D11Renderer::VLoadVertexShader(IShader* vertexShader, const char* filename, InputElement* inputElements, const uint32_t& count)
+{
+	DX11Shader* dxShader = static_cast<DX11Shader*>(vertexShader);
+
+	const wchar_t* wFilename;
+	CSTR2WSTR(filename, wFilename);
+
+	ID3DBlob* vsBlob;
+	D3DReadFileToBlob(wFilename, &vsBlob);
+
+	mDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &dxShader->mVertexShader);
+	
+	// Input Layout
+	D3D11_INPUT_ELEMENT_DESC* inputDescription = new D3D11_INPUT_ELEMENT_DESC[count];
+
+	{
+		for (uint32_t i = 0; i < count; i++)
+		{
+			inputDescription[i].SemanticName = inputElements[i].Name;
+			inputDescription[i].SemanticIndex = inputElements[i].Index;
+			inputDescription[i].InputSlot = inputElements[i].InputSlot;
+			inputDescription[i].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+			inputDescription[i].InstanceDataStepRate = inputElements[i].InstanceStepRate;
+
+			switch (inputElements[i].Format)
+			{
+			case FLOAT2:
+				inputDescription[i].Format = DXGI_FORMAT_R32G32_FLOAT;
+				break;
+			case FLOAT3:
+				inputDescription[i].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+				break;
+			case FLOAT4:
+				inputDescription[i].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+				break;
+			default:
+				inputDescription[i].Format = DXGI_FORMAT_R32_FLOAT;
+				break;
+			}
+
+			switch (inputElements[i].InputSlotClass)
+			{
+			case INPUT_CLASS_PER_INSTANCE:
+				inputDescription[i].InputSlotClass = D3D11_INPUT_PER_INSTANCE_DATA;
+				break;
+			default:
+				inputDescription[i].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+				break;
+			}
+		}
+	}
+
+	mDevice->CreateInputLayout(inputDescription, count, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &dxShader->mInputLayout);
+
+	ReleaseMacro(vsBlob);
+	delete[] inputDescription;
+}
+
 void DX3D11Renderer::VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator)
 {
 	//DX11Shader* dxShader = static_cast<DX11Shader*>(vertexShader);
@@ -649,6 +712,18 @@ void DX3D11Renderer::SetShaderResources(ID3D11ShaderReflection* reflection, D3D1
 			break;
 		}
 	}
+}
+
+void DX3D11Renderer::VSetInputLayout(IShader* vertexShader)
+{
+	mDeviceContext->IASetInputLayout(static_cast<DX11Shader*>(vertexShader)->mInputLayout);
+}
+
+void DX3D11Renderer::VSetVertexShaderInputLayout(IShader* vertexShader)
+{
+	DX11Shader* shader = static_cast<DX11Shader*>(vertexShader);
+	mDeviceContext->IASetInputLayout(shader->mInputLayout);
+	mDeviceContext->VSSetShader(shader->mVertexShader, nullptr, 0);
 }
 
 void DX3D11Renderer::VSetVertexShader(IShader* shader)

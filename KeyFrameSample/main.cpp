@@ -70,8 +70,8 @@ public:
 	ID3D11Device*			mDevice;
 	ID3D11DeviceContext*	mDeviceContext;
 	ID3D11InputLayout*		mInputLayout;
-	IShader					mVertexShader;
-	IShader					mPixelShader;
+	IShader*				mVertexShader;
+	IShader*				mPixelShader;
 
 	InterpolationMode		mInterpolationMode;
 	TCBProperties			mTCBProperties;
@@ -240,50 +240,44 @@ public:
 
 	void InitializeShaders()
 	{
-		D3D11_INPUT_ELEMENT_DESC inputDescription[] =
+		InputElement inputElements[] = 
 		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+			{ "POSITION", 0, 0, 0, 0, FLOAT3, INPUT_CLASS_PER_VERTEX },
+			{ "COLOR", 0, 0, 12, 0, FLOAT3, INPUT_CLASS_PER_VERTEX}
 		};
 
+		//D3D11_INPUT_ELEMENT_DESC inputDescription[] =
+		//{
+		//	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		//	{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		//};
+
 		// Load Vertex Shader --------------------------------------
-		ID3DBlob* vsBlob;
-		D3DReadFileToBlob(L"SampleVertexShader.cso", &vsBlob);
+		mRenderer->VCreateShader(&mVertexShader, &mAllocator);
+		mRenderer->VLoadVertexShader(mVertexShader, "SampleVertexShader.cso", inputElements, 2);
+		//mRenderer->VLoadVertexShader(mVertexShader, "SampleVertexShader.cso");
 
-		// Create the shader on the device
-		mDevice->CreateVertexShader(
-			vsBlob->GetBufferPointer(),
-			vsBlob->GetBufferSize(),
-			NULL,
-			&mVertexShader);
+		//ID3DBlob* vsBlob;
+		//D3DReadFileToBlob(L"SampleVertexShader.cso", &vsBlob);
 
-		// Before cleaning up the data, create the input layout
-		if (inputDescription) {
-			if (mInputLayout != NULL) ReleaseMacro(mInputLayout);
-			mDevice->CreateInputLayout(
-				inputDescription,					// Reference to Description
-				2,									// Number of elments inside of Description
-				vsBlob->GetBufferPointer(),
-				vsBlob->GetBufferSize(),
-				&mInputLayout);
-		}
+		//// Before cleaning up the data, create the input layout
+		//if (inputDescription) {
+		//	mDevice->CreateInputLayout(
+		//		inputDescription,					// Reference to Description
+		//		2,									// Number of elments inside of Description
+		//		vsBlob->GetBufferPointer(),
+		//		vsBlob->GetBufferSize(),
+		//		&mInputLayout);
+		//}
 
-		// Clean up
-		vsBlob->Release();
+		//// Clean up
+		//vsBlob->Release();
 
 		// Load Pixel Shader ---------------------------------------
-		ID3DBlob* psBlob;
-		D3DReadFileToBlob(L"SamplePixelShader.cso", &psBlob);
 
 		// Create the shader on the device
-		mDevice->CreatePixelShader(
-			psBlob->GetBufferPointer(),
-			psBlob->GetBufferSize(),
-			NULL,
-			&mPixelShader);
-
-		// Clean up
-		psBlob->Release();
+		mRenderer->VCreateShader(&mPixelShader, &mAllocator);
+		mRenderer->VLoadPixelShader(mPixelShader, "SamplePixelShader.cso");
 
 		// Constant buffers ----------------------------------------
 
@@ -446,7 +440,7 @@ public:
 		float color[4] = { 0.5f, 1.0f, 1.0f, 1.0f };
 
 		// Set up the input assembler
-		mDeviceContext->IASetInputLayout(mInputLayout);
+		mRenderer->VSetInputLayout(mVertexShader);
 		mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
 
 		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
@@ -458,8 +452,8 @@ public:
 			1.0f,
 			0);
 
-		mDeviceContext->VSSetShader(mVertexShader, NULL, 0);
-		mDeviceContext->PSSetShader(mPixelShader, NULL, 0);
+		mRenderer->VSetVertexShader(mVertexShader);
+		mRenderer->VSetPixelShader(mPixelShader);
 
 		mDeviceContext->UpdateSubresource(
 			*mConstantBuffer.GetDX11(),
@@ -487,6 +481,8 @@ public:
 
 	void VShutdown() override
 	{
+		mVertexShader->~IShader();
+		mPixelShader->~IShader();
 		mCubeMesh->~IMesh();
 		mAllocator.Free();
 	}

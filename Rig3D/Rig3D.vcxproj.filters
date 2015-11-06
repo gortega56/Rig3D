@@ -72,9 +72,6 @@
     <ClInclude Include="Graphics\rig_graphics_api_conversions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\Interface\IShader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Graphics\DirectX11\DX11Shader.h">
       <Filter>Header Files</Filter>
     </ClInclude>

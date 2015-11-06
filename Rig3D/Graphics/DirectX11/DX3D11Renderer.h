@@ -68,11 +68,15 @@ namespace Rig3D
 		void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage) override;
 		void    VBindMesh(IMesh* mesh) override;
 
+		void	VCreateShader(IShader** shader, LinearAllocator* allocator) override;
+		void	VLoadVertexShader(IShader* vertexShader, const char* filename, InputElement* inputElements, const uint32_t& count) override;
 		void	VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) override;
 		void	VLoadVertexShader(IShader* vertexShader, const char* filename) override;
 		void	VLoadPixelShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) override;
 		void	VLoadPixelShader(IShader* pixelShader, const char* filename) override;
 
+		void	VSetInputLayout(IShader* vertexShader) override;
+		void	VSetVertexShaderInputLayout(IShader* vertexShader) override;
 		void	VSetVertexShader(IShader* shader) override;
 		void	VSetPixelShader(IShader* shader) override;
 

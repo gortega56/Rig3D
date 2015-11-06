@@ -19,6 +19,7 @@ DX11Shader::DX11Shader() :
 DX11Shader::~DX11Shader()
 {
 	ReleaseMacro(mVertexShader);
+	ReleaseMacro(mInputLayout);
 	ReleaseMacro(mPixelShader);
 
 	//for (std::map<const char*, ID3D11Buffer*>::iterator iterator = mConstantBufferMap.begin(); iterator != mConstantBufferMap.end(); ++iterator)
