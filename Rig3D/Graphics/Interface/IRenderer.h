@@ -86,6 +86,7 @@ namespace Rig3D
 		virtual void    VBindMesh(IMesh* mesh) = 0;
 
 #pragma region Shaders
+
 		virtual void	VCreateShader(IShader** shader, LinearAllocator* allocator) = 0;
 		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename, InputElement* inputElements, const uint32_t& count) = 0;
 		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) = 0;
@@ -99,7 +100,10 @@ namespace Rig3D
 		virtual void	VSetVertexShader(IShader* shader) = 0;
 		virtual void	VSetPixelShader(IShader* shader) = 0;
 
+		// Constant buffers will be bound to GPU registers in the order they are arranged
 		virtual void	VSetConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) = 0;
+
+		// Use the register number as an index
 		virtual void	VUpdateConstantBuffer(IShader* shader, void* data, uint32_t index) = 0;
 
 #pragma endregion

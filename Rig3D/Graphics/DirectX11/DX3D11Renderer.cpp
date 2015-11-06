@@ -863,8 +863,6 @@ void DX3D11Renderer::HandleEvent(const IEvent& iEvent)
 	}
 }
 
-
-
 ID3D11Device* DX3D11Renderer::GetDevice() const
 {
 	return mDevice;
