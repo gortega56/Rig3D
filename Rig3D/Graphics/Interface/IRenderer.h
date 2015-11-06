@@ -79,6 +79,8 @@ namespace Rig3D
 		virtual void	VCreateStaticConstantBuffer(void* buffer, void* data, const size_t& size) = 0;
 		virtual void	VCreateDynamicConstantBuffer(void* buffer, void* data, const size_t& size) = 0;
 
+		virtual void	VUpdateConstantBuffer(GPUBuffer* buffer, void* data) = 0;
+
 #pragma endregion
 
 		virtual void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage) = 0;
@@ -95,8 +97,10 @@ namespace Rig3D
 
 		virtual void	VSetInputLayout(IShader* vertexShader) = 0;
 		virtual void	VSetVertexShaderInputLayout(IShader* vertexShader) = 0;
+		virtual void	VSetVertexShaderResources(IShader* vertexShader) = 0;
 		virtual void	VSetVertexShader(IShader* shader) = 0;
 		virtual void	VSetPixelShader(IShader* shader) = 0;
+		virtual void	VSetConstantBuffer(IShader* shader, GPUBuffer* buffer) = 0;
 
 #pragma endregion
 

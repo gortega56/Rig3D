@@ -64,6 +64,8 @@ namespace Rig3D
 		void	VCreateStaticConstantBuffer(void* buffer, void* data, const size_t& size) override;
 		void	VCreateDynamicConstantBuffer(void* buffer, void* data, const size_t& size) override;
 
+		void	VUpdateConstantBuffer(GPUBuffer* buffer, void* data) override;
+
 		void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage) override;
 		void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage) override;
 		void    VBindMesh(IMesh* mesh) override;
@@ -77,8 +79,12 @@ namespace Rig3D
 
 		void	VSetInputLayout(IShader* vertexShader) override;
 		void	VSetVertexShaderInputLayout(IShader* vertexShader) override;
+		void	VSetVertexShaderResources(IShader* vertexShader) override;
 		void	VSetVertexShader(IShader* shader) override;
+
 		void	VSetPixelShader(IShader* shader) override;
+
+		void	VSetConstantBuffer(IShader* shader, GPUBuffer* buffer) override;
 
 		void	VSwapBuffers() override;
 

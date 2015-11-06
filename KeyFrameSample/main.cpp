@@ -69,7 +69,6 @@ public:
 	DX3D11Renderer*			mRenderer;
 	ID3D11Device*			mDevice;
 	ID3D11DeviceContext*	mDeviceContext;
-	ID3D11InputLayout*		mInputLayout;
 	IShader*				mVertexShader;
 	IShader*				mPixelShader;
 
@@ -95,9 +94,7 @@ public:
 
 	~Rig3DSampleScene()
 	{
-		//ReleaseMacro(mVertexShader);
-		//ReleaseMacro(mPixelShader);
-		ReleaseMacro(mInputLayout);
+
 	}
 
 	void VInitialize() override
@@ -243,45 +240,22 @@ public:
 		InputElement inputElements[] = 
 		{
 			{ "POSITION", 0, 0, 0, 0, FLOAT3, INPUT_CLASS_PER_VERTEX },
-			{ "COLOR", 0, 0, 12, 0, FLOAT3, INPUT_CLASS_PER_VERTEX}
+			{ "COLOR", 0, 0, 12, 0, FLOAT3, INPUT_CLASS_PER_VERTEX }
 		};
-
-		//D3D11_INPUT_ELEMENT_DESC inputDescription[] =
-		//{
-		//	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		//	{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
-		//};
 
 		// Load Vertex Shader --------------------------------------
 		mRenderer->VCreateShader(&mVertexShader, &mAllocator);
 		mRenderer->VLoadVertexShader(mVertexShader, "SampleVertexShader.cso", inputElements, 2);
-		//mRenderer->VLoadVertexShader(mVertexShader, "SampleVertexShader.cso");
-
-		//ID3DBlob* vsBlob;
-		//D3DReadFileToBlob(L"SampleVertexShader.cso", &vsBlob);
-
-		//// Before cleaning up the data, create the input layout
-		//if (inputDescription) {
-		//	mDevice->CreateInputLayout(
-		//		inputDescription,					// Reference to Description
-		//		2,									// Number of elments inside of Description
-		//		vsBlob->GetBufferPointer(),
-		//		vsBlob->GetBufferSize(),
-		//		&mInputLayout);
-		//}
-
-		//// Clean up
-		//vsBlob->Release();
 
 		// Load Pixel Shader ---------------------------------------
 
-		// Create the shader on the device
 		mRenderer->VCreateShader(&mPixelShader, &mAllocator);
 		mRenderer->VLoadPixelShader(mPixelShader, "SamplePixelShader.cso");
 
 		// Constant buffers ----------------------------------------
 
 		mRenderer->VCreateConstantBuffer(&mConstantBuffer, nullptr, sizeof(mMatrixBuffer));
+		mRenderer->VSetConstantBuffer(mVertexShader, &mConstantBuffer);
 	}
 
 	void InitializeCamera()
@@ -455,18 +429,21 @@ public:
 		mRenderer->VSetVertexShader(mVertexShader);
 		mRenderer->VSetPixelShader(mPixelShader);
 
-		mDeviceContext->UpdateSubresource(
+		mRenderer->VUpdateConstantBuffer(&mConstantBuffer, &mMatrixBuffer);
+		mRenderer->VSetVertexShaderResources(mVertexShader);
+
+		/*mDeviceContext->UpdateSubresource(
 			*mConstantBuffer.GetDX11(),
 			0,
 			NULL,
 			&mMatrixBuffer,
 			0,
-			0);
+			0);*/
 
-		mDeviceContext->VSSetConstantBuffers(
+	/*	mDeviceContext->VSSetConstantBuffers(
 			0,
 			1,
-			mConstantBuffer.GetDX11());
+			mConstantBuffer.GetDX11());*/
 
 		mRenderer->VBindMesh(mCubeMesh);
 
