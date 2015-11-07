@@ -7,7 +7,6 @@
 #include "Memory\Memory\Memory.h"
 #include "Rig3D\Graphics\MeshLibrary.h"
 #include <d3d11.h>
-#include <d3dcompiler.h>
 #include <fstream>
 #include "Rig3D\Graphics\Interface\IShader.h"
 
