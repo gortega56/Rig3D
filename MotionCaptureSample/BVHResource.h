@@ -1,15 +1,17 @@
 #pragma once
 #include <stdint.h>
+#include <vector>
 #include <fstream>
 
 struct BVHJoint
 {
-	float		Offset[3];
-	uint32_t	ChannelOffset;
-	uint32_t	ChannelCount;
-	uint8_t		DOF;
-	std::string	Name;
-	BVHJoint*	Parent;
+	float					Offset[3];
+	uint32_t				ChannelOffset;
+	uint32_t				ChannelCount;
+	BVHJoint*				Parent;
+	std::string				Name;
+	std::vector<BVHJoint*>	Children;
+	std::vector<uint16_t>	ChannelOrder;
 };
 
 struct BVHHierarchy
@@ -22,7 +24,6 @@ struct BVHMotion
 {
 	uint32_t	FrameCount;
 	uint32_t	ChannelCount;
-	uint32_t*	ChannelOffsets;
 	float*		Data;
 };
 

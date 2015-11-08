@@ -25,12 +25,14 @@ static const std::string BVHKeyFrame        ("Frame");
 static const char BVHBeginElement	= '{';
 static const char BVHEndElement		= '}';
 
-static const uint8_t DOF_POSITION_X = 1;
-static const uint8_t DOF_POSITION_Y = 1 << 1;
-static const uint8_t DOF_POSITION_Z = 1 << 2;
-static const uint8_t DOF_ROTATION_X = 1 << 3;
-static const uint8_t DOF_ROTATION_Y = 1 << 4;
-static const uint8_t DOF_ROTATION_Z = 1 << 5;
+static const uint16_t DOF_POSITION_X = 0x01;
+static const uint16_t DOF_POSITION_Y = 0x02;
+static const uint16_t DOF_POSITION_Z = 0x04;
+static const uint16_t DOF_ROTATION_X = 0x10;
+static const uint16_t DOF_ROTATION_Y = 0x20;
+static const uint16_t DOF_ROTATION_Z = 0x40;
+
+
 
 BVHResource::BVHResource(const char* filename) : mFilename(filename)
 {
@@ -72,7 +74,12 @@ int BVHResource::Load()
 BVHJoint* BVHResource::LoadJoint(std::fstream& file, BVHJoint* parent)
 {
 	BVHJoint* joint = new BVHJoint;
-	joint->Parent = parent;
+
+	if (parent) 
+	{
+		parent->Children.push_back(joint);
+		joint->Parent = parent;
+	}
 
 	// Joint name.
 	file >> joint->Name;
@@ -93,27 +100,27 @@ BVHJoint* BVHResource::LoadJoint(std::fstream& file, BVHJoint* parent)
 		{
 			if (line == BVHKeyPositionX)
 			{
-				
+				joint->ChannelOrder.push_back(DOF_POSITION_X);
 			}
 			else if (line == BVHKeyPositionY)
 			{
-
+				joint->ChannelOrder.push_back(DOF_POSITION_Y);
 			}
 			else if (line == BVHKeyPositionZ)
 			{
-
+				joint->ChannelOrder.push_back(DOF_POSITION_Z);
 			}
 			else if (line == BVHKeyRotationX)
 			{
-
+				joint->ChannelOrder.push_back(DOF_ROTATION_X);
 			}
 			else if (line == BVHKeyRotationY)
 			{
-
+				joint->ChannelOrder.push_back(DOF_ROTATION_Y);
 			}
 			else if (line == BVHKeyRotationZ)
 			{
-
+				joint->ChannelOrder.push_back(DOF_ROTATION_Z);
 			}
 		}
 
@@ -131,13 +138,12 @@ BVHJoint* BVHResource::LoadJoint(std::fstream& file, BVHJoint* parent)
 			channelStart += joint->ChannelCount;
 
 			// set up channel order storage for next read	
+			joint->ChannelOrder.reserve(joint->ChannelCount);
 		}
 		else if (line == BVHKeyJoint)
 		{
+			// Recursively define children
 			LoadJoint(file, joint);
-
-			// Maybe push back into list of children?
-			// Would like to not have to use child list here.
 		}
 		else if (line == BVHKeyEndSite)
 		{
