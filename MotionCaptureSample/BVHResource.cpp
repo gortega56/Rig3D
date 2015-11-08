@@ -46,6 +46,8 @@ BVHResource::BVHResource() : BVHResource(nullptr)
 
 BVHResource::~BVHResource()
 {
+	DeleteJoint(&mHierarchy.Root);
+	delete[mMotion.FrameCount * mMotion.ChannelCount] mMotion.Data;
 }
 
 int BVHResource::Load()
@@ -71,13 +73,10 @@ int BVHResource::Load()
 	return 1;
 }
 
-BVHJoint* BVHResource::LoadJoint(std::fstream& file, BVHJoint* parent)
+void BVHResource::LoadJoint(std::fstream& file, BVHJoint* joint, BVHJoint* parent)
 {
-	BVHJoint* joint = new BVHJoint;
-
 	if (parent) 
 	{
-		parent->Children.push_back(joint);
 		joint->Parent = parent;
 	}
 
@@ -143,13 +142,17 @@ BVHJoint* BVHResource::LoadJoint(std::fstream& file, BVHJoint* parent)
 		else if (line == BVHKeyJoint)
 		{
 			// Recursively define children
-			LoadJoint(file, joint);
+			joint->Children.push_back(BVHJoint());
+
+			LoadJoint(file, &joint->Children.back(), joint);
 		}
 		else if (line == BVHKeyEndSite)
 		{
 			file >> line >> line;
 
-			BVHJoint* leafJoint = new BVHJoint;
+			joint->Children.push_back(BVHJoint());
+
+			BVHJoint* leafJoint = &joint->Children.back();
 			leafJoint->Parent = joint;
 			leafJoint->ChannelCount = 0;
 			leafJoint->Name = "End Site";
@@ -167,8 +170,6 @@ BVHJoint* BVHResource::LoadJoint(std::fstream& file, BVHJoint* parent)
 			break;
 		}
 	}
-
-	return joint;
 }
 
 int	BVHResource::LoadHeirachy(std::fstream& file)
@@ -181,7 +182,7 @@ int	BVHResource::LoadHeirachy(std::fstream& file)
 
 		if (Trim(line) == BVHKeyRoot)
 		{
-			mHierarchy.Root = LoadJoint(file);
+			LoadJoint(file, &mHierarchy.Root);
 		}
 		else if (Trim(line) == BVHKeyMotion)
 		{
@@ -233,4 +234,20 @@ int	BVHResource::LoadMotion(std::fstream& file)
 	}
 
 	return 1;
+}
+
+void BVHResource::DeleteJoint(BVHJoint* joint)
+{
+	if (joint->Children.size() == 0)
+	{
+		return;
+	}
+
+
+	for (int i = 0; i < joint->Children.size(); i++)
+	{
+		DeleteJoint(&joint->Children[i]);
+	}
+
+	joint->Children.clear();
 }

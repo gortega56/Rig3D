@@ -10,13 +10,13 @@ struct BVHJoint
 	uint32_t				ChannelCount;
 	BVHJoint*				Parent;
 	std::string				Name;
-	std::vector<BVHJoint*>	Children;
+	std::vector<BVHJoint>	Children;
 	std::vector<uint16_t>	ChannelOrder;
 };
 
 struct BVHHierarchy
 {
-	BVHJoint*	Root;
+	BVHJoint	Root;
 	uint32_t	ChannelCount;
 };
 
@@ -30,8 +30,6 @@ struct BVHMotion
 class BVHResource
 {
 public:
-	const char* mFilename;
-
 	BVHResource(const char* filename);
 	BVHResource();
 	~BVHResource();
@@ -39,11 +37,14 @@ public:
 	int Load();
 
 private:
+	const char* mFilename;
+
 	BVHHierarchy mHierarchy;
 	BVHMotion	 mMotion;
 	
-	BVHJoint*	LoadJoint(std::fstream& file, BVHJoint* parent = nullptr);
+	void		LoadJoint(std::fstream& file, BVHJoint* joint, BVHJoint* parent = nullptr);
 	int			LoadHeirachy(std::fstream& file);
 	int			LoadMotion(std::fstream& file);
+	void		DeleteJoint(BVHJoint* joint);
 };
 
