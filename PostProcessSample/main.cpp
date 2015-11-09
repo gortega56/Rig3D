@@ -233,8 +233,8 @@ public:
 		qIndices[5] = 0;
 
 		mMeshLibrary.NewMesh(&mQuadMesh, mRenderer);
-		mRenderer->VSetMeshVertexBufferData(mQuadMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
-		mRenderer->VSetMeshIndexBufferData(mQuadMesh, qIndices, 6, GPU_MEMORY_USAGE_STATIC);
+		mRenderer->VSetStaticMeshVertexBuffer(mQuadMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex));
+		mRenderer->VSetStaticMeshIndexBuffer(mQuadMesh, qIndices, 6);
 
 		for (int i = 0; i < NODE_COUNT; i++) {
 			mSceneNodes[i].mMesh = mCubeMesh;

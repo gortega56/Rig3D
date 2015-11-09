@@ -57,17 +57,29 @@ namespace Rig3D
 		void	VCreateVertexBuffer(void* buffer, void* vertices, const size_t& size) override;
 		void	VCreateStaticVertexBuffer(void* buffer, void* vertices, const size_t& size) override;
 		void	VCreateDynamicVertexBuffer(void* buffer, void* vertices, const size_t& size) override;
+
+		void	VCreateIndexBuffer(void* buffer, uint16_t* indices, const uint32_t& count) override;
+		void	VCreateStaticIndexBuffer(void* buffer, uint16_t* indices, const uint32_t& count) override;
+		void	VCreateDynamicIndexBuffer(void* buffer, uint16_t* indices, const uint32_t& count) override;
+
 		void	VCreateInstanceBuffer(void* buffer, void* data, const size_t& size) override;
 		void	VCreateStaticInstanceBuffer(void* buffer, void* data, const size_t& size) override;
 		void	VCreateDynamicInstanceBuffer(void* buffer, void* data, const size_t& size) override;
+
 		void	VCreateConstantBuffer(void* buffer, void* data, const size_t& size) override;
 		void	VCreateStaticConstantBuffer(void* buffer, void* data, const size_t& size) override;
 		void	VCreateDynamicConstantBuffer(void* buffer, void* data, const size_t& size) override;
 
 		void	VUpdateConstantBuffer(void* buffer, void* data) override;
 
-		void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage) override;
-		void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage) override;
+		void	VSetMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) override;
+		void	VSetStaticMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) override;
+		void	VSetDynamicMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) override;
+
+		void	VSetMeshIndexBuffer(IMesh* mesh, uint16_t* indices, const uint32_t& count) override;
+		void	VSetStaticMeshIndexBuffer(IMesh* mesh, uint16_t* indices, const uint32_t& count) override;
+		void	VSetDynamicMeshIndexBuffer(IMesh* mesh, uint16_t* indices, const uint32_t& count) override;
+
 		void    VBindMesh(IMesh* mesh) override;
 
 		void	VCreateShader(IShader** shader, LinearAllocator* allocator) override;

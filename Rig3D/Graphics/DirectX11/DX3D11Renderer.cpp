@@ -266,7 +266,7 @@ void DX3D11Renderer::VCreateVertexBuffer(void* buffer, void* vertices, const siz
 		pVertexData = &vertexData;
 	}
 
-	mDevice->CreateBuffer(&vbd, pVertexData, reinterpret_cast<ID3D11Buffer**>(&buffer));
+	mDevice->CreateBuffer(&vbd, pVertexData, reinterpret_cast<ID3D11Buffer**>(buffer));
 }
 
 void DX3D11Renderer::VCreateStaticVertexBuffer(void* buffer, void* vertices, const size_t& size)
@@ -287,7 +287,7 @@ void DX3D11Renderer::VCreateStaticVertexBuffer(void* buffer, void* vertices, con
 		pVertexData = &vertexData;
 	}
 
-	mDevice->CreateBuffer(&vbd, pVertexData, reinterpret_cast<ID3D11Buffer**>(&buffer));
+	mDevice->CreateBuffer(&vbd, pVertexData, reinterpret_cast<ID3D11Buffer**>(buffer));
 }
 
 void DX3D11Renderer::VCreateDynamicVertexBuffer(void* buffer, void* vertices, const size_t& size)
@@ -308,7 +308,70 @@ void DX3D11Renderer::VCreateDynamicVertexBuffer(void* buffer, void* vertices, co
 		pVertexData = &vertexData;
 	}
 
-	mDevice->CreateBuffer(&vbd, pVertexData, reinterpret_cast<ID3D11Buffer**>(&buffer));
+	mDevice->CreateBuffer(&vbd, pVertexData, reinterpret_cast<ID3D11Buffer**>(buffer));
+}
+
+void DX3D11Renderer::VCreateIndexBuffer(void* buffer, uint16_t* indices, const uint32_t& count)
+{
+	D3D11_BUFFER_DESC ibd;
+	ibd.Usage = D3D11_USAGE_DEFAULT;
+	ibd.ByteWidth = sizeof(uint16_t) * count;
+	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	ibd.CPUAccessFlags = 0;
+	ibd.MiscFlags = 0;
+	ibd.StructureByteStride = 0;	// Not used for Vertex Input
+
+	D3D11_SUBRESOURCE_DATA* pIndexData = nullptr;
+	if (indices)
+	{
+		D3D11_SUBRESOURCE_DATA indexData;
+		indexData.pSysMem = indices;
+		pIndexData = &indexData;
+	}
+
+	mDevice->CreateBuffer(&ibd, pIndexData, reinterpret_cast<ID3D11Buffer**>(buffer));
+}
+
+void DX3D11Renderer::VCreateStaticIndexBuffer(void* buffer, uint16_t* indices, const uint32_t& count)
+{
+	D3D11_BUFFER_DESC ibd;
+	ibd.Usage = D3D11_USAGE_IMMUTABLE;
+	ibd.ByteWidth = sizeof(uint16_t) * count;
+	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	ibd.CPUAccessFlags = 0;
+	ibd.MiscFlags = 0;
+	ibd.StructureByteStride = 0;	// Not used for Vertex Input
+
+	D3D11_SUBRESOURCE_DATA* pIndexData = nullptr;
+	if (indices)
+	{
+		D3D11_SUBRESOURCE_DATA indexData;
+		indexData.pSysMem = indices;
+		pIndexData = &indexData;
+	}
+
+	mDevice->CreateBuffer(&ibd, pIndexData, reinterpret_cast<ID3D11Buffer**>(buffer));
+}
+
+void DX3D11Renderer::VCreateDynamicIndexBuffer(void* buffer, uint16_t* indices, const uint32_t& count)
+{
+	D3D11_BUFFER_DESC ibd;
+	ibd.Usage = D3D11_USAGE_DYNAMIC;
+	ibd.ByteWidth = sizeof(uint16_t) * count;
+	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	ibd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	ibd.MiscFlags = 0;
+	ibd.StructureByteStride = 0;	// Not used for Vertex Input
+
+	D3D11_SUBRESOURCE_DATA* pIndexData = nullptr;
+	if (indices)
+	{
+		D3D11_SUBRESOURCE_DATA indexData;
+		indexData.pSysMem = indices;
+		pIndexData = &indexData;
+	}
+
+	mDevice->CreateBuffer(&ibd, pIndexData, reinterpret_cast<ID3D11Buffer**>(buffer));
 }
 
 void DX3D11Renderer::VCreateInstanceBuffer(void* buffer, void* data, const size_t& size)
@@ -350,7 +413,7 @@ void DX3D11Renderer::VCreateStaticInstanceBuffer(void* buffer, void* data, const
 		pInstanceData = &instanceData;
 	}
 
-	mDevice->CreateBuffer(&ibd, pInstanceData, reinterpret_cast<ID3D11Buffer**>(&buffer));
+	mDevice->CreateBuffer(&ibd, pInstanceData, reinterpret_cast<ID3D11Buffer**>(buffer));
 }
 
 void DX3D11Renderer::VCreateDynamicInstanceBuffer(void* buffer, void* data, const size_t& size)
@@ -371,7 +434,7 @@ void DX3D11Renderer::VCreateDynamicInstanceBuffer(void* buffer, void* data, cons
 		pInstanceData = &instanceData;
 	}
 
-	mDevice->CreateBuffer(&ibd, pInstanceData, reinterpret_cast<ID3D11Buffer**>(&buffer));
+	mDevice->CreateBuffer(&ibd, pInstanceData, reinterpret_cast<ID3D11Buffer**>(buffer));
 }
 
 void DX3D11Renderer::VCreateConstantBuffer(void* buffer, void* data, const size_t& size)
@@ -412,7 +475,7 @@ void DX3D11Renderer::VCreateStaticConstantBuffer(void* buffer, void* data, const
 		pBufferData = &bufferData;
 	}
 
-	mDevice->CreateBuffer(&bufferDesc, pBufferData, reinterpret_cast<ID3D11Buffer**>(&buffer));
+	mDevice->CreateBuffer(&bufferDesc, pBufferData, reinterpret_cast<ID3D11Buffer**>(buffer));
 }
 
 void DX3D11Renderer::VCreateDynamicConstantBuffer(void* buffer, void* data, const size_t& size)
@@ -433,7 +496,7 @@ void DX3D11Renderer::VCreateDynamicConstantBuffer(void* buffer, void* data, cons
 		pBufferData = &bufferData;
 	}
 
-	mDevice->CreateBuffer(&bufferDesc, pBufferData, reinterpret_cast<ID3D11Buffer**>(&buffer));
+	mDevice->CreateBuffer(&bufferDesc, pBufferData, reinterpret_cast<ID3D11Buffer**>(buffer));
 }
 
 void DX3D11Renderer::VUpdateConstantBuffer(void* buffer, void* data)
@@ -441,45 +504,51 @@ void DX3D11Renderer::VUpdateConstantBuffer(void* buffer, void* data)
 	mDeviceContext->UpdateSubresource(static_cast<ID3D11Buffer*>(buffer), 0, nullptr, data, 0, 0);
 }
 
-void DX3D11Renderer::VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage)
+void DX3D11Renderer::VSetMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride)
 {
-	DX11Mesh* dxMesh = static_cast<DX11Mesh*>(mesh);
-	D3D11_BUFFER_DESC vbd;
-	vbd.Usage = GD3D11_Usage_Map(usage);
-	vbd.ByteWidth = size;
-	vbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	vbd.CPUAccessFlags = 0;
-	vbd.MiscFlags = 0;
-	vbd.StructureByteStride = 0;	// Not used for Vertex Input
-
-	D3D11_SUBRESOURCE_DATA vertexData;
-	vertexData.pSysMem = vertices;
-	mDevice->CreateBuffer(&vbd, &vertexData, &dxMesh->mVertexBuffer);
-
-	dxMesh->mVertexStride = stride;
+	DX11Mesh* DXMesh = static_cast<DX11Mesh*>(mesh);
+	DXMesh->mVertexStride = stride;
+	VCreateVertexBuffer(&DXMesh->mVertexBuffer, vertices, size);
 }
 
-void DX3D11Renderer::VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage)
+void DX3D11Renderer::VSetStaticMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride)
 {
-	DX11Mesh* dxMesh = static_cast<DX11Mesh*>(mesh);
-	D3D11_BUFFER_DESC ibd;
-	ibd.Usage = GD3D11_Usage_Map(usage);
-	ibd.ByteWidth = sizeof(uint16_t) * count;
-	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	ibd.CPUAccessFlags = 0;
-	ibd.MiscFlags = 0;
-	ibd.StructureByteStride = 0;
+	DX11Mesh* DXMesh = static_cast<DX11Mesh*>(mesh);
+	DXMesh->mVertexStride = stride;
+	VCreateStaticVertexBuffer(&DXMesh->mVertexBuffer, vertices, size);
+}
 
-	D3D11_SUBRESOURCE_DATA indexData;
-	indexData.pSysMem = indices;
-	mDevice->CreateBuffer(&ibd, &indexData, &dxMesh->mIndexBuffer);
+void DX3D11Renderer::VSetDynamicMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride)
+{
+	DX11Mesh* DXMesh = static_cast<DX11Mesh*>(mesh);
+	DXMesh->mVertexStride = stride;
+	VCreateDynamicVertexBuffer(&DXMesh->mVertexBuffer, vertices, size);
+}
 
-	dxMesh->mIndexCount = count;
+void DX3D11Renderer::VSetMeshIndexBuffer(IMesh* mesh, uint16_t* indices, const uint32_t& count)
+{
+	DX11Mesh* DXMesh = static_cast<DX11Mesh*>(mesh);
+	DXMesh->mIndexCount = count;
+	VCreateIndexBuffer(&DXMesh->mIndexBuffer, indices, count);
+}
+
+void DX3D11Renderer::VSetStaticMeshIndexBuffer(IMesh* mesh, uint16_t* indices, const uint32_t& count)
+{
+	DX11Mesh* DXMesh = static_cast<DX11Mesh*>(mesh);
+	DXMesh->mIndexCount = count;
+	VCreateStaticIndexBuffer(&DXMesh->mIndexBuffer, indices, count);
+}
+
+void DX3D11Renderer::VSetDynamicMeshIndexBuffer(IMesh* mesh, uint16_t* indices, const uint32_t& count)
+{
+	DX11Mesh* DXMesh = static_cast<DX11Mesh*>(mesh);
+	DXMesh->mIndexCount = count;
+	VCreateDynamicIndexBuffer(&DXMesh->mIndexBuffer, indices, count);
 }
 
 void DX3D11Renderer::VBindMesh(IMesh* mesh)
 {
-	DX11Mesh* dxMesh = (DX11Mesh*)mesh;
+	DX11Mesh* dxMesh = static_cast<DX11Mesh*>(mesh);
 	uint32_t offset = 0;
 	mDeviceContext->IASetVertexBuffers(0, 1, &dxMesh->mVertexBuffer, &dxMesh->mVertexStride, &offset);
 	mDeviceContext->IASetIndexBuffer(dxMesh->mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);

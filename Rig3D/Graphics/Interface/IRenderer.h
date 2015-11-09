@@ -71,6 +71,9 @@ namespace Rig3D
 		virtual void	VCreateVertexBuffer(void* buffer, void* vertices, const size_t& size) = 0;
 		virtual void	VCreateStaticVertexBuffer(void* buffer, void* vertices, const size_t& size) = 0;
 		virtual void	VCreateDynamicVertexBuffer(void* buffer, void* vertices, const size_t& size) = 0;
+		virtual void	VCreateIndexBuffer(void* buffer, uint16_t* indices, const uint32_t& count) = 0;
+		virtual void	VCreateStaticIndexBuffer(void* buffer, uint16_t* indices, const uint32_t& count) = 0;
+		virtual void	VCreateDynamicIndexBuffer(void* buffer, uint16_t* indices, const uint32_t& count) = 0;
 		virtual void	VCreateInstanceBuffer(void* buffer, void* data, const size_t& size) = 0;
 		virtual void	VCreateStaticInstanceBuffer(void* buffer, void* data, const size_t& size) = 0;
 		virtual void	VCreateDynamicInstanceBuffer(void* buffer, void* data, const size_t& size) = 0;
@@ -81,8 +84,14 @@ namespace Rig3D
 		virtual void	VUpdateConstantBuffer(void* buffer, void* data) = 0;
 #pragma endregion
 
-		virtual void	VSetMeshVertexBufferData(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride, const GPUMemoryUsage& usage) = 0;
-		virtual void	VSetMeshIndexBufferData(IMesh* mesh, uint16_t* indices, const uint32_t& count, const GPUMemoryUsage& usage) = 0;
+		virtual void	VSetMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) = 0;
+		virtual void	VSetStaticMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) = 0;
+		virtual void	VSetDynamicMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) = 0;
+
+		virtual void	VSetMeshIndexBuffer(IMesh* mesh, uint16_t* indices, const uint32_t& count) = 0;
+		virtual void	VSetStaticMeshIndexBuffer(IMesh* mesh, uint16_t* indices, const uint32_t& count) = 0;
+		virtual void	VSetDynamicMeshIndexBuffer(IMesh* mesh, uint16_t* indices, const uint32_t& count) = 0;
+
 		virtual void    VBindMesh(IMesh* mesh) = 0;
 
 #pragma region Shaders

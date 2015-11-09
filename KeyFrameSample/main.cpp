@@ -228,8 +228,8 @@ public:
 		indices[35] = 3;
 
 		mMeshLibrary.NewMesh(&mCubeMesh, mRenderer);
-		mRenderer->VSetMeshVertexBufferData(mCubeMesh, vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex), GPU_MEMORY_USAGE_STATIC);
-		mRenderer->VSetMeshIndexBufferData(mCubeMesh, indices, INDEX_COUNT, GPU_MEMORY_USAGE_STATIC);
+		mRenderer->VSetMeshVertexBuffer(mCubeMesh, vertices, sizeof(SampleVertex) * VERTEX_COUNT, sizeof(SampleVertex));
+		mRenderer->VSetMeshIndexBuffer(mCubeMesh, indices, INDEX_COUNT);
 	}
 
 	void InitializeShaders()
