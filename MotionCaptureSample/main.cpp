@@ -65,12 +65,12 @@ public:
 
 	void InitializeGeometry();
 	void InitializeBVHResources();
-	void InitializeTransforms(Transform* transforms, const BVHJoint* joint, uint32_t index = 0);
+	void InitializeTransforms(Transform* transforms, const BVHJoint* joint);
 
 	void InitializeShaders();
 
 	void UpdateCamera();
-	void UpdateTransforms(Transform* transforms, const BVHJoint* joint, const BVHMotion* motion, uint32_t index = 0);
+	void UpdateTransforms(Transform* transforms, const BVHJoint* joint, const BVHMotion* motion, const uint32_t& transformCount);
 
 	void HandleInput(Input& input);
 };
@@ -103,7 +103,7 @@ void MotionCaptureSample::VInitialize()
 {
 	mRenderer = &DX3D11Renderer::SharedInstance();
 
-	mCamera.SetPosition(vec3f(0.0f, 0.0f, -50.0f));
+	mCamera.SetPosition(vec3f(0.0f, 0.0f, -100.0f));
 	
 	InitializeGeometry();
 	InitializeBVHResources();
@@ -114,7 +114,7 @@ void MotionCaptureSample::VUpdate(double milliseconds)
 {
 	HandleInput(Input::SharedInstance());
 	UpdateCamera();
-	UpdateTransforms(mTransforms, &mBVHResource.mHierarchy.Root, &mBVHResource.mMotion);
+	UpdateTransforms(mTransforms, &mBVHResource.mHierarchy.Root, &mBVHResource.mMotion, mTransformCount);
 }
 
 void MotionCaptureSample::VRender()
@@ -132,7 +132,7 @@ void MotionCaptureSample::VRender()
 	mRenderer->VSetVertexShaderInputLayout(mVertexShader);
 	mRenderer->VSetPixelShader(mPixelShader);
 	
-	for (int i = 0; i < mTransformCount; i++)
+	for (uint32_t i = 0; i < mTransformCount; i++)
 	{
 		mViewProjection.Model = mTransforms[i].GetWorldMatrix().transpose();
 		mRenderer->VUpdateConstantBuffer(mVertexShader, &mViewProjection, 0);
@@ -172,27 +172,39 @@ void MotionCaptureSample::InitializeGeometry()
 
 void MotionCaptureSample::InitializeBVHResources()
 {
-	BVHResource bvhResource = BVHResource("BVH\\Stand.bvh");
-	bvhResource.Load();
+	mBVHResource.SetFilename("BVH\\Sneak.bvh");
+	mBVHResource.Load();
 
-	mTransformCount = bvhResource.mHierarchy.JointCount;
+	mTransformCount = mBVHResource.mHierarchy.JointCount;
 
 	mTransforms = reinterpret_cast<Transform*>(mAllocator.Allocate(sizeof(Transform) * mTransformCount, alignof(Transform), 0));
 	memset(mTransforms, 0, sizeof(Transform) * mTransformCount);
 
-	BVHJoint* currentJoint = &bvhResource.mHierarchy.Root;
+	BVHJoint* currentJoint = &mBVHResource.mHierarchy.Root;
 	InitializeTransforms(mTransforms, currentJoint);
-	
+
+	for (uint32_t i = 0; i < mTransformCount; i++)
+	{
+		vec3f scale = mTransforms[i].GetScale();
+
+		if (scale.x == 0.0f || scale.y == 0.0f || scale.z == 0.0f)
+		{
+			break;
+		}
+	}
 }
 
-void MotionCaptureSample::InitializeTransforms(Transform* transforms, const BVHJoint* joint, uint32_t index)
+void MotionCaptureSample::InitializeTransforms(Transform* transforms, const BVHJoint* joint)
 {	
+	static uint32_t index = 0;
+
 	Transform* parent = &transforms[index++];
+	parent->SetScale(vec3f(1.0f));
 	
-	for (int i = 0; i < joint->Children.size(); i++)
+	for (uint32_t i = 0; i < joint->Children.size(); i++)
 	{
-		transforms[index++].SetParent(parent);
-		InitializeTransforms(transforms, &joint->Children[i], index);
+		transforms[index].SetParent(parent);
+		InitializeTransforms(transforms, &joint->Children[i]);
 	}
 }
 
@@ -228,13 +240,20 @@ void MotionCaptureSample::UpdateCamera()
 	mViewProjection.Projection = mat4f::normalizedPerspectiveLH(PI * 0.25f, mRenderer->GetAspectRatio(), 0.1f, 500.0f).transpose();
 }
 
-void MotionCaptureSample::UpdateTransforms(Transform* transforms, const BVHJoint* joint, const BVHMotion* motion, uint32_t index)
+void MotionCaptureSample::UpdateTransforms(Transform* transforms, const BVHJoint* joint, const BVHMotion* motion, const uint32_t& transformCount)
 {
+	static uint32_t index = 0;
+
+	if (index == transformCount)
+	{
+		index = 0;
+	}
+
 	uint32_t channelOffset = joint->ChannelOffset;
 	vec3f jointPosition = { joint->Offset[0], joint->Offset[1], joint->Offset[2] };
 	vec3f jointRotation = { 0.0f, 0.0f, 0.0f };
 
-	for (int i = 0; i < joint->ChannelCount; i++)
+	for (uint32_t i = 0; i < joint->ChannelCount; i++)
 	{
 		uint16_t channel = joint->ChannelOrder[i];
 		float value = motion->Data[channelOffset + i];
@@ -253,25 +272,25 @@ void MotionCaptureSample::UpdateTransforms(Transform* transforms, const BVHJoint
 		}
 		else if (channel & DOF_ROTATION_X)
 		{
-			jointRotation.x = value * RADIAN;
+			jointRotation.x += value * RADIAN;
 		}
 		else if (channel & DOF_ROTATION_Y)
 		{
-			jointRotation.y = value * RADIAN;
+			jointRotation.y += value * RADIAN;
 		}
 		else if (channel & DOF_ROTATION_Z)
 		{
-			jointRotation.z = value * RADIAN;
+			jointRotation.z += value * RADIAN;
 		}
 	}
 
-	transforms[index].SetPosition(jointPosition);
-	transforms[index].SetRotation(jointRotation);
-	transforms[index].SetScale(vec3f(1.0f));
+	Transform* transform = &transforms[index++];
+	transform->SetPosition(jointPosition);
+	transform->SetRotation(jointRotation);
 
-	for (int i = 0; i < joint->Children.size(); i++)
+	for (uint32_t i = 0; i < joint->Children.size(); i++)
 	{
-		UpdateTransforms(transforms, &joint->Children[i], motion, ++index);
+		UpdateTransforms(transforms, &joint->Children[i], motion, transformCount);
 	}
 }
 
@@ -307,6 +326,5 @@ void MotionCaptureSample::HandleInput(Input& input)
 		mCamera.SetPosition(position);
 	}
 }
-
 
 DECLARE_MAIN(MotionCaptureSample);

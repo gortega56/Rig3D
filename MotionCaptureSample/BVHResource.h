@@ -47,6 +47,11 @@ public:
 
 	int Load();
 
+	inline void SetFilename(const char* filename)
+	{
+		mFilename = filename;
+	}
+
 private:
 	const char* mFilename;
 
