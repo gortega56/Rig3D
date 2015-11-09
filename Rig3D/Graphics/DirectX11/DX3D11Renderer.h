@@ -96,8 +96,8 @@ namespace Rig3D
 
 		void	VSetPixelShader(IShader* shader) override;
 
-		void	VSetConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) override;
-		void	VUpdateConstantBuffer(IShader* shader, void* data, uint32_t index) override;
+		void	VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) override;
+		void	VUpdateShaderConstantBuffer(IShader* shader, void* data, uint32_t index) override;
 
 		void	VSwapBuffers() override;
 

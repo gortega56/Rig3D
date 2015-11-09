@@ -135,7 +135,7 @@ void MotionCaptureSample::VRender()
 	for (uint32_t i = 0; i < mTransformCount; i++)
 	{
 		mViewProjection.Model = mTransforms[i].GetWorldMatrix().transpose();
-		mRenderer->VUpdateConstantBuffer(mVertexShader, &mViewProjection, 0);
+		mRenderer->VUpdateShaderConstantBuffer(mVertexShader, &mViewProjection, 0);
 		mRenderer->VSetVertexShaderResources(mVertexShader);
 		mRenderer->VBindMesh(mCubeMesh);
 		mRenderer->VDrawIndexed(0, mCubeMesh->GetIndexCount());
@@ -231,7 +231,7 @@ void MotionCaptureSample::InitializeShaders()
 
 	void* data[] = { &mViewProjection };
 	size_t sizes[] = { sizeof(ModelViewProjection) };
-	mRenderer->VSetConstantBuffers(mVertexShader, data, sizes, 1);
+	mRenderer->VCreateShaderConstantBuffers(mVertexShader, data, sizes, 1);
 }
 
 void MotionCaptureSample::UpdateCamera()

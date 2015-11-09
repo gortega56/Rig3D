@@ -253,7 +253,7 @@ public:
 
 		void* data[] = { &mMatrixBuffer };
 		size_t sizes[] = { sizeof(SampleMatrixBuffer) };
-		mRenderer->VSetConstantBuffers(mVertexShader, data, sizes, 1);
+		mRenderer->VCreateShaderConstantBuffers(mVertexShader, data, sizes, 1);
 	}
 
 	void InitializeCamera()
@@ -427,7 +427,7 @@ public:
 		mRenderer->VSetVertexShader(mVertexShader);
 		mRenderer->VSetPixelShader(mPixelShader);
 
-		mRenderer->VUpdateConstantBuffer(mVertexShader, &mMatrixBuffer, 0);
+		mRenderer->VUpdateShaderConstantBuffer(mVertexShader, &mMatrixBuffer, 0);
 		mRenderer->VSetVertexShaderResources(mVertexShader);
 
 		mRenderer->VBindMesh(mCubeMesh);

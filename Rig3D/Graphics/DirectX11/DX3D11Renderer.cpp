@@ -248,6 +248,8 @@ void DX3D11Renderer::VDrawIndexed(uint32_t startIndex, uint32_t count)
 		0);
 }
 
+#pragma region ID3D11Buffer
+
 void DX3D11Renderer::VCreateVertexBuffer(void* buffer, void* vertices, const size_t& size)
 {
 	D3D11_BUFFER_DESC vbd;
@@ -504,6 +506,10 @@ void DX3D11Renderer::VUpdateConstantBuffer(void* buffer, void* data)
 	mDeviceContext->UpdateSubresource(static_cast<ID3D11Buffer*>(buffer), 0, nullptr, data, 0, 0);
 }
 
+#pragma endregion 
+
+#pragma region Mesh
+
 void DX3D11Renderer::VSetMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride)
 {
 	DX11Mesh* DXMesh = static_cast<DX11Mesh*>(mesh);
@@ -553,6 +559,10 @@ void DX3D11Renderer::VBindMesh(IMesh* mesh)
 	mDeviceContext->IASetVertexBuffers(0, 1, &dxMesh->mVertexBuffer, &dxMesh->mVertexStride, &offset);
 	mDeviceContext->IASetIndexBuffer(dxMesh->mIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
 }
+
+#pragma endregion
+
+#pragma region Shader
 
 void DX3D11Renderer::VCreateShader(IShader** shader, LinearAllocator* allocator)
 {
@@ -830,7 +840,7 @@ void DX3D11Renderer::VSetPixelShader(IShader* shader)
 	mDeviceContext->PSSetShader(static_cast<DX11Shader*>(shader)->mPixelShader, nullptr, 0);
 }
 
-void DX3D11Renderer::VSetConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count)
+void DX3D11Renderer::VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count)
 {
 	std::vector<ID3D11Buffer*> constantBuffers(count);
 
@@ -842,16 +852,20 @@ void DX3D11Renderer::VSetConstantBuffers(IShader* shader, void** data, size_t* s
 	static_cast<DX11Shader*>(shader)->SetBuffers(constantBuffers);
 }
 
-void DX3D11Renderer::VUpdateConstantBuffer(IShader* shader, void* data, uint32_t index)
+void DX3D11Renderer::VUpdateShaderConstantBuffer(IShader* shader, void* data, uint32_t index)
 {
 	ID3D11Buffer** constantBuffers = static_cast<DX11Shader*>(shader)->GetBuffers();
 	mDeviceContext->UpdateSubresource(constantBuffers[index], 0, nullptr, data, 0, 0);
 }
 
+#pragma endregion 
+
 void DX3D11Renderer::VSwapBuffers()
 {
 	mSwapChain->Present(0, 0);
 }
+
+#pragma region IObserver
 
 void DX3D11Renderer::HandleEvent(const IEvent& iEvent)
 {
@@ -931,6 +945,8 @@ void DX3D11Renderer::HandleEvent(const IEvent& iEvent)
 		break;
 	}
 }
+
+#pragma endregion 
 
 ID3D11Device* DX3D11Renderer::GetDevice() const
 {
