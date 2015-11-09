@@ -130,6 +130,11 @@ vec3f Transform::GetScale() const
 	return mScale;
 }
 
+Transform* Transform::GetParent() const
+{
+	return mParent;
+}
+
 void Transform::SetRotation(const quatf& rotation)
 {
 	mRotation.w = rotation.w;
@@ -161,6 +166,13 @@ void Transform::SetScale(const vec3f& scale)
 	mScale.x = scale.x;
 	mScale.y = scale.y;
 	mScale.z = scale.z;
+
+	mIsDirty = true;
+}
+
+void Transform::SetParent(Transform* parent)
+{
+	mParent = parent;
 
 	mIsDirty = true;
 }

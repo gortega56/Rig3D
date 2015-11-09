@@ -22,9 +22,6 @@ static const std::string BVHKeyEndSite		("End");
 static const std::string BVHKeyFrameCount	("Frames:");
 static const std::string BVHKeyFrame        ("Frame");
 
-static const char BVHBeginElement	= '{';
-static const char BVHEndElement		= '}';
-
 static const uint16_t DOF_POSITION_X = 0x01;
 static const uint16_t DOF_POSITION_Y = 0x02;
 static const uint16_t DOF_POSITION_Z = 0x04;
@@ -32,7 +29,8 @@ static const uint16_t DOF_ROTATION_X = 0x10;
 static const uint16_t DOF_ROTATION_Y = 0x20;
 static const uint16_t DOF_ROTATION_Z = 0x40;
 
-
+static const char BVHBeginElement	= '{';
+static const char BVHEndElement		= '}';
 
 BVHResource::BVHResource(const char* filename) : mFilename(filename)
 {
@@ -41,13 +39,13 @@ BVHResource::BVHResource(const char* filename) : mFilename(filename)
 
 BVHResource::BVHResource() : BVHResource(nullptr)
 {
-
+	
 }
 
 BVHResource::~BVHResource()
 {
 	DeleteJoint(&mHierarchy.Root);
-	delete[mMotion.FrameCount * mMotion.ChannelCount] mMotion.Data;
+	delete[] mMotion.Data;
 }
 
 int BVHResource::Load()
@@ -145,6 +143,8 @@ void BVHResource::LoadJoint(std::fstream& file, BVHJoint* joint, BVHJoint* paren
 			joint->Children.push_back(BVHJoint());
 
 			LoadJoint(file, &joint->Children.back(), joint);
+
+			mHierarchy.JointCount++;
 		}
 		else if (line == BVHKeyEndSite)
 		{
@@ -164,6 +164,8 @@ void BVHResource::LoadJoint(std::fstream& file, BVHJoint* joint, BVHJoint* paren
 			}
 
 			file >> line;
+
+			mHierarchy.JointCount++;
 		}
 		else if (line == "}")
 		{
@@ -244,7 +246,7 @@ void BVHResource::DeleteJoint(BVHJoint* joint)
 	}
 
 
-	for (int i = 0; i < joint->Children.size(); i++)
+	for (uint32_t i = 0; i < joint->Children.size(); i++)
 	{
 		DeleteJoint(&joint->Children[i]);
 	}

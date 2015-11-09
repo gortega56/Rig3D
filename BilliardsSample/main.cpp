@@ -561,7 +561,7 @@ public:
 
 	void UpdateCamera()
 	{
-		mViewProjection.view = mat4f::lookAtLH(mCamera.mTransform.GetPosition() + mCamera.mTransform.GetForward(), mCamera.mTransform.GetPosition(), vec3f(0.0f, 1.0f, 0.0f)).transpose();
+		mViewProjection.view = mat4f::lookAtLH(mCamera.mTransform.GetPosition() + mCamera.mTransform.GetForward(), mCamera.mTransform.GetPosition(), mCamera.mTransform.GetUp()).transpose();
 		//mViewProjection.view = mat4f::lookAtLH(gTablePosition, mCamera.mTransform.GetPosition(), vec3f(0.0f, 1.0f, 0.0f)).transpose();
 
 	}

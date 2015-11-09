@@ -3,6 +3,13 @@
 #include <vector>
 #include <fstream>
 
+extern const uint16_t DOF_POSITION_X;
+extern const uint16_t DOF_POSITION_Y;
+extern const uint16_t DOF_POSITION_Z;
+extern const uint16_t DOF_ROTATION_X;
+extern const uint16_t DOF_ROTATION_Y;
+extern const uint16_t DOF_ROTATION_Z;
+
 struct BVHJoint
 {
 	float					Offset[3];
@@ -18,6 +25,7 @@ struct BVHHierarchy
 {
 	BVHJoint	Root;
 	uint32_t	ChannelCount;
+	uint32_t	JointCount = 1;
 };
 
 struct BVHMotion
@@ -30,6 +38,9 @@ struct BVHMotion
 class BVHResource
 {
 public:
+	BVHHierarchy mHierarchy;
+	BVHMotion	 mMotion;
+
 	BVHResource(const char* filename);
 	BVHResource();
 	~BVHResource();
@@ -39,9 +50,6 @@ public:
 private:
 	const char* mFilename;
 
-	BVHHierarchy mHierarchy;
-	BVHMotion	 mMotion;
-	
 	void		LoadJoint(std::fstream& file, BVHJoint* joint, BVHJoint* parent = nullptr);
 	int			LoadHeirachy(std::fstream& file);
 	int			LoadMotion(std::fstream& file);
