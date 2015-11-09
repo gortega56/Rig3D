@@ -85,6 +85,7 @@ namespace Rig3D
 		virtual void	VCreateDynamicConstantBuffer(void* buffer, void* data, const size_t& size) = 0;
 
 		virtual void	VUpdateConstantBuffer(void* buffer, void* data) = 0;
+
 #pragma endregion
 
 		virtual void	VSetMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) = 0;
@@ -103,6 +104,7 @@ namespace Rig3D
 		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename, InputElement* inputElements, const uint32_t& count) = 0;
 		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) = 0;
 		virtual void	VLoadVertexShader(IShader* vertexShader, const char* filename) = 0;
+
 		virtual void	VLoadPixelShader(IShader* vertexShader, const char* filename, LinearAllocator* allocator) = 0;
 		virtual void	VLoadPixelShader(IShader* pixelShader, const char* filename) = 0;
 
@@ -110,6 +112,7 @@ namespace Rig3D
 		virtual void	VSetVertexShaderInputLayout(IShader* vertexShader) = 0;
 		virtual void	VSetVertexShaderResources(IShader* vertexShader) = 0;
 		virtual void	VSetVertexShader(IShader* shader) = 0;
+		
 		virtual void	VSetPixelShader(IShader* shader) = 0;
 
 		// Constant buffers will be bound to GPU registers in the order they are arranged
