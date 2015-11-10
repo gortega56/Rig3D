@@ -70,7 +70,7 @@ public:
 	void InitializeShaders();
 
 	void UpdateCamera();
-	void UpdateTransforms(Transform* transforms, const BVHJoint* joint, const BVHMotion* motion, const uint32_t& transformCount);
+	void UpdateTransforms(Transform* transforms, const BVHJoint* joint, const BVHMotion* motion, const uint32_t& transformCount, const uint32_t& frameIndex);
 
 	void HandleInput(Input& input);
 };
@@ -112,9 +112,17 @@ void MotionCaptureSample::VInitialize()
 
 void MotionCaptureSample::VUpdate(double milliseconds)
 {
+	static uint32_t frame = 0;
+
 	HandleInput(Input::SharedInstance());
 	UpdateCamera();
-	UpdateTransforms(mTransforms, &mBVHResource.mHierarchy.Root, &mBVHResource.mMotion, mTransformCount);
+	UpdateTransforms(mTransforms, &mBVHResource.mHierarchy.Root, &mBVHResource.mMotion, mTransformCount, frame * mBVHResource.mMotion.ChannelCount);
+
+	frame++;
+	if (frame == mBVHResource.mMotion.FrameCount)
+	{
+		frame = 0;
+	}
 }
 
 void MotionCaptureSample::VRender()
@@ -172,7 +180,7 @@ void MotionCaptureSample::InitializeGeometry()
 
 void MotionCaptureSample::InitializeBVHResources()
 {
-	mBVHResource.SetFilename("BVH\\Sneak.bvh");
+	mBVHResource.SetFilename("BVH\\Stand.bvh");
 	mBVHResource.Load();
 
 	mTransformCount = mBVHResource.mHierarchy.JointCount;
@@ -240,7 +248,7 @@ void MotionCaptureSample::UpdateCamera()
 	mViewProjection.Projection = mat4f::normalizedPerspectiveLH(PI * 0.25f, mRenderer->GetAspectRatio(), 0.1f, 500.0f).transpose();
 }
 
-void MotionCaptureSample::UpdateTransforms(Transform* transforms, const BVHJoint* joint, const BVHMotion* motion, const uint32_t& transformCount)
+void MotionCaptureSample::UpdateTransforms(Transform* transforms, const BVHJoint* joint, const BVHMotion* motion, const uint32_t& transformCount, const uint32_t& frameIndex)
 {
 	static uint32_t index = 0;
 
@@ -249,7 +257,7 @@ void MotionCaptureSample::UpdateTransforms(Transform* transforms, const BVHJoint
 		index = 0;
 	}
 
-	uint32_t channelOffset = joint->ChannelOffset;
+	uint32_t channelOffset = frameIndex + joint->ChannelOffset;
 	vec3f jointPosition = { joint->Offset[0], joint->Offset[1], joint->Offset[2] };
 	vec3f jointRotation = { 0.0f, 0.0f, 0.0f };
 
@@ -290,7 +298,7 @@ void MotionCaptureSample::UpdateTransforms(Transform* transforms, const BVHJoint
 
 	for (uint32_t i = 0; i < joint->Children.size(); i++)
 	{
-		UpdateTransforms(transforms, &joint->Children[i], motion, transformCount);
+		UpdateTransforms(transforms, &joint->Children[i], motion, transformCount, frameIndex);
 	}
 }
 
