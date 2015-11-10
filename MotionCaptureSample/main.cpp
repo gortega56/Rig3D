@@ -7,9 +7,10 @@
 #include "Memory\Memory\Memory.h"
 #include "Rig3D\Graphics\MeshLibrary.h"
 #include <d3d11.h>
-#include <fstream>
 #include "Rig3D\Graphics\Interface\IShader.h"
 #include "BVHResource.h"
+#include "Rig3D\Graphics\DirectX11\DX11Shader.h"
+
 
 #define PI						3.1415926535f
 #define CAMERA_SPEED			0.1f
@@ -27,7 +28,6 @@ struct Vertex3
 
 struct ModelViewProjection
 {
-	mat4f Model;
 	mat4f View;
 	mat4f Projection;
 };
@@ -36,6 +36,8 @@ class MotionCaptureSample : public IScene, public virtual IRendererDelegate
 {
 public:
 	ModelViewProjection	mViewProjection;
+	mat4f*				mJointWorldMatrices;
+
 	Transform			mCamera;
 	BVHResource			mBVHResource;
 
@@ -71,12 +73,13 @@ public:
 
 	void UpdateCamera();
 	void UpdateTransforms(Transform* transforms, const BVHJoint* joint, const BVHMotion* motion, const uint32_t& transformCount, const uint32_t& frameIndex);
-
+	void UpdateJointWorldMatrices(mat4f* jointWorldMatrices, Transform* transforms, const uint32_t& count);
 	void HandleInput(Input& input);
 };
 
 MotionCaptureSample::MotionCaptureSample() : 
-	mAllocator(6000), 
+	mJointWorldMatrices(nullptr),
+	mAllocator(8000),
 	mTransforms(nullptr), 
 	mCubeMesh(nullptr), 
 	mPyramidMesh(nullptr),
@@ -117,6 +120,7 @@ void MotionCaptureSample::VUpdate(double milliseconds)
 	HandleInput(Input::SharedInstance());
 	UpdateCamera();
 	UpdateTransforms(mTransforms, &mBVHResource.mHierarchy.Root, &mBVHResource.mMotion, mTransformCount, frame * mBVHResource.mMotion.ChannelCount);
+	UpdateJointWorldMatrices(mJointWorldMatrices, mTransforms, mTransformCount);
 
 	frame++;
 	if (frame == mBVHResource.mMotion.FrameCount)
@@ -137,17 +141,15 @@ void MotionCaptureSample::VRender()
 	deviceContext->RSSetViewports(1, &renderer->GetViewport());
 
 	mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
-	mRenderer->VSetVertexShaderInputLayout(mVertexShader);
+	mRenderer->VSetInputLayout(mVertexShader);
+	mRenderer->VSetInstanceBuffers(mVertexShader);
+	mRenderer->VSetVertexShader(mVertexShader);
 	mRenderer->VSetPixelShader(mPixelShader);
-	
-	for (uint32_t i = 0; i < mTransformCount; i++)
-	{
-		mViewProjection.Model = mTransforms[i].GetWorldMatrix().transpose();
-		mRenderer->VUpdateShaderConstantBuffer(mVertexShader, &mViewProjection, 0);
-		mRenderer->VSetVertexShaderResources(mVertexShader);
-		mRenderer->VBindMesh(mCubeMesh);
-		mRenderer->VDrawIndexed(0, mCubeMesh->GetIndexCount());
-	}
+
+	mRenderer->VUpdateShaderConstantBuffer(mVertexShader, &mViewProjection, 0);
+	mRenderer->VSetVertexShaderResources(mVertexShader);
+	mRenderer->VBindMesh(mCubeMesh);
+	deviceContext->DrawIndexedInstanced(mCubeMesh->GetIndexCount(), mTransformCount, 0, 0, 0);
 
 	mRenderer->VSwapBuffers();
 }
@@ -188,18 +190,11 @@ void MotionCaptureSample::InitializeBVHResources()
 	mTransforms = reinterpret_cast<Transform*>(mAllocator.Allocate(sizeof(Transform) * mTransformCount, alignof(Transform), 0));
 	memset(mTransforms, 0, sizeof(Transform) * mTransformCount);
 
+	mJointWorldMatrices = reinterpret_cast<mat4f*>(mAllocator.Allocate(sizeof(mat4f) * mTransformCount, alignof(mat4f), 0));
+	memset(mJointWorldMatrices, 0, sizeof(mat4f) * mTransformCount);
+
 	BVHJoint* currentJoint = &mBVHResource.mHierarchy.Root;
 	InitializeTransforms(mTransforms, currentJoint);
-
-	for (uint32_t i = 0; i < mTransformCount; i++)
-	{
-		vec3f scale = mTransforms[i].GetScale();
-
-		if (scale.x == 0.0f || scale.y == 0.0f || scale.z == 0.0f)
-		{
-			break;
-		}
-	}
 }
 
 void MotionCaptureSample::InitializeTransforms(Transform* transforms, const BVHJoint* joint)
@@ -222,13 +217,17 @@ void MotionCaptureSample::InitializeShaders()
 	{
 		{ "POSITION",	0, 0, 0,  0, FLOAT3, INPUT_CLASS_PER_VERTEX },
 		{ "NORMAL",		0, 0, 12, 0, FLOAT3, INPUT_CLASS_PER_VERTEX },
-		{ "TEXCOORD",	0, 0, 24, 0, FLOAT2, INPUT_CLASS_PER_VERTEX }
+		{ "TEXCOORD",	0, 0, 24, 0, FLOAT2, INPUT_CLASS_PER_VERTEX },
+		{ "WORLD",		0, 1, 0, 1, FLOAT4, INPUT_CLASS_PER_INSTANCE },
+		{ "WORLD",		1, 1, 16, 1, FLOAT4, INPUT_CLASS_PER_INSTANCE },
+		{ "WORLD",		2, 1, 32, 1, FLOAT4, INPUT_CLASS_PER_INSTANCE },
+		{ "WORLD",		3, 1, 48, 1, FLOAT4, INPUT_CLASS_PER_INSTANCE }
 	};
 
 	// Load Vertex Shader --------------------------------------
 
 	mRenderer->VCreateShader(&mVertexShader, &mAllocator);
-	mRenderer->VLoadVertexShader(mVertexShader, "MCVertexShader.cso", inputElements, 3);
+	mRenderer->VLoadVertexShader(mVertexShader, "MCVertexShader.cso", inputElements, 7);
 
 	// Load Pixel Shader ---------------------------------------
 
@@ -237,9 +236,17 @@ void MotionCaptureSample::InitializeShaders()
 
 	// Constant buffers ----------------------------------------
 
-	void* data[] = { &mViewProjection };
-	size_t sizes[] = { sizeof(ModelViewProjection) };
-	mRenderer->VCreateShaderConstantBuffers(mVertexShader, data, sizes, 1);
+	void*	constantBufferData[]	= { &mViewProjection };
+	size_t	constantBufferSizes[]	= { sizeof(ModelViewProjection) };
+	mRenderer->VCreateShaderConstantBuffers(mVertexShader, constantBufferData, constantBufferSizes, 1);
+
+	// Instance buffers -----------------------------------------
+
+	void*	instanceBufferData[]	= { mJointWorldMatrices };
+	size_t	instanceBufferSizes[]	= { sizeof(mat4f) * mTransformCount };
+	size_t	instanceBufferStrides[] = { sizeof(mat4f) };
+	size_t	instanceBufferOffsets[] = { 0 };
+	mRenderer->VCreateDynamicShaderInstanceBuffers(mVertexShader, instanceBufferData, instanceBufferSizes, instanceBufferStrides, instanceBufferOffsets, 1);
 }
 
 void MotionCaptureSample::UpdateCamera()
@@ -300,6 +307,16 @@ void MotionCaptureSample::UpdateTransforms(Transform* transforms, const BVHJoint
 	{
 		UpdateTransforms(transforms, &joint->Children[i], motion, transformCount, frameIndex);
 	}
+}
+
+void MotionCaptureSample::UpdateJointWorldMatrices(mat4f* jointWorldMatrices, Transform* transforms, const uint32_t& count)
+{
+	for (uint32_t i = 0; i < count; i++)
+	{
+		mJointWorldMatrices[i] = transforms[i].GetWorldMatrix().transpose();
+	}
+
+	mRenderer->VUpdateShaderInstanceBuffer(mVertexShader, mJointWorldMatrices, sizeof(mat4f) * count, 0);
 }
 
 void MotionCaptureSample::HandleInput(Input& input)

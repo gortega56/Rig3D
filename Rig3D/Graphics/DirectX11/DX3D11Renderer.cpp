@@ -424,7 +424,7 @@ void DX3D11Renderer::VCreateDynamicInstanceBuffer(void* buffer, void* data, cons
 	ibd.Usage = D3D11_USAGE_DYNAMIC;
 	ibd.ByteWidth = size;
 	ibd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	ibd.CPUAccessFlags = 0;
+	ibd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	ibd.MiscFlags = 0;
 	ibd.StructureByteStride = 0;
 
@@ -812,6 +812,17 @@ void DX3D11Renderer::VSetInputLayout(IShader* vertexShader)
 	mDeviceContext->IASetInputLayout(static_cast<DX11Shader*>(vertexShader)->mInputLayout);
 }
 
+void DX3D11Renderer::VSetInstanceBuffers(IShader* vertexShader)
+{
+	DX11Shader* shader = static_cast<DX11Shader*>(vertexShader);
+
+	uint8_t instanceBufferCount = shader->GetInstanceBufferCount();
+	if (instanceBufferCount)
+	{
+		mDeviceContext->IASetVertexBuffers(1, instanceBufferCount, shader->GetInstanceBuffers(), shader->GetInstanceBufferStrides(), shader->GetInstanceBufferOffsets());
+	}
+}
+
 void DX3D11Renderer::VSetVertexShaderInputLayout(IShader* vertexShader)
 {
 	DX11Shader* shader = static_cast<DX11Shader*>(vertexShader);
@@ -822,11 +833,6 @@ void DX3D11Renderer::VSetVertexShaderInputLayout(IShader* vertexShader)
 void DX3D11Renderer::VSetVertexShaderResources(IShader* vertexShader)
 {
 	DX11Shader* shader = static_cast<DX11Shader*>(vertexShader);
-	uint8_t instanceBufferCount = shader->GetInstanceBufferCount();
-	if (instanceBufferCount)
-	{
-		mDeviceContext->IASetVertexBuffers(1, instanceBufferCount, shader->GetInstanceBuffers(), shader->GetInstanceBufferStrides(), shader->GetInstanceBufferOffsets());
-	}
 
 	uint8_t constBufferCount = shader->GetConstantBufferCount();
 	if (constBufferCount)
@@ -869,7 +875,7 @@ void DX3D11Renderer::VCreateShaderConstantBuffers(IShader* shader, void** data, 
 	static_cast<DX11Shader*>(shader)->SetConstantBuffers(constantBuffers);
 }
 
-void DX3D11Renderer::VCreateShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t& strides, size_t& offsets, const uint32_t& count)
+void DX3D11Renderer::VCreateShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count)
 {
 	std::vector<ID3D11Buffer*> instanceBuffers(count);
 	std::vector<UINT> instanceBufferStrides(count);
@@ -877,13 +883,15 @@ void DX3D11Renderer::VCreateShaderInstanceBuffers(IShader* shader, void** data, 
 
 	for (uint32_t i = 0; i < count; i++)
 	{
-		VCreateConstantBuffer(&instanceBuffers[i], data[i], sizes[i]);
+		VCreateInstanceBuffer(&instanceBuffers[i], data[i], sizes[i]);
+		instanceBufferStrides[i] = strides[i];
+		instanceBufferOffsets[i] = offsets[i];
 	}
 
 	static_cast<DX11Shader*>(shader)->SetInstanceBuffers(instanceBuffers, instanceBufferStrides, instanceBufferOffsets);
 }
 
-void DX3D11Renderer::VCreateStaticShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t& strides, size_t& offsets, const uint32_t& count)
+void DX3D11Renderer::VCreateStaticShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count)
 {
 	std::vector<ID3D11Buffer*> instanceBuffers(count);
 	std::vector<UINT> instanceBufferStrides(count);
@@ -891,13 +899,15 @@ void DX3D11Renderer::VCreateStaticShaderInstanceBuffers(IShader* shader, void** 
 
 	for (uint32_t i = 0; i < count; i++)
 	{
-		VCreateStaticConstantBuffer(&instanceBuffers[i], data[i], sizes[i]);
+		VCreateStaticInstanceBuffer(&instanceBuffers[i], data[i], sizes[i]);
+		instanceBufferStrides[i] = strides[i];
+		instanceBufferOffsets[i] = offsets[i];
 	}
 
 	static_cast<DX11Shader*>(shader)->SetInstanceBuffers(instanceBuffers, instanceBufferStrides, instanceBufferOffsets);
 }
 
-void DX3D11Renderer::VCreateDynamicShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t& strides, size_t& offsets, const uint32_t& count)
+void DX3D11Renderer::VCreateDynamicShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count)
 {
 	std::vector<ID3D11Buffer*> instanceBuffers(count);
 	std::vector<UINT> instanceBufferStrides(count);
@@ -906,6 +916,8 @@ void DX3D11Renderer::VCreateDynamicShaderInstanceBuffers(IShader* shader, void**
 	for (uint32_t i = 0; i < count; i++)
 	{
 		VCreateDynamicInstanceBuffer(&instanceBuffers[i], data[i], sizes[i]);
+		instanceBufferStrides[i] = strides[i];
+		instanceBufferOffsets[i] = offsets[i];
 	}
 
 	static_cast<DX11Shader*>(shader)->SetInstanceBuffers(instanceBuffers, instanceBufferStrides, instanceBufferOffsets);
@@ -941,7 +953,7 @@ void DX3D11Renderer::VSwapBuffers()
 
 void DX3D11Renderer::HandleEvent(const IEvent& iEvent)
 {
-	const WMEvent& wmEvent = (const WMEvent&)iEvent;
+	const WMEvent& wmEvent = static_cast<const WMEvent&>(iEvent);
 	switch (wmEvent.msg)
 	{
 	case WM_SIZE:

@@ -91,6 +91,7 @@ namespace Rig3D
 		void	VLoadPixelShader(IShader* pixelShader, const char* filename) override;
 
 		void	VSetInputLayout(IShader* vertexShader) override;
+		void	VSetInstanceBuffers(IShader* vertexShader) override;
 		void	VSetVertexShaderInputLayout(IShader* vertexShader) override;
 		void	VSetVertexShaderResources(IShader* vertexShader) override;
 		void	VSetVertexShader(IShader* shader) override;
@@ -99,9 +100,9 @@ namespace Rig3D
 
 		void	VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) override;
 		
-		void	VCreateShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t& strides, size_t& offsets, const uint32_t& count) override;
-		void	VCreateStaticShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t& strides, size_t& offsets, const uint32_t& count) override;
-		void	VCreateDynamicShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t& strides, size_t& offsets, const uint32_t& count) override;
+		void	VCreateShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) override;
+		void	VCreateStaticShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) override;
+		void	VCreateDynamicShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) override;
 
 		void	VUpdateShaderConstantBuffer(IShader* shader, void* data, const uint32_t& index) override;
 		void	VUpdateShaderInstanceBuffer(IShader* shader, void* data, const size_t& size, const uint32_t& index) override;
