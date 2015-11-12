@@ -10,7 +10,7 @@
 #include "Rig3D\Graphics\Interface\IShader.h"
 #include "BVHResource.h"
 #include "Rig3D\Graphics\DirectX11\DX11Shader.h"
-
+#include "Rig3D\Parametric.h"
 
 #define PI						3.1415926535f
 #define CAMERA_SPEED			0.1f
@@ -43,15 +43,20 @@ public:
 	LinearAllocator		mAllocator;
 
 	mat4f*				mJointWorldMatrices;
+	Line<vec3f>*		mLines;
 	Transform*			mTransforms;
 	IMesh*				mCubeMesh;
 	IMesh*				mPyramidMesh;
+	IMesh*				mLineMesh;
 
 	IRenderer*			mRenderer;
 	IShader*			mVertexShader;
 	IShader*			mPixelShader;
+	IShader*			mLineVertexShader;
+	IShader*			mLinePixelShader;
 
 	uint32_t			mTransformCount;
+	uint32_t			mLineCount;
 
 	float				mMouseX;
 	float				mMouseY;
@@ -82,12 +87,15 @@ public:
 MotionCaptureSample::MotionCaptureSample() : 
 	mAllocator(8000),
 	mJointWorldMatrices(nullptr),
+	mLines(nullptr),
 	mTransforms(nullptr), 
 	mCubeMesh(nullptr), 
 	mPyramidMesh(nullptr),
 	mRenderer(nullptr),
 	mVertexShader(nullptr),
 	mPixelShader(nullptr),
+	mLineVertexShader(nullptr),
+	mLinePixelShader(nullptr),
 	mTransformCount(0),
 	mMouseX(0.0f),
 	mMouseY(0.0f),
@@ -142,6 +150,8 @@ void MotionCaptureSample::VUpdate(double milliseconds)
 	
 	UpdateJointWorldMatrices(mJointWorldMatrices, mTransforms, mTransformCount);
 
+	mRenderer->VUpdateMeshVertexBuffer(mLineMesh, &mLines[0], sizeof(vec3f) * mLineCount * 2);
+
 	char str[256];
 	sprintf_s(str, "Frame: %u Animation: %f", frame, t);
 	mRenderer->SetWindowCaption(str);
@@ -176,6 +186,13 @@ void MotionCaptureSample::VRender()
 	mRenderer->VBindMesh(mCubeMesh);
 	deviceContext->DrawIndexedInstanced(mCubeMesh->GetIndexCount(), mTransformCount, 0, 0, 0);
 
+	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+	mRenderer->VSetInputLayout(mLineVertexShader);
+	mRenderer->VSetVertexShader(mLineVertexShader);
+	mRenderer->VSetPixelShader(mLinePixelShader);
+
+	mRenderer->VBindMesh(mLineMesh);
+	deviceContext->Draw(mLineCount * 2, 0);
 	mRenderer->VSwapBuffers();
 }
 
@@ -183,8 +200,11 @@ void MotionCaptureSample::VShutdown()
 {
 	mCubeMesh->~IMesh();
 	mPyramidMesh->~IMesh();
+	mLineMesh->~IMesh();
 	mVertexShader->~IShader();
 	mPixelShader->~IShader();
+	mLineVertexShader->~IShader();
+	mLinePixelShader->~IShader();
 	mAllocator.Free();
 }
 
@@ -203,6 +223,8 @@ void MotionCaptureSample::InitializeGeometry()
 
 	meshLibrary.LoadMesh(&mCubeMesh, mRenderer, cubeResource);
 	meshLibrary.LoadMesh(&mPyramidMesh, mRenderer, pyramidResource);
+
+	meshLibrary.NewMesh(&mLineMesh, mRenderer);
 }
 
 void MotionCaptureSample::InitializeBVHResources()
@@ -215,14 +237,35 @@ void MotionCaptureSample::InitializeBVHResources()
 	mAnimationDuration = mBVHResource.mMotion.FrameTime * mBVHResource.mMotion.FrameCount * mAnimationScale;
 
 	mTransformCount = mBVHResource.mHierarchy.JointCount;
-
+	mLineCount		= mBVHResource.mHierarchy.JointCount;
+	
 	// Allocate Transforms
-	mTransforms = reinterpret_cast<Transform*>(mAllocator.Allocate(sizeof(Transform) * mTransformCount, alignof(Transform), 0));
-	memset(mTransforms, 0, sizeof(Transform) * mTransformCount);
+	size_t transformsByteSize = sizeof(Transform) * mTransformCount;
+	mTransforms = reinterpret_cast<Transform*>(mAllocator.Allocate(transformsByteSize, alignof(Transform), 0));
+	memset(mTransforms, 0, transformsByteSize);
 
 	// Allocate world matrices
-	mJointWorldMatrices = reinterpret_cast<mat4f*>(mAllocator.Allocate(sizeof(mat4f) * mTransformCount, alignof(mat4f), 0));
-	memset(mJointWorldMatrices, 0, sizeof(mat4f) * mTransformCount);
+	size_t matricesByteSize = sizeof(mat4f) * mTransformCount;
+	mJointWorldMatrices = reinterpret_cast<mat4f*>(mAllocator.Allocate(matricesByteSize, alignof(mat4f), 0));
+	memset(mJointWorldMatrices, 0, matricesByteSize);
+
+	// Allocate Lines
+	size_t lineByteSize = sizeof(Line<vec3f>) * mLineCount;
+	mLines = reinterpret_cast<Line<vec3f>*>(mAllocator.Allocate(lineByteSize, alignof(mat4f), 0));
+	
+	uint32_t indexCount = mLineCount * 2;
+	uint16_t* indices = new uint16_t[indexCount];
+	uint16_t index = 0;
+
+	for (uint32_t i = 0; i < indexCount; i++)
+	{
+		indices[i] = i;
+	}
+
+	mRenderer->VSetDynamicMeshVertexBuffer(mLineMesh, nullptr, lineByteSize, sizeof(vec3f));
+	mRenderer->VSetStaticMeshIndexBuffer(mLineMesh, indices, indexCount);
+
+	delete[] indices;
 
 	// Initialize transforms from bvh resource
 	BVHJoint* currentJoint = &mBVHResource.mHierarchy.Root;
@@ -279,6 +322,18 @@ void MotionCaptureSample::InitializeShaders()
 	size_t	instanceBufferStrides[] = { sizeof(mat4f) };
 	size_t	instanceBufferOffsets[] = { 0 };
 	mRenderer->VCreateDynamicShaderInstanceBuffers(mVertexShader, instanceBufferData, instanceBufferSizes, instanceBufferStrides, instanceBufferOffsets, 1);
+
+	InputElement lineInputElement = { "POSITION",	0, 0, 0,  0, FLOAT3, INPUT_CLASS_PER_VERTEX };
+
+	// Load Vertex Shader --------------------------------------
+
+	mRenderer->VCreateShader(&mLineVertexShader, &mAllocator);
+	mRenderer->VLoadVertexShader(mLineVertexShader, "MCLineVertexShader.cso", &lineInputElement, 1);
+
+	// Load Pixel Shader ---------------------------------------
+
+	mRenderer->VCreateShader(&mLinePixelShader, &mAllocator);
+	mRenderer->VLoadPixelShader(mLinePixelShader, "MCLinePixelShader.cso");
 }
 
 void MotionCaptureSample::UpdateCamera()
@@ -400,6 +455,9 @@ void MotionCaptureSample::UpdateTransforms(Transform* transforms, const BVHJoint
 	transform->SetPosition(position);
 	transform->SetRotation(rotation);
 
+	uint32_t lineIndex = index - 1;
+	
+
 	for (uint32_t i = 0; i < joint->Children.size(); i++)
 	{
 		UpdateTransforms(transforms, &joint->Children[i], motion, transformCount, frameIndex, u);
@@ -410,7 +468,21 @@ void MotionCaptureSample::UpdateJointWorldMatrices(mat4f* jointWorldMatrices, Tr
 {
 	for (uint32_t i = 0; i < count; i++)
 	{
-		mJointWorldMatrices[i] = transforms[i].GetWorldMatrix().transpose();
+		mat4f transform = transforms[i].GetWorldMatrix();
+		Line<vec3f>* line = &mLines[i];
+		
+		line->end = vec4f(transforms[i].GetPosition(), 1.0f) * transform;
+
+		if (transforms[i].GetParent())
+		{
+			line->origin = vec4f(transforms[i].GetParent()->GetPosition(), 1.0f) * transform;
+		}
+		else
+		{
+			line->origin = line->end;
+		}
+
+		mJointWorldMatrices[i] = transform.transpose();//transforms[i].GetWorldMatrix().transpose();
 	}
 
 	mRenderer->VUpdateShaderInstanceBuffer(mVertexShader, mJointWorldMatrices, sizeof(mat4f) * count, 0);
