@@ -9,7 +9,6 @@
 #include <d3d11.h>
 #include "Rig3D\Graphics\Interface\IShader.h"
 #include "BVHResource.h"
-#include "Rig3D\Graphics\DirectX11\DX11Shader.h"
 #include "Rig3D\Parametric.h"
 
 #define PI						3.1415926535f
