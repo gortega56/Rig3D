@@ -453,10 +453,7 @@ void MotionCaptureSample::UpdateTransforms(Transform* transforms, const BVHJoint
 	Transform* transform = &transforms[index++];
 	transform->SetPosition(position);
 	transform->SetRotation(rotation);
-
-	uint32_t lineIndex = index - 1;
 	
-
 	for (uint32_t i = 0; i < joint->Children.size(); i++)
 	{
 		UpdateTransforms(transforms, &joint->Children[i], motion, transformCount, frameIndex, u);
@@ -467,21 +464,7 @@ void MotionCaptureSample::UpdateJointWorldMatrices(mat4f* jointWorldMatrices, Tr
 {
 	for (uint32_t i = 0; i < count; i++)
 	{
-		mat4f transform = transforms[i].GetWorldMatrix();
-		Line<vec3f>* line = &mLines[i];
-		
-		line->end = vec4f(transforms[i].GetPosition(), 1.0f) * transform;
-
-		if (transforms[i].GetParent())
-		{
-			line->origin = vec4f(transforms[i].GetParent()->GetPosition(), 1.0f) * transform;
-		}
-		else
-		{
-			line->origin = line->end;
-		}
-
-		mJointWorldMatrices[i] = transform.transpose();//transforms[i].GetWorldMatrix().transpose();
+		mJointWorldMatrices[i] = transforms[i].GetWorldMatrix().transpose();
 	}
 
 	mRenderer->VUpdateShaderInstanceBuffer(mVertexShader, mJointWorldMatrices, sizeof(mat4f) * count, 0);

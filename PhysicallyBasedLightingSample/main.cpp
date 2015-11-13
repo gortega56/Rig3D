@@ -21,6 +21,7 @@ public:
 
 	mat4f*				mSphereWorldMatrices;
 	Transform*			mTransforms;
+	IMesh*				mCubeMesh;
 	IMesh*				mSphereMesh;
 
 	IRenderer*			mRenderer;
@@ -57,17 +58,24 @@ PhysicallyBasedLightingSample::PhysicallyBasedLightingSample() :
 	mMouseX(0.0f),
 	mMouseY(0.0f)
 {
-
+	mOptions.mWindowCaption = "Physically Based Lighting Sample";
+	mOptions.mWindowWidth = 1200;
+	mOptions.mWindowHeight = 900;
+	mOptions.mGraphicsAPI = GRAPHICS_API_DIRECTX11;
+	mOptions.mFullScreen = false;
 }
 
 PhysicallyBasedLightingSample::~PhysicallyBasedLightingSample()
 {
-	
+
 }
 
 void PhysicallyBasedLightingSample::VInitialize()
 {
-	
+	mRenderer = &DX3D11Renderer::SharedInstance();
+
+	InitializeGeometry();
+	InitializeShaders();
 }
 
 void PhysicallyBasedLightingSample::VUpdate(double milliseconds)
@@ -82,7 +90,11 @@ void PhysicallyBasedLightingSample::VRender()
 
 void PhysicallyBasedLightingSample::VShutdown()
 {
-	
+	mCubeMesh->~IMesh();
+	mSphereMesh->~IMesh();
+	mPBLModelVertexShader->~IShader();
+	mPBLModelPixelShader->~IShader();
+	mAllocator.Free();
 }
 
 void PhysicallyBasedLightingSample::VOnResize()
@@ -92,7 +104,8 @@ void PhysicallyBasedLightingSample::VOnResize()
 
 void PhysicallyBasedLightingSample::InitializeGeometry()
 {
-	
+
+
 }
 
 void PhysicallyBasedLightingSample::InitializeShaders()
