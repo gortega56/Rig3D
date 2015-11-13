@@ -42,11 +42,10 @@ public:
 	LinearAllocator		mAllocator;
 
 	mat4f*				mJointWorldMatrices;
-	Line<vec3f>*		mLines;
+	vec3f*				mLineVertices;
 	Transform*			mTransforms;
 	IMesh*				mCubeMesh;
 	IMesh*				mPyramidMesh;
-	IMesh*				mLineMesh;
 
 	IRenderer*			mRenderer;
 	IShader*			mVertexShader;
@@ -61,6 +60,8 @@ public:
 	float				mMouseY;
 	float				mAnimationDuration;
 	float				mAnimationScale;
+
+	ID3D11Buffer*		mLineVertexBuffer;
 
 	MotionCaptureSample();
 	~MotionCaptureSample();
@@ -86,7 +87,7 @@ public:
 MotionCaptureSample::MotionCaptureSample() : 
 	mAllocator(8000),
 	mJointWorldMatrices(nullptr),
-	mLines(nullptr),
+	mLineVertices(nullptr),
 	mTransforms(nullptr), 
 	mCubeMesh(nullptr), 
 	mPyramidMesh(nullptr),
@@ -110,7 +111,7 @@ MotionCaptureSample::MotionCaptureSample() :
 
 MotionCaptureSample::~MotionCaptureSample()
 {
-
+	ReleaseMacro(mLineVertexBuffer);
 }
 
 void MotionCaptureSample::VInitialize()
@@ -148,8 +149,6 @@ void MotionCaptureSample::VUpdate(double milliseconds)
 	}
 	
 	UpdateJointWorldMatrices(mJointWorldMatrices, mTransforms, mTransformCount);
-
-	mRenderer->VUpdateMeshVertexBuffer(mLineMesh, &mLines[0], sizeof(vec3f) * mLineCount * 2);
 
 	char str[256];
 	sprintf_s(str, "Frame: %u Animation: %f", frame, t);
@@ -190,7 +189,6 @@ void MotionCaptureSample::VRender()
 	mRenderer->VSetVertexShader(mLineVertexShader);
 	mRenderer->VSetPixelShader(mLinePixelShader);
 
-	mRenderer->VBindMesh(mLineMesh);
 	deviceContext->Draw(mLineCount * 2, 0);
 	mRenderer->VSwapBuffers();
 }
@@ -199,7 +197,6 @@ void MotionCaptureSample::VShutdown()
 {
 	mCubeMesh->~IMesh();
 	mPyramidMesh->~IMesh();
-	mLineMesh->~IMesh();
 	mVertexShader->~IShader();
 	mPixelShader->~IShader();
 	mLineVertexShader->~IShader();
@@ -222,8 +219,6 @@ void MotionCaptureSample::InitializeGeometry()
 
 	meshLibrary.LoadMesh(&mCubeMesh, mRenderer, cubeResource);
 	meshLibrary.LoadMesh(&mPyramidMesh, mRenderer, pyramidResource);
-
-	meshLibrary.NewMesh(&mLineMesh, mRenderer);
 }
 
 void MotionCaptureSample::InitializeBVHResources()
@@ -247,24 +242,6 @@ void MotionCaptureSample::InitializeBVHResources()
 	size_t matricesByteSize = sizeof(mat4f) * mTransformCount;
 	mJointWorldMatrices = reinterpret_cast<mat4f*>(mAllocator.Allocate(matricesByteSize, alignof(mat4f), 0));
 	memset(mJointWorldMatrices, 0, matricesByteSize);
-
-	// Allocate Lines
-	size_t lineByteSize = sizeof(Line<vec3f>) * mLineCount;
-	mLines = reinterpret_cast<Line<vec3f>*>(mAllocator.Allocate(lineByteSize, alignof(mat4f), 0));
-	
-	uint32_t indexCount = mLineCount * 2;
-	uint16_t* indices = new uint16_t[indexCount];
-	uint16_t index = 0;
-
-	for (uint32_t i = 0; i < indexCount; i++)
-	{
-		indices[i] = i;
-	}
-
-	mRenderer->VSetDynamicMeshVertexBuffer(mLineMesh, nullptr, lineByteSize, sizeof(vec3f));
-	mRenderer->VSetStaticMeshIndexBuffer(mLineMesh, indices, indexCount);
-
-	delete[] indices;
 
 	// Initialize transforms from bvh resource
 	BVHJoint* currentJoint = &mBVHResource.mHierarchy.Root;
