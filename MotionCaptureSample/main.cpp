@@ -9,7 +9,8 @@
 #include <d3d11.h>
 #include "Rig3D\Graphics\Interface\IShader.h"
 #include "BVHResource.h"
-#include "Rig3D\Parametric.h"
+#include <vector>
+#include <utility>
 
 #define PI						3.1415926535f
 #define CAMERA_SPEED			0.1f
@@ -18,6 +19,9 @@
 #define INTERPOLATION			0
 
 using namespace Rig3D;
+
+typedef	std::vector<std::pair<uint32_t, uint32_t>> PairVector;
+
 
 struct Vertex3
 {
@@ -61,6 +65,7 @@ public:
 	float				mAnimationDuration;
 	float				mAnimationScale;
 
+	PairVector			mPairVector;
 	ID3D11Buffer*		mLineVertexBuffer;
 
 	MotionCaptureSample();
@@ -74,7 +79,7 @@ public:
 
 	void InitializeGeometry();
 	void InitializeBVHResources();
-	void InitializeTransforms(Transform* transforms, const BVHJoint* joint);
+	void InitializeTransforms(Transform* transforms, PairVector* pairVector, const BVHJoint* joint);
 
 	void InitializeShaders();
 
@@ -150,6 +155,14 @@ void MotionCaptureSample::VUpdate(double milliseconds)
 	
 	UpdateJointWorldMatrices(mJointWorldMatrices, mTransforms, mTransformCount);
 
+	for (uint32_t i = 0, j = 0; i < mPairVector.size(); i++, j+=2)
+	{
+		mLineVertices[j] = mJointWorldMatrices[mPairVector[i].first].transpose().t;
+		mLineVertices[j + 1] = mJointWorldMatrices[mPairVector[i].second].transpose().t;
+	}
+
+	mRenderer->VUpdateBuffer(mLineVertexBuffer, mLineVertices, sizeof(vec3f) * mPairVector.size() * 2);
+
 	char str[256];
 	sprintf_s(str, "Frame: %u Animation: %f", frame, t);
 	mRenderer->SetWindowCaption(str);
@@ -189,7 +202,11 @@ void MotionCaptureSample::VRender()
 	mRenderer->VSetVertexShader(mLineVertexShader);
 	mRenderer->VSetPixelShader(mLinePixelShader);
 
-	deviceContext->Draw(mLineCount * 2, 0);
+	UINT stride = sizeof(vec3f);
+	UINT offset = 0;
+
+	deviceContext->IASetVertexBuffers(0, 1, &mLineVertexBuffer, &stride, &offset);
+	deviceContext->Draw(mPairVector.size() * 2, 0);
 	mRenderer->VSwapBuffers();
 }
 
@@ -245,20 +262,31 @@ void MotionCaptureSample::InitializeBVHResources()
 
 	// Initialize transforms from bvh resource
 	BVHJoint* currentJoint = &mBVHResource.mHierarchy.Root;
-	InitializeTransforms(mTransforms, currentJoint);
+	InitializeTransforms(mTransforms, &mPairVector, currentJoint);
+
+	size_t lineVertexByteSize = sizeof(vec3f) * mPairVector.size() * 2;
+	mLineVertices = reinterpret_cast<vec3f*>(mAllocator.Allocate(lineVertexByteSize, alignof(vec3f), 0));
+	memset(mLineVertices, 0, lineVertexByteSize);
 }
 
-void MotionCaptureSample::InitializeTransforms(Transform* transforms, const BVHJoint* joint)
+void MotionCaptureSample::InitializeTransforms(Transform* transforms, PairVector* pairVector, const BVHJoint* joint)
 {	
 	static uint32_t index = 0;
+
+	std::pair<uint32_t, uint32_t> jointPair;
+	jointPair.first = index;
 
 	Transform* parent = &transforms[index++];
 	parent->SetScale(vec3f(1.0f));
 	
+
 	for (uint32_t i = 0; i < joint->Children.size(); i++)
 	{
+		jointPair.second = index;
+		pairVector->push_back(jointPair);
+
 		transforms[index].SetParent(parent);
-		InitializeTransforms(transforms, &joint->Children[i]);
+		InitializeTransforms(transforms, pairVector, &joint->Children[i]);
 	}
 }
 
@@ -310,6 +338,8 @@ void MotionCaptureSample::InitializeShaders()
 
 	mRenderer->VCreateShader(&mLinePixelShader, &mAllocator);
 	mRenderer->VLoadPixelShader(mLinePixelShader, "MCLinePixelShader.cso");
+
+	mRenderer->VCreateDynamicVertexBuffer(&mLineVertexBuffer, nullptr, sizeof(vec3f) * mPairVector.size() * 2);
 }
 
 void MotionCaptureSample::UpdateCamera()
