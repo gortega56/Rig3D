@@ -11,15 +11,18 @@ namespace Rig3D
 {
 	class RIG3D Camera
 	{
+	private:  // Not used yet
+		mat4f		mProjection;
+		mat4f		mView;
+
 	public:
 		Transform	mTransform;
 
 		Camera();
 		~Camera();
 
-	private:  // Not used yet
-		mat4f		mProjection;
-		mat4f		mView;
+		mat4f GetProjectionMatrix();
+		mat4f GetViewMatrix();
 	};
 
 }
