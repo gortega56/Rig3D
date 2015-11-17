@@ -7,10 +7,15 @@
 #include "Memory\Memory\Memory.h"
 #include "Rig3D\Graphics\MeshLibrary.h"
 #include "Rig3D\Graphics\Interface\IShader.h"
+#include "Rig3D/Graphics/Camera.h"
 #include <d3d11.h>
 #include <Rig3D\Graphics\DirectX11\DirectXTK\Inc\DDSTextureLoader.h>
 
-#define INSTANCE_COUNT	1
+#define PI						3.1415926535f
+#define CAMERA_SPEED			0.1f
+#define CAMERA_ROTATION_SPEED	0.1f
+#define RADIAN					3.1415926535f / 180.0f
+#define INSTANCE_COUNT			1
 
 using namespace Rig3D;
 
@@ -28,6 +33,13 @@ struct SkyboxData
 	mat4f	Model;
 	mat4f	View;
 	mat4f	Projection;
+	vec4f	CameraPosition;
+};
+
+struct ModelData
+{
+	mat4f View;
+	mat4f Projection;
 };
 
 class PhysicallyBasedLightingSample : public IScene, public virtual IRendererDelegate
@@ -35,8 +47,9 @@ class PhysicallyBasedLightingSample : public IScene, public virtual IRendererDel
 public:
 	mat4f						mSphereWorldMatrices[INSTANCE_COUNT];
 	SkyboxData					mSkyboxData;
+	ModelData					mModelData;
 
-	Transform					mCamera;
+	Camera						mCamera;
 	LinearAllocator				mAllocator;
 
 	Transform*					mTransforms;
@@ -50,6 +63,7 @@ public:
 	IShader*					mPBLModelPixelShader;
 
 	ID3D11ShaderResourceView*	mSkyboxSRV;
+	ID3D11SamplerState*			mSamplerState;
 
 	float				mMouseX;
 	float				mMouseY;
@@ -67,7 +81,6 @@ public:
 	void InitializeShaders();
 	void InitializeShaderResources();
 
-	void UpdateCamera();
 	void HandleInput(Input& input);
 };
 
@@ -82,6 +95,7 @@ PhysicallyBasedLightingSample::PhysicallyBasedLightingSample() :
 	mPBLModelVertexShader(nullptr),
 	mPBLModelPixelShader(nullptr),
 	mSkyboxSRV(nullptr),
+	mSamplerState(nullptr),
 	mMouseX(0.0f),
 	mMouseY(0.0f)
 {
@@ -95,6 +109,7 @@ PhysicallyBasedLightingSample::PhysicallyBasedLightingSample() :
 PhysicallyBasedLightingSample::~PhysicallyBasedLightingSample()
 {
 	ReleaseMacro(mSkyboxSRV);
+	ReleaseMacro(mSamplerState);
 }
 
 void PhysicallyBasedLightingSample::VInitialize()
@@ -108,12 +123,39 @@ void PhysicallyBasedLightingSample::VInitialize()
 
 void PhysicallyBasedLightingSample::VUpdate(double milliseconds)
 {
-	
+	HandleInput(Input::SharedInstance());
+
+	mSkyboxData.Model = mat4f::translate(mCamera.mTransform.GetPosition()).transpose();
+	mSkyboxData.Projection = mModelData.Projection = mCamera.GetProjectionMatrix().transpose();
+	mSkyboxData.View = mModelData.View = mCamera.GetViewMatrix().transpose();
+	mSkyboxData.CameraPosition = mCamera.mTransform.GetPosition();
 }
 
 void PhysicallyBasedLightingSample::VRender()
 {
-	
+	ID3D11DeviceContext* deviceContext	= static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
+	DX3D11Renderer*	renderer			= reinterpret_cast<DX3D11Renderer*>(mRenderer);
+
+	float color[4] = { 1.0f, 1.0, 1.0f, 1.0f };
+	deviceContext->OMSetRenderTargets(1, renderer->GetRenderTargetView(), renderer->GetDepthStencilView());
+	deviceContext->ClearRenderTargetView(*renderer->GetRenderTargetView(), color);
+	deviceContext->ClearDepthStencilView(renderer->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	deviceContext->RSSetViewports(1, &renderer->GetViewport());
+
+	mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
+	mRenderer->VSetInputLayout(mPBLSkyboxVertexShader);
+	mRenderer->VSetVertexShader(mPBLSkyboxVertexShader);
+	mRenderer->VSetPixelShader(mPBLSkyboxPixelShader);
+	mRenderer->VUpdateShaderConstantBuffer(mPBLSkyboxVertexShader, &mSkyboxData, 0);
+	mRenderer->VSetShaderResources(mPBLSkyboxVertexShader);
+
+	deviceContext->PSSetShaderResources(0, 1, &mSkyboxSRV);
+	deviceContext->PSSetSamplers(0, 1, &mSamplerState);
+
+	mRenderer->VBindMesh(mSkyboxMesh);
+	mRenderer->VDrawIndexed(0, mSkyboxMesh->GetIndexCount());
+
+	mRenderer->VSwapBuffers();
 }
 
 void PhysicallyBasedLightingSample::VShutdown()
@@ -122,17 +164,19 @@ void PhysicallyBasedLightingSample::VShutdown()
 	mIcosphereMesh->~IMesh();
 	mPBLModelVertexShader->~IShader();
 	mPBLModelPixelShader->~IShader();
+	mPBLSkyboxVertexShader->~IShader();
+	mPBLSkyboxPixelShader->~IShader();
 	mAllocator.Free();
 }
 
 void PhysicallyBasedLightingSample::VOnResize()
 {
-	
+	mCamera.SetProjectionMatrix(mat4f::normalizedPerspectiveLH(0.25f * PI, mRenderer->GetAspectRatio(), 0.1f, 100.0f));
 }
 
 void PhysicallyBasedLightingSample::InitializeGeometry()
 {
-	OBJBasicResource<Vertex3> skyboxResource("Models\\skybox.obj");
+	OBJBasicResource<Vertex3> skyboxResource("Models\\skyboxN.obj");
 	OBJBasicResource<Vertex3> icosahedronResource("Models\\icosahedron.obj");
 
 	MeshLibrary<LinearAllocator> meshLibrary(&mAllocator);
@@ -167,7 +211,7 @@ void PhysicallyBasedLightingSample::InitializeShaders()
 	};
 
 	mRenderer->VCreateShader(&mPBLModelVertexShader, &mAllocator);
-	mRenderer->VLoadVertexShader(mPBLModelVertexShader, "PBLInstanceVertexShader.cso", skyboxInputElements, 7);
+	mRenderer->VLoadVertexShader(mPBLModelVertexShader, "PBLInstanceVertexShader.cso", sphereInputElements, 7);
 
 	mRenderer->VCreateShader(&mPBLModelPixelShader, &mAllocator);
 	mRenderer->VLoadPixelShader(mPBLModelPixelShader, "PBLInstancePixelShader.cso");
@@ -175,25 +219,65 @@ void PhysicallyBasedLightingSample::InitializeShaders()
 
 void PhysicallyBasedLightingSample::InitializeShaderResources()
 {
-	size_t skyboxConstantBufferSizes[] = { sizeof(SkyboxData) };
-	mRenderer->VCreateShaderConstantBuffers(mPBLSkyboxVertexShader, nullptr, skyboxConstantBufferSizes, 1);
+	size_t	skyboxConstantBufferSizes[] = { sizeof(SkyboxData) };
+	void*	skyboxData[]				= { &mSkyboxData };
+	mRenderer->VCreateShaderConstantBuffers(mPBLSkyboxVertexShader, skyboxData, skyboxConstantBufferSizes, 1);
+
+	size_t	modelConstantBufferSizes[]	= { sizeof(ModelData) };
+	void*	modelData[]					= { &mModelData };
+	mRenderer->VCreateShaderConstantBuffers(mPBLModelVertexShader, modelData, modelConstantBufferSizes, 1);
 
 	ID3D11Device* device = static_cast<DX3D11Renderer*>(mRenderer)->GetDevice();
 	DirectX::CreateDDSTextureFromFile(device, L"Textures\\Skybox.dds", nullptr, &mSkyboxSRV);
 
-	size_t instanceBufferSizes[] = { sizeof(mat4f) * INSTANCE_COUNT };
-	UINT strides[]	= { sizeof(mat4f) };
-	UINT offsets[]	= { 0 };
-	void* data[]	= { mSphereWorldMatrices };
-	mRenderer->VCreateShaderInstanceBuffers(mPBLModelVertexShader, data, instanceBufferSizes, strides, offsets, 1);
-}
+	D3D11_SAMPLER_DESC samplerDesc;
+	ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-void PhysicallyBasedLightingSample::UpdateCamera()
-{
-	
+	device->CreateSamplerState(&samplerDesc, &mSamplerState);
+
+	size_t instanceBufferSizes[] = { sizeof(mat4f) * INSTANCE_COUNT };
+	UINT strides[] = { sizeof(mat4f) };
+	UINT offsets[] = { 0 };
+	void* data[] = { &mSphereWorldMatrices };
+	mRenderer->VCreateShaderInstanceBuffers(mPBLModelVertexShader, data, instanceBufferSizes, strides, offsets, 1);
 }
 
 void PhysicallyBasedLightingSample::HandleInput(Input& input)
 {
-	
+	ScreenPoint mousePosition = Input::SharedInstance().mousePosition;
+	if (input.GetMouseButton(MOUSEBUTTON_LEFT)) {
+		mCamera.mTransform.RotatePitch(-(mousePosition.y - mMouseY) * RADIAN * CAMERA_ROTATION_SPEED);
+		mCamera.mTransform.RotateYaw(-(mousePosition.x - mMouseX) * RADIAN * CAMERA_ROTATION_SPEED);
+	}
+
+	mMouseX = mousePosition.x;
+	mMouseY = mousePosition.y;
+
+	vec3f position = mCamera.mTransform.GetPosition();
+	if (input.GetKey(KEYCODE_W)) {
+		position += mCamera.mTransform.GetForward() * CAMERA_SPEED;
+		mCamera.mTransform.SetPosition(position);
+	}
+
+	if (input.GetKey(KEYCODE_A)) {
+		position += mCamera.mTransform.GetRight() * -CAMERA_SPEED;
+		mCamera.mTransform.SetPosition(position);
+	}
+
+	if (input.GetKey(KEYCODE_D)) {
+		position += mCamera.mTransform.GetRight() * CAMERA_SPEED;
+		mCamera.mTransform.SetPosition(position);
+	}
+
+	if (input.GetKey(KEYCODE_S)) {
+		position += mCamera.mTransform.GetForward() * -CAMERA_SPEED;
+		mCamera.mTransform.SetPosition(position);
+	}
 }
+
+DECLARE_MAIN(PhysicallyBasedLightingSample);

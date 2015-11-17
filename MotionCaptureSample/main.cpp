@@ -210,7 +210,7 @@ void MotionCaptureSample::VRender()
 	mRenderer->VSetPixelShader(mPixelShader);
 
 	mRenderer->VUpdateShaderConstantBuffer(mVertexShader, &mViewProjection, 0);
-	mRenderer->VSetVertexShaderResources(mVertexShader);
+	mRenderer->VSetShaderResources(mVertexShader);
 	mRenderer->VBindMesh(mCubeMesh);
 	deviceContext->DrawIndexedInstanced(mCubeMesh->GetIndexCount(), mTransformCount, 0, 0, 0);
 
@@ -220,7 +220,7 @@ void MotionCaptureSample::VRender()
 
 	mRenderer->VUpdateShaderConstantBuffer(mPlaneVertexShader, &mViewProjection, 0);
 	mRenderer->VUpdateShaderConstantBuffer(mPlaneVertexShader, &mPlaneWorldMatrix, 1);
-	mRenderer->VSetVertexShaderResources(mPlaneVertexShader);
+	mRenderer->VSetShaderResources(mPlaneVertexShader);
 
 	deviceContext->PSSetShaderResources(0, 1, &mCheckerboardSRV);
 	deviceContext->PSSetSamplers(0, 1, &mSamplerState);

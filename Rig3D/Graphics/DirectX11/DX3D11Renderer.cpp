@@ -218,6 +218,12 @@ void DX3D11Renderer::VRenderScene()
 
 void DX3D11Renderer::VShutdown()
 {
+	// Useful for debugging COM trash left behind
+	//ID3D11Debug* DebugDevice;
+	//HRESULT Result = mDevice->QueryInterface(__uuidof(ID3D11Debug), reinterpret_cast<void**>(&DebugDevice));
+	//DebugDevice->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
+	//ReleaseMacro(DebugDevice);
+
 	ReleaseMacro(mDevice);
 	ReleaseMacro(mDeviceContext);
 	ReleaseMacro(mDepthStencilBuffer);
@@ -394,7 +400,7 @@ void DX3D11Renderer::VCreateInstanceBuffer(void* buffer, void* data, const size_
 		pInstanceData = &instanceData;
 	}
 
-	mDevice->CreateBuffer(&ibd, pInstanceData, reinterpret_cast<ID3D11Buffer**>(&buffer));
+	HRESULT hr = mDevice->CreateBuffer(&ibd, pInstanceData, reinterpret_cast<ID3D11Buffer**>(buffer));
 }
 
 void DX3D11Renderer::VCreateStaticInstanceBuffer(void* buffer, void* data, const size_t& size)
@@ -842,7 +848,17 @@ void DX3D11Renderer::VSetVertexShaderInputLayout(IShader* vertexShader)
 	mDeviceContext->VSSetShader(shader->mVertexShader, nullptr, 0);
 }
 
-void DX3D11Renderer::VSetVertexShaderResources(IShader* vertexShader)
+void DX3D11Renderer::VSetVertexShader(IShader* shader)
+{
+	mDeviceContext->VSSetShader(static_cast<DX11Shader*>(shader)->mVertexShader, nullptr, 0);
+}
+
+void DX3D11Renderer::VSetPixelShader(IShader* shader)
+{
+	mDeviceContext->PSSetShader(static_cast<DX11Shader*>(shader)->mPixelShader, nullptr, 0);
+}
+
+void DX3D11Renderer::VSetShaderResources(IShader* vertexShader)
 {
 	DX11Shader* shader = static_cast<DX11Shader*>(vertexShader);
 
@@ -863,16 +879,6 @@ void DX3D11Renderer::VSetVertexShaderResources(IShader* vertexShader)
 	{
 		mDeviceContext->VSSetSamplers(0, samplerStateCount, shader->GetSamplerStates());
 	}
-}
-
-void DX3D11Renderer::VSetVertexShader(IShader* shader)
-{
-	mDeviceContext->VSSetShader(static_cast<DX11Shader*>(shader)->mVertexShader, nullptr, 0);
-}
-
-void DX3D11Renderer::VSetPixelShader(IShader* shader)
-{
-	mDeviceContext->PSSetShader(static_cast<DX11Shader*>(shader)->mPixelShader, nullptr, 0);
 }
 
 void DX3D11Renderer::VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count)

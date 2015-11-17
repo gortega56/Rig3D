@@ -428,7 +428,7 @@ public:
 		mRenderer->VSetPixelShader(mPixelShader);
 
 		mRenderer->VUpdateShaderConstantBuffer(mVertexShader, &mMatrixBuffer, 0);
-		mRenderer->VSetVertexShaderResources(mVertexShader);
+		mRenderer->VSetShaderResources(mVertexShader);
 
 		mRenderer->VBindMesh(mCubeMesh);
 

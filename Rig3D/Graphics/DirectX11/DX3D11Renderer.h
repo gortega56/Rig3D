@@ -96,10 +96,11 @@ namespace Rig3D
 		void	VSetInputLayout(IShader* vertexShader) override;
 		void	VSetInstanceBuffers(IShader* vertexShader) override;
 		void	VSetVertexShaderInputLayout(IShader* vertexShader) override;
-		void	VSetVertexShaderResources(IShader* vertexShader) override;
 		void	VSetVertexShader(IShader* shader) override;
 
 		void	VSetPixelShader(IShader* shader) override;
+
+		void	VSetShaderResources(IShader* vertexShader) override;
 
 		void	VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) override;
 		

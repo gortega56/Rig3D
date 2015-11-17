@@ -115,10 +115,11 @@ namespace Rig3D
 		virtual void	VSetInputLayout(IShader* vertexShader) = 0;
 		virtual void	VSetInstanceBuffers(IShader* vertexShader) = 0;
 		virtual void	VSetVertexShaderInputLayout(IShader* vertexShader) = 0;
-		virtual void	VSetVertexShaderResources(IShader* vertexShader) = 0;
 		virtual void	VSetVertexShader(IShader* shader) = 0;
 		
 		virtual void	VSetPixelShader(IShader* shader) = 0;
+
+		virtual void	VSetShaderResources(IShader* shader) = 0;
 
 		// Constant buffers will be bound to GPU registers in the order they are arranged starting at input slot 0.
 		virtual void	VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) = 0;
