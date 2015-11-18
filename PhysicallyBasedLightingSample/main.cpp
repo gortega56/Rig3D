@@ -115,10 +115,13 @@ PhysicallyBasedLightingSample::~PhysicallyBasedLightingSample()
 void PhysicallyBasedLightingSample::VInitialize()
 {
 	mRenderer = &DX3D11Renderer::SharedInstance();
+	mRenderer->SetDelegate(this);
 
 	InitializeGeometry();
 	InitializeShaders();
 	InitializeShaderResources();
+
+	VOnResize();
 }
 
 void PhysicallyBasedLightingSample::VUpdate(double milliseconds)
@@ -129,6 +132,8 @@ void PhysicallyBasedLightingSample::VUpdate(double milliseconds)
 	mSkyboxData.Projection = mModelData.Projection = mCamera.GetProjectionMatrix().transpose();
 	mSkyboxData.View = mModelData.View = mCamera.GetViewMatrix().transpose();
 	mSkyboxData.CameraPosition = mCamera.mTransform.GetPosition();
+
+	//mRenderer->VUpdateShaderInstanceBuffer(mPBLModelVertexShader, &mSphereWorldMatrices, sizeof(mat4f) * INSTANCE_COUNT, 0);
 }
 
 void PhysicallyBasedLightingSample::VRender()
@@ -155,6 +160,17 @@ void PhysicallyBasedLightingSample::VRender()
 	mRenderer->VBindMesh(mSkyboxMesh);
 	mRenderer->VDrawIndexed(0, mSkyboxMesh->GetIndexCount());
 
+	mRenderer->VSetInputLayout(mPBLModelVertexShader);
+	mRenderer->VSetVertexShader(mPBLModelVertexShader);
+	mRenderer->VSetPixelShader(mPBLModelPixelShader);
+	mRenderer->VUpdateShaderConstantBuffer(mPBLModelVertexShader, &mModelData, 0);
+	mRenderer->VSetShaderResources(mPBLModelVertexShader);
+
+	mRenderer->VBindMesh(mIcosphereMesh);
+	mRenderer->VSetInstanceBuffers(mPBLModelVertexShader);
+
+	deviceContext->DrawIndexedInstanced(mIcosphereMesh->GetIndexCount(), INSTANCE_COUNT, 0, 0, 0);
+
 	mRenderer->VSwapBuffers();
 }
 
@@ -176,12 +192,17 @@ void PhysicallyBasedLightingSample::VOnResize()
 
 void PhysicallyBasedLightingSample::InitializeGeometry()
 {
-	OBJBasicResource<Vertex3> skyboxResource("Models\\skyboxN.obj");
+	OBJBasicResource<Vertex3> skyboxResource("Models\\skybox.obj");
 	OBJBasicResource<Vertex3> icosahedronResource("Models\\icosahedron.obj");
 
 	MeshLibrary<LinearAllocator> meshLibrary(&mAllocator);
 	meshLibrary.LoadMesh(&mSkyboxMesh, mRenderer, skyboxResource);
 	meshLibrary.LoadMesh(&mIcosphereMesh, mRenderer, icosahedronResource);
+
+	for (uint32_t i = 0; i < INSTANCE_COUNT; i++)
+	{
+		mSphereWorldMatrices[i] = (mat4f::scale(0.2) * mat4f::translate(0.2f)).transpose();
+	}
 }
 
 void PhysicallyBasedLightingSample::InitializeShaders()
