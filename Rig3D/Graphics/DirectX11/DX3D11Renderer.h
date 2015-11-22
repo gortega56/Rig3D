@@ -54,6 +54,8 @@ namespace Rig3D
 		inline void	VDrawIndexed(GPUPrimitiveType type, uint32_t startIndex, uint32_t count) override;
 		inline void	VDrawIndexed(uint32_t startIndex, uint32_t count) override;
 
+#pragma region  Buffer
+
 		void	VCreateVertexBuffer(void* buffer, void* vertices, const size_t& size) override;
 		void	VCreateStaticVertexBuffer(void* buffer, void* vertices, const size_t& size) override;
 		void	VCreateDynamicVertexBuffer(void* buffer, void* vertices, const size_t& size) override;
@@ -73,6 +75,28 @@ namespace Rig3D
 		void	VUpdateBuffer(void* buffer, void* data) override;
 		void	VUpdateBuffer(void* buffer, void* data, const size_t& size) override;
 
+#pragma endregion 
+
+#pragma region Texture
+
+		void VCreateNativeFormat(void* nativeFormat, InputFormat textureFormat) override;
+		void VCreateTexture2D(void* texture, void* data, uint32_t mipLevels, InputFormat textureFormat) override;
+
+		// 1 Channel (32 Bit) Texture.
+		void VCreateDepthTexture2D(void* texture2D) override;
+		void VCreateDepthResourceTexture2D(void * texture2D) override;
+
+		void VCreateDepthStencilTexture2D(void* texture2D) override;
+		void VCreateDepthStencilResourceTexture2D(void * texture2D) override;
+
+		// 4 Channel (32 Bit) Texture.
+		void VCreateRenderTexture2D(void* texture2D) override;
+		void VCreateRenderResourceTexture2D(void * texture2D) override;
+
+#pragma endregion 
+
+#pragma region Mesh
+
 		void	VSetMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) override;
 		void	VSetStaticMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) override;
 		void	VSetDynamicMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) override;
@@ -85,6 +109,10 @@ namespace Rig3D
 		void	VUpdateMeshIndexBuffer(IMesh* mesh, void* data, const uint32_t& count) override;
 
 		void    VBindMesh(IMesh* mesh) override;
+
+#pragma endregion 
+
+#pragma region Shader
 
 		void	VCreateShader(IShader** shader, LinearAllocator* allocator) override;
 		void	VLoadVertexShader(IShader* vertexShader, const char* filename, InputElement* inputElements, const uint32_t& count) override;
@@ -102,6 +130,9 @@ namespace Rig3D
 
 		void	VSetShaderResources(IShader* vertexShader) override;
 
+		void	VLoadShaderTextures2D(IShader* shader, const char** filenames, const uint32_t count) override;
+		void	VLoadShaderTextureCubes(IShader* shader, const char** filenames, const uint32_t count) override;
+
 		void	VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) override;
 		
 		void	VCreateShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) override;
@@ -110,6 +141,20 @@ namespace Rig3D
 
 		void	VUpdateShaderConstantBuffer(IShader* shader, void* data, const uint32_t& index) override;
 		void	VUpdateShaderInstanceBuffer(IShader* shader, void* data, const size_t& size, const uint32_t& index) override;
+
+#pragma endregion 
+
+#pragma region Shader Resource
+
+		void VCreateContextDepthStencilTarget(IRenderContext* renderContext) override;
+		void VCreateContextTargets(IRenderContext* renderContext, const uint32_t& count) override;
+		
+		void VCreateContextDepthResourceTarget(IRenderContext* renderContext) override;
+		void VCreateContextResourceTargets(IRenderContext* renderContext, const uint32_t& count) override;
+
+		void VSetRenderContext(IRenderContext* renderContext) override;
+
+#pragma endregion 
 
 		void	VSwapBuffers() override;
 
@@ -147,7 +192,7 @@ namespace Rig3D
 
 		DX3D11Renderer(DX3D11Renderer const&) = delete;
 		void operator=(DX3D11Renderer const&) = delete;
-	
+
 		void SetVertexShaderInputLayout(ID3D11ShaderReflection* reflection, ID3DBlob* vsBlob, D3D11_SHADER_DESC* shaderDesc, DX11Shader* vertexShader);
 		void SetShaderConstantBuffers(ID3D11ShaderReflection* reflection, D3D11_SHADER_DESC* shaderDesc, DX11Shader* shader, LinearAllocator* allocator);
 		void SetShaderResources(ID3D11ShaderReflection* reflection, D3D11_SHADER_DESC* shaderDesc, DX11Shader* shader);

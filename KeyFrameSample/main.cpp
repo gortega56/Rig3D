@@ -236,8 +236,8 @@ public:
 	{
 		InputElement inputElements[] = 
 		{
-			{ "POSITION", 0, 0, 0, 0, FLOAT3, INPUT_CLASS_PER_VERTEX },
-			{ "COLOR", 0, 0, 12, 0, FLOAT3, INPUT_CLASS_PER_VERTEX }
+			{ "POSITION", 0, 0, 0, 0, RGB_FLOAT32, INPUT_CLASS_PER_VERTEX },
+			{ "COLOR", 0, 0, 12, 0, RGB_FLOAT32, INPUT_CLASS_PER_VERTEX }
 		};
 
 		// Load Vertex Shader --------------------------------------

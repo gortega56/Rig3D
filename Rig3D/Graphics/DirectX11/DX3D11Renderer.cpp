@@ -1,10 +1,9 @@
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "Graphics\DirectX11\DX11Mesh.h"
 #include "Graphics/DirectX11/DX11Shader.h"
-#include "Rig3D/Common/Traits.h"
 #include "Rig3D\Engine.h"
 #include "rig_defines.h"
-#include "Rig3D\Graphics\Interface\IScene.h"
+#include "Rig3D\Graphics\DirectX11\DX11RenderContext.h"
 #include <WindowsX.h>
 #include <sstream>
 #include <d3dcompiler.h>
@@ -525,6 +524,205 @@ void DX3D11Renderer::VUpdateBuffer(void* buffer, void* data, const size_t& size)
 
 #pragma endregion 
 
+#pragma region Texture
+
+void DX3D11Renderer::VCreateNativeFormat(void* nativeFormat, InputFormat textureFormat)
+{
+	DXGI_FORMAT& format = *static_cast<DXGI_FORMAT*>(nativeFormat);
+	switch (textureFormat)
+	{
+	case R_FLOAT32:
+		format = DXGI_FORMAT_R32_FLOAT;
+		break;
+	case RG_FLOAT32:
+		format = DXGI_FORMAT_R32G32_FLOAT;
+		break;
+	case RGB_FLOAT32:
+		format = DXGI_FORMAT_R32G32B32_FLOAT;
+		break;
+	case RGBA_FLOAT32:
+		format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+		break;
+	case R_SNORM8:
+		format = DXGI_FORMAT_R8_SNORM;
+		break;
+	case RG_SNORM8:
+		format = DXGI_FORMAT_R8G8_SNORM;
+		break;
+	case RGBA_SNORM8:
+		format = DXGI_FORMAT_R8G8B8A8_SNORM;
+		break;
+	case R_TYPELESS8:
+		format = DXGI_FORMAT_R8_TYPELESS;
+		break;
+	case RG_TYPELESS8:
+		format = DXGI_FORMAT_R8G8_TYPELESS;
+		break;
+	case RGBA_TYPELESS8:
+		format = DXGI_FORMAT_R8G8B8A8_TYPELESS;
+		break;
+	}
+}
+
+void DX3D11Renderer::VCreateTexture2D(void* texture, void* data, uint32_t mipLevels, InputFormat textureFormat)
+{
+	D3D11_TEXTURE2D_DESC texture2DDesc;
+	texture2DDesc.Width = GetWindowWidth();
+	texture2DDesc.Height = GetWindowHeight();
+	texture2DDesc.ArraySize = 1;
+	texture2DDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	texture2DDesc.CPUAccessFlags = 0;
+	texture2DDesc.MipLevels = mipLevels;
+	texture2DDesc.MiscFlags = 0;
+	texture2DDesc.SampleDesc.Count = 1;
+	texture2DDesc.SampleDesc.Quality = 0;
+	texture2DDesc.Usage = D3D11_USAGE_DEFAULT;
+
+	VCreateNativeFormat(&texture2DDesc.Format, textureFormat);
+
+	D3D11_SUBRESOURCE_DATA* pTextureData = nullptr;
+	if (data)
+	{
+		D3D11_SUBRESOURCE_DATA textureData;
+		textureData.pSysMem = data;
+		pTextureData = &textureData;
+	}
+
+	mDevice->CreateTexture2D(&texture2DDesc, pTextureData, reinterpret_cast<ID3D11Texture2D**>(texture));
+}
+
+void DX3D11Renderer::VCreateDepthTexture2D(void* texture2D)
+{
+	D3D11_TEXTURE2D_DESC texture2DDesc;
+	texture2DDesc.Width = GetWindowWidth();
+	texture2DDesc.Height = GetWindowHeight();
+	texture2DDesc.ArraySize = 1;
+	texture2DDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	texture2DDesc.CPUAccessFlags = 0;
+	texture2DDesc.Format = DXGI_FORMAT_R8_UNORM;
+	texture2DDesc.MipLevels = 1;
+	texture2DDesc.MiscFlags = 0;
+	texture2DDesc.SampleDesc.Count = 1;
+	texture2DDesc.SampleDesc.Quality = 0;
+	texture2DDesc.Usage = D3D11_USAGE_DEFAULT;
+
+	mDevice->CreateTexture2D(&texture2DDesc, nullptr, reinterpret_cast<ID3D11Texture2D**>(texture2D));
+}
+
+void DX3D11Renderer::VCreateDepthResourceTexture2D(void * texture2D)
+{
+	D3D11_TEXTURE2D_DESC texture2DDesc;
+	texture2DDesc.Width = GetWindowWidth();
+	texture2DDesc.Height = GetWindowHeight();
+	texture2DDesc.ArraySize = 1;
+	texture2DDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	texture2DDesc.CPUAccessFlags = 0;
+	texture2DDesc.Format = DXGI_FORMAT_R8_UNORM;
+	texture2DDesc.MipLevels = 1;
+	texture2DDesc.MiscFlags = 0;
+	texture2DDesc.SampleDesc.Count = 1;
+	texture2DDesc.SampleDesc.Quality = 0;
+	texture2DDesc.Usage = D3D11_USAGE_DEFAULT;
+
+	mDevice->CreateTexture2D(&texture2DDesc, nullptr, reinterpret_cast<ID3D11Texture2D**>(texture2D));
+}
+
+void DX3D11Renderer::VCreateDepthStencilTexture2D(void* texture2D)
+{
+	D3D11_TEXTURE2D_DESC texture2DDesc;
+	texture2DDesc.Width = mWindowWidth;
+	texture2DDesc.Height = mWindowHeight;
+	texture2DDesc.MipLevels = 1;
+	texture2DDesc.ArraySize = 1;
+	texture2DDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	texture2DDesc.Usage = D3D11_USAGE_DEFAULT;
+	texture2DDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	texture2DDesc.CPUAccessFlags = 0;
+	texture2DDesc.MiscFlags = 0;
+	if (mEnable4xMsaa)
+	{
+		// Turn on 4x MultiSample Anti Aliasing
+		// This must match swap chain MSAA values
+		texture2DDesc.SampleDesc.Count = 4;
+		texture2DDesc.SampleDesc.Quality = mMSAA4xQuality - 1;
+	}
+	else
+	{
+		// No MSAA
+		texture2DDesc.SampleDesc.Count = 1;
+		texture2DDesc.SampleDesc.Quality = 0;
+	}
+
+	mDevice->CreateTexture2D(&texture2DDesc, nullptr, reinterpret_cast<ID3D11Texture2D**>(texture2D));
+}
+
+void DX3D11Renderer::VCreateDepthStencilResourceTexture2D(void * texture2D)
+{
+	D3D11_TEXTURE2D_DESC texture2DDesc;
+	texture2DDesc.Width = mWindowWidth;
+	texture2DDesc.Height = mWindowHeight;
+	texture2DDesc.MipLevels = 1;
+	texture2DDesc.ArraySize = 1;
+	texture2DDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	texture2DDesc.Usage = D3D11_USAGE_DEFAULT;
+	texture2DDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	texture2DDesc.CPUAccessFlags = 0;
+	texture2DDesc.MiscFlags = 0;
+	if (mEnable4xMsaa)
+	{
+		// Turn on 4x MultiSample Anti Aliasing
+		// This must match swap chain MSAA values
+		texture2DDesc.SampleDesc.Count = 4;
+		texture2DDesc.SampleDesc.Quality = mMSAA4xQuality - 1;
+	}
+	else
+	{
+		// No MSAA
+		texture2DDesc.SampleDesc.Count = 1;
+		texture2DDesc.SampleDesc.Quality = 0;
+	}
+
+	mDevice->CreateTexture2D(&texture2DDesc, nullptr, reinterpret_cast<ID3D11Texture2D**>(texture2D));
+}
+
+void DX3D11Renderer::VCreateRenderTexture2D(void* texture2D)
+{
+	D3D11_TEXTURE2D_DESC texture2DDesc;
+	texture2DDesc.Width = GetWindowWidth();
+	texture2DDesc.Height = GetWindowHeight();
+	texture2DDesc.ArraySize = 1;
+	texture2DDesc.BindFlags = D3D11_BIND_RENDER_TARGET;
+	texture2DDesc.CPUAccessFlags = 0;
+	texture2DDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	texture2DDesc.MipLevels = 1;
+	texture2DDesc.MiscFlags = 0;
+	texture2DDesc.SampleDesc.Count = 1;
+	texture2DDesc.SampleDesc.Quality = 0;
+	texture2DDesc.Usage = D3D11_USAGE_DEFAULT;
+
+	mDevice->CreateTexture2D(&texture2DDesc, nullptr, reinterpret_cast<ID3D11Texture2D**>(texture2D));
+}
+
+void DX3D11Renderer::VCreateRenderResourceTexture2D(void * texture2D)
+{
+	D3D11_TEXTURE2D_DESC texture2DDesc;
+	texture2DDesc.Width = GetWindowWidth();
+	texture2DDesc.Height = GetWindowHeight();
+	texture2DDesc.ArraySize = 1;
+	texture2DDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	texture2DDesc.CPUAccessFlags = 0;
+	texture2DDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	texture2DDesc.MipLevels = 1;
+	texture2DDesc.MiscFlags = 0;
+	texture2DDesc.SampleDesc.Count = 1;
+	texture2DDesc.SampleDesc.Quality = 0;
+	texture2DDesc.Usage = D3D11_USAGE_DEFAULT;
+
+	mDevice->CreateTexture2D(&texture2DDesc, nullptr, reinterpret_cast<ID3D11Texture2D**>(texture2D));
+}
+
+#pragma endregion 
+
 #pragma region Mesh
 
 void DX3D11Renderer::VSetMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride)
@@ -624,13 +822,13 @@ void DX3D11Renderer::VLoadVertexShader(IShader* vertexShader, const char* filena
 
 			switch (inputElements[i].Format)
 			{
-			case FLOAT2:
+			case RG_FLOAT32:
 				inputDescription[i].Format = DXGI_FORMAT_R32G32_FLOAT;
 				break;
-			case FLOAT3:
+			case RGB_FLOAT32:
 				inputDescription[i].Format = DXGI_FORMAT_R32G32B32_FLOAT;
 				break;
-			case FLOAT4:
+			case RGBA_FLOAT32:
 				inputDescription[i].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 				break;
 			default:
@@ -825,6 +1023,8 @@ void DX3D11Renderer::SetShaderResources(ID3D11ShaderReflection* reflection, D3D1
 	}
 }
 
+
+
 void DX3D11Renderer::VSetInputLayout(IShader* vertexShader)
 {
 	mDeviceContext->IASetInputLayout(static_cast<DX11Shader*>(vertexShader)->mInputLayout);
@@ -881,6 +1081,17 @@ void DX3D11Renderer::VSetShaderResources(IShader* vertexShader)
 	}
 }
 
+void DX3D11Renderer::VLoadShaderTextures2D(IShader* shader, const char** filenameS, const uint32_t count)
+{
+	
+}
+
+
+void DX3D11Renderer::VLoadShaderTextureCubes(IShader* shader, const char** filenameS, const uint32_t count)
+{
+	
+}
+	
 void DX3D11Renderer::VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count)
 {
 	std::vector<ID3D11Buffer*> constantBuffers(count);
@@ -958,6 +1169,100 @@ void DX3D11Renderer::VUpdateShaderInstanceBuffer(IShader* shader, void* data, co
 	mDeviceContext->Map(mappedBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedSubresource);
 	memcpy(mappedSubresource.pData, data, size);
 	mDeviceContext->Unmap(mappedBuffer, 0);
+}
+
+#pragma endregion 
+
+#pragma region Shader Resource
+
+void DX3D11Renderer::VCreateContextDepthStencilTarget(IRenderContext* renderContext)
+{
+	ID3D11Texture2D* texture2D;
+	VCreateDepthStencilTexture2D(&texture2D);
+
+	D3D11_TEXTURE2D_DESC textureDesc;
+	texture2D->GetDesc(&textureDesc);
+		
+	ID3D11DepthStencilView* DSV;
+
+	mDevice->CreateDepthStencilView(texture2D, nullptr, &DSV);
+
+	reinterpret_cast<DX11RenderContext*>(renderContext)->SetDepthStencilView(DSV);
+
+	ReleaseMacro(texture2D);
+}
+
+void DX3D11Renderer::VCreateContextTargets(IRenderContext* renderContext, const uint32_t& count)
+{
+	std::vector<ID3D11RenderTargetView*> RTVs(count);
+
+	for (uint32_t i = 0; i < count; i++)
+	{
+		ID3D11Texture2D* texture2D;
+		VCreateRenderTexture2D(&texture2D);
+
+		D3D11_TEXTURE2D_DESC textureDesc;
+		texture2D->GetDesc(&textureDesc);
+
+		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
+		rtvDesc.Format = textureDesc.Format;
+		rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+		rtvDesc.Texture2D.MipSlice = 0;
+
+		mDevice->CreateRenderTargetView(texture2D, &rtvDesc, &RTVs[i]);
+
+		ReleaseMacro(texture2D);
+	}
+
+	reinterpret_cast<DX11RenderContext*>(renderContext)->SetRenderTargetViews(RTVs);
+}
+
+void DX3D11Renderer::VCreateContextDepthResourceTarget(IRenderContext* renderContext)
+{
+	ID3D11Texture2D* texture2D;
+	VCreateDepthResourceTexture2D(&texture2D);
+
+	D3D11_TEXTURE2D_DESC textureDesc;
+	texture2D->GetDesc(&textureDesc);
+
+	ID3D11DepthStencilView* DSV;
+
+	mDevice->CreateDepthStencilView(texture2D, nullptr, &DSV);
+
+	reinterpret_cast<DX11RenderContext*>(renderContext)->SetDepthStencilView(DSV);
+
+	ReleaseMacro(texture2D);
+}
+
+void DX3D11Renderer::VCreateContextResourceTargets(IRenderContext* renderContext, const uint32_t& count)
+{
+	std::vector<ID3D11RenderTargetView*> RTVs(count);
+
+	for (uint32_t i = 0; i < count; i++)
+	{
+		ID3D11Texture2D* texture2D;
+		VCreateRenderResourceTexture2D(&texture2D);
+
+		D3D11_TEXTURE2D_DESC textureDesc;
+		texture2D->GetDesc(&textureDesc);
+
+		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
+		rtvDesc.Format = textureDesc.Format;
+		rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+		rtvDesc.Texture2D.MipSlice = 0;
+
+		mDevice->CreateRenderTargetView(texture2D, &rtvDesc, &RTVs[i]);
+
+		ReleaseMacro(texture2D);
+	}
+
+	reinterpret_cast<DX11RenderContext*>(renderContext)->SetRenderTargetViews(RTVs);
+}
+
+void DX3D11Renderer::VSetRenderContext(IRenderContext* renderContext)
+{
+	DX11RenderContext* dx11RenderContext = reinterpret_cast<DX11RenderContext*>(renderContext);
+	mDeviceContext->OMSetRenderTargets(dx11RenderContext->GetRenderTargetViewCount(), dx11RenderContext->GetRenderTargetViews(), dx11RenderContext->GetDepthStencilView());
 }
 
 #pragma endregion 

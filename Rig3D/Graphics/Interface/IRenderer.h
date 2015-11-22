@@ -16,6 +16,7 @@ namespace Rig3D
 	class IScene;
 	class IMesh;
 	class IShader;
+	class IRenderContext;
 
 	enum InputClass
 	{
@@ -25,9 +26,16 @@ namespace Rig3D
 
 	enum InputFormat
 	{
-		FLOAT2,
-		FLOAT3,
-		FLOAT4
+		R_FLOAT32,
+		RG_FLOAT32,
+		RGB_FLOAT32,
+		RGBA_FLOAT32,
+		R_SNORM8,
+		RG_SNORM8,
+		RGBA_SNORM8,
+		R_TYPELESS8,
+		RG_TYPELESS8,
+		RGBA_TYPELESS8
 	};
 
 	struct InputElement
@@ -39,6 +47,11 @@ namespace Rig3D
 		uint32_t	InstanceStepRate;
 		InputFormat	Format;
 		InputClass	InputSlotClass;
+	};
+
+	enum TextureFormat
+	{
+
 	};
 
 	class RIG3D IRendererDelegate
@@ -89,6 +102,26 @@ namespace Rig3D
 
 #pragma endregion
 
+#pragma region Texture
+
+		virtual void VCreateNativeFormat(void* nativeFormat, InputFormat format) = 0;
+		virtual void VCreateTexture2D(void* texture, void* data, uint32_t mipLevels, InputFormat textureFormat) = 0;
+
+		// 1 Channel (8 Bit) Texture.
+		virtual void VCreateDepthTexture2D(void* texture2D) = 0;
+		virtual void VCreateDepthResourceTexture2D(void * texture2D) = 0;
+
+		virtual void VCreateDepthStencilTexture2D(void* texture2D) = 0;
+		virtual void VCreateDepthStencilResourceTexture2D(void * texture2D) = 0;
+
+		// 4 Channel (32 Bit) Texture.
+		virtual void VCreateRenderTexture2D(void* texture2D) = 0;
+		virtual void VCreateRenderResourceTexture2D(void * texture2D) = 0;
+
+#pragma endregion 
+
+#pragma region Mesh
+
 		virtual void	VSetMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) = 0;
 		virtual void	VSetStaticMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) = 0;
 		virtual void	VSetDynamicMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) = 0;
@@ -101,6 +134,8 @@ namespace Rig3D
 		virtual void	VUpdateMeshIndexBuffer(IMesh* mesh, void* data, const uint32_t& count) = 0;
 
 		virtual void    VBindMesh(IMesh* mesh) = 0;
+
+#pragma endregion 
 
 #pragma region Shaders
 
@@ -121,6 +156,12 @@ namespace Rig3D
 
 		virtual void	VSetShaderResources(IShader* shader) = 0;
 
+		// Resource View will be bound to GPU registers in the order they are arranged starting at input slot 0
+		virtual void	VLoadShaderTextures2D(IShader* shader, const char** filenames, const uint32_t count) = 0;
+		virtual void	VLoadShaderTextureCubes(IShader* shader, const char** filenames, const uint32_t count) = 0;
+
+		virtual void	VCreateShaderResourceViews(IShader* shader, void** resourceViews, const uint32_t& count) = 0;
+
 		// Constant buffers will be bound to GPU registers in the order they are arranged starting at input slot 0.
 		virtual void	VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) = 0;
 
@@ -135,6 +176,17 @@ namespace Rig3D
 
 #pragma endregion
 
+#pragma region Render Context
+
+		virtual void VCreateContextDepthStencilTarget(IRenderContext* renderContext) = 0;
+		virtual void VCreateContextTargets(IRenderContext* renderContext, const uint32_t& count) = 0;
+
+		virtual void VCreateContextDepthResourceTarget(IRenderContext* renderContext) = 0;
+		virtual void VCreateContextResourceTargets(IRenderContext* renderContext, const uint32_t& count) = 0;
+
+		virtual void VSetRenderContext(IRenderContext* renderContext) = 0;
+
+#pragma endregion 
 		virtual void    VSwapBuffers() = 0;
 
 		void SetWindowCaption(const char* caption);
