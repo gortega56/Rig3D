@@ -201,7 +201,7 @@ void PhysicallyBasedLightingSample::InitializeGeometry()
 
 	for (uint32_t i = 0; i < INSTANCE_COUNT; i++)
 	{
-		mSphereWorldMatrices[i] = (mat4f::scale(0.2) * mat4f::translate(0.2f)).transpose();
+		mSphereWorldMatrices[i] = (mat4f::scale(0.2f) * mat4f::translate(0.2f)).transpose();
 	}
 }
 

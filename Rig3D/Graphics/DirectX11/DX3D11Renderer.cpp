@@ -1,9 +1,12 @@
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "Graphics\DirectX11\DX11Mesh.h"
 #include "Graphics/DirectX11/DX11Shader.h"
+#include "Graphics/DirectX11/DX11ShaderResource.h"
 #include "Rig3D\Engine.h"
 #include "rig_defines.h"
 #include "Rig3D\Graphics\DirectX11\DX11RenderContext.h"
+#include "Rig3D\Graphics\DirectX11\DirectXTK\Inc\WICTextureLoader.h"
+#include "Rig3D\Graphics\DirectX11\DirectXTK\Inc\DDSTextureLoader.h"
 #include <WindowsX.h>
 #include <sstream>
 #include <d3dcompiler.h>
@@ -157,34 +160,7 @@ void DX3D11Renderer::VOnResize()
 	HR(mDevice->CreateRenderTargetView(backBuffer, 0, &mRenderTargetView));
 	ReleaseMacro(backBuffer);
 
-	// Set up the description of the texture to use for the
-	// depth stencil buffer
-	D3D11_TEXTURE2D_DESC depthStencilDesc;
-	depthStencilDesc.Width = mWindowWidth;
-	depthStencilDesc.Height = mWindowHeight;
-	depthStencilDesc.MipLevels = 1;
-	depthStencilDesc.ArraySize = 1;
-	depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	depthStencilDesc.Usage = D3D11_USAGE_DEFAULT;
-	depthStencilDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-	depthStencilDesc.CPUAccessFlags = 0;
-	depthStencilDesc.MiscFlags = 0;
-	if (mEnable4xMsaa)
-	{
-		// Turn on 4x MultiSample Anti Aliasing
-		// This must match swap chain MSAA values
-		depthStencilDesc.SampleDesc.Count = 4;
-		depthStencilDesc.SampleDesc.Quality = mMSAA4xQuality - 1;
-	}
-	else
-	{
-		// No MSAA
-		depthStencilDesc.SampleDesc.Count = 1;
-		depthStencilDesc.SampleDesc.Quality = 0;
-	}
-
-	// Create the depth/stencil buffer and corresponding view
-	HR(mDevice->CreateTexture2D(&depthStencilDesc, 0, &mDepthStencilBuffer));
+	VCreateDepthStencilTexture2D(&mDepthStencilBuffer);
 	HR(mDevice->CreateDepthStencilView(mDepthStencilBuffer, 0, &mDepthStencilView));
 
 	// Bind these views to the pipeline, so rendering actually
@@ -194,8 +170,8 @@ void DX3D11Renderer::VOnResize()
 	// Update the viewport and set it on the device
 	mViewport.TopLeftX = 0;
 	mViewport.TopLeftY = 0;
-	mViewport.Width = (float)mWindowWidth;
-	mViewport.Height = (float)mWindowHeight;
+	mViewport.Width = static_cast<float>(mWindowWidth);
+	mViewport.Height = static_cast<float>(mWindowHeight);
 	mViewport.MinDepth = 0.0f;
 	mViewport.MaxDepth = 1.0f;
 	mDeviceContext->RSSetViewports(1, &mViewport);
@@ -1023,22 +999,9 @@ void DX3D11Renderer::SetShaderResources(ID3D11ShaderReflection* reflection, D3D1
 	}
 }
 
-
-
 void DX3D11Renderer::VSetInputLayout(IShader* vertexShader)
 {
 	mDeviceContext->IASetInputLayout(static_cast<DX11Shader*>(vertexShader)->mInputLayout);
-}
-
-void DX3D11Renderer::VSetInstanceBuffers(IShader* vertexShader)
-{
-	DX11Shader* shader = static_cast<DX11Shader*>(vertexShader);
-
-	uint8_t instanceBufferCount = shader->GetInstanceBufferCount();
-	if (instanceBufferCount)
-	{
-		mDeviceContext->IASetVertexBuffers(1, instanceBufferCount, shader->GetInstanceBuffers(), shader->GetInstanceBufferStrides(), shader->GetInstanceBufferOffsets());
-	}
 }
 
 void DX3D11Renderer::VSetVertexShaderInputLayout(IShader* vertexShader)
@@ -1058,41 +1021,103 @@ void DX3D11Renderer::VSetPixelShader(IShader* shader)
 	mDeviceContext->PSSetShader(static_cast<DX11Shader*>(shader)->mPixelShader, nullptr, 0);
 }
 
-void DX3D11Renderer::VSetShaderResources(IShader* vertexShader)
+#pragma endregion 
+
+#pragma region Shader Resource
+
+void DX3D11Renderer::VCreateShaderResource(IShaderResource** shaderResouce, LinearAllocator* allocator)
 {
-	DX11Shader* shader = static_cast<DX11Shader*>(vertexShader);
-
-	uint8_t constBufferCount = shader->GetConstantBufferCount();
-	if (constBufferCount)
-	{
-		mDeviceContext->VSSetConstantBuffers(0, constBufferCount, shader->GetConstantBuffers());
-	}
-
-	uint8_t srvCount = shader->GetShaderResourceViewCount();
-	if (srvCount)
-	{
-		mDeviceContext->VSSetShaderResources(0, srvCount, shader->GetShaderResourceViews());
-	}
-
-	uint8_t samplerStateCount = shader->GetSamplerStateCount();
-	if (samplerStateCount)
-	{
-		mDeviceContext->VSSetSamplers(0, samplerStateCount, shader->GetSamplerStates());
-	}
+	RIG_NEW(DX11ShaderResource, allocator, *shaderResouce);
 }
 
-void DX3D11Renderer::VLoadShaderTextures2D(IShader* shader, const char** filenameS, const uint32_t count)
+void DX3D11Renderer::VCreateShaderTextures2D(IShaderResource* shader, const char** filenames, const uint32_t count)
 {
-	
+	std::vector<ID3D11ShaderResourceView*> SRVs(count);
+	for (uint32_t i = 0; i < count; i++)
+	{
+		const wchar_t* wFilename;
+		CSTR2WSTR(filenames[i], wFilename);
+		DirectX::CreateWICTextureFromFile(mDevice, wFilename, nullptr, &SRVs[i]);
+	}
+
+	reinterpret_cast<DX11ShaderResource*>(shader)->SetShaderResourceViews(SRVs);
 }
 
-
-void DX3D11Renderer::VLoadShaderTextureCubes(IShader* shader, const char** filenameS, const uint32_t count)
+void DX3D11Renderer::VCreateShaderContextTextures2D(IShaderResource* shader, IRenderContext* context)
 {
-	
+	DX11RenderContext* dx11RenderContext = reinterpret_cast<DX11RenderContext*>(context);
+	ID3D11Texture2D** textures = dx11RenderContext->GetRenderTextures();
+
+	std::vector<ID3D11ShaderResourceView*> SRVs(dx11RenderContext->GetRenderTextureCount());
+
+	for (uint32_t i = 0; i < dx11RenderContext->GetRenderTextureCount(); i++)
+	{
+		D3D11_TEXTURE2D_DESC texture2DDesc;
+		textures[i]->GetDesc(&texture2DDesc);
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
+		SRVDesc.Format = texture2DDesc.Format;
+		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		SRVDesc.Texture2D.MipLevels = 1;
+		SRVDesc.Texture2D.MostDetailedMip = 0;
+
+		mDevice->CreateShaderResourceView(textures[i], &SRVDesc, &SRVs[i]);
+	}
+
+	reinterpret_cast<DX11ShaderResource*>(shader)->SetShaderResourceViews(SRVs);
+}
+
+void DX3D11Renderer::VAddShaderTextures2D(IShaderResource* shader, const char** filenames, const uint32_t count)
+{
+	std::vector<ID3D11ShaderResourceView*> SRVs(count);
+	for (uint32_t i = 0; i < count; i++)
+	{
+		const wchar_t* wFilename;
+		CSTR2WSTR(filenames[i], wFilename);
+		DirectX::CreateWICTextureFromFile(mDevice, wFilename, nullptr, &SRVs[i]);
+	}
+
+	reinterpret_cast<DX11ShaderResource*>(shader)->AddShaderResourceViews(SRVs);
+}
+
+void DX3D11Renderer::VAddShaderContextTextures2D(IShaderResource* shader, IRenderContext* context)
+{
+	DX11RenderContext* dx11RenderContext = reinterpret_cast<DX11RenderContext*>(context);
+	ID3D11Texture2D** textures = dx11RenderContext->GetRenderTextures();
+
+	std::vector<ID3D11ShaderResourceView*> SRVs(dx11RenderContext->GetRenderTextureCount());
+
+	for (uint32_t i = 0; i < dx11RenderContext->GetRenderTextureCount(); i++)
+	{
+		D3D11_TEXTURE2D_DESC texture2DDesc;
+		textures[i]->GetDesc(&texture2DDesc);
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
+		SRVDesc.Format = texture2DDesc.Format;
+		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		SRVDesc.Texture2D.MipLevels = 1;
+		SRVDesc.Texture2D.MostDetailedMip = 0;
+
+		mDevice->CreateShaderResourceView(textures[i], &SRVDesc, &SRVs[i]);
+	}
+
+	reinterpret_cast<DX11ShaderResource*>(shader)->AddShaderResourceViews(SRVs);
+}
+
+void DX3D11Renderer::VCreateShaderTextureCubes(IShaderResource* shader, const char** filenames, const uint32_t count)
+{
+	std::vector<ID3D11ShaderResourceView*> SRVs(count);
+	for (uint32_t i = 0; i < count; i++)
+	{
+		const wchar_t* wFilename;
+		CSTR2WSTR(filenames[i], wFilename);
+		DirectX::CreateDDSTextureFromFile(mDevice, wFilename, nullptr, &SRVs[i]);
+	}
+
+	reinterpret_cast<DX11ShaderResource*>(shader)->SetShaderResourceViews(SRVs);
 }
 	
-void DX3D11Renderer::VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count)
+void DX3D11Renderer::VCreateShaderConstantBuffers(IShaderResource* shader, void** data, size_t* sizes, const uint32_t& count)
 {
 	std::vector<ID3D11Buffer*> constantBuffers(count);
 
@@ -1101,10 +1126,10 @@ void DX3D11Renderer::VCreateShaderConstantBuffers(IShader* shader, void** data, 
 		VCreateConstantBuffer(&constantBuffers[i], data[i], sizes[i]);
 	}
 
-	static_cast<DX11Shader*>(shader)->SetConstantBuffers(constantBuffers);
+	static_cast<DX11ShaderResource*>(shader)->SetConstantBuffers(constantBuffers);
 }
 
-void DX3D11Renderer::VCreateShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count)
+void DX3D11Renderer::VCreateShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count)
 {
 	std::vector<ID3D11Buffer*> instanceBuffers(count);
 	std::vector<UINT> instanceBufferStrides(count);
@@ -1117,10 +1142,10 @@ void DX3D11Renderer::VCreateShaderInstanceBuffers(IShader* shader, void** data, 
 		instanceBufferOffsets[i] = offsets[i];
 	}
 
-	static_cast<DX11Shader*>(shader)->SetInstanceBuffers(instanceBuffers, instanceBufferStrides, instanceBufferOffsets);
+	static_cast<DX11ShaderResource*>(shader)->SetInstanceBuffers(instanceBuffers, instanceBufferStrides, instanceBufferOffsets);
 }
 
-void DX3D11Renderer::VCreateStaticShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count)
+void DX3D11Renderer::VCreateStaticShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count)
 {
 	std::vector<ID3D11Buffer*> instanceBuffers(count);
 	std::vector<UINT> instanceBufferStrides(count);
@@ -1133,10 +1158,10 @@ void DX3D11Renderer::VCreateStaticShaderInstanceBuffers(IShader* shader, void** 
 		instanceBufferOffsets[i] = offsets[i];
 	}
 
-	static_cast<DX11Shader*>(shader)->SetInstanceBuffers(instanceBuffers, instanceBufferStrides, instanceBufferOffsets);
+	static_cast<DX11ShaderResource*>(shader)->SetInstanceBuffers(instanceBuffers, instanceBufferStrides, instanceBufferOffsets);
 }
 
-void DX3D11Renderer::VCreateDynamicShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count)
+void DX3D11Renderer::VCreateDynamicShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count)
 {
 	std::vector<ID3D11Buffer*> instanceBuffers(count);
 	std::vector<UINT> instanceBufferStrides(count);
@@ -1149,18 +1174,18 @@ void DX3D11Renderer::VCreateDynamicShaderInstanceBuffers(IShader* shader, void**
 		instanceBufferOffsets[i] = offsets[i];
 	}
 
-	static_cast<DX11Shader*>(shader)->SetInstanceBuffers(instanceBuffers, instanceBufferStrides, instanceBufferOffsets);
+	static_cast<DX11ShaderResource*>(shader)->SetInstanceBuffers(instanceBuffers, instanceBufferStrides, instanceBufferOffsets);
 }
 
-void DX3D11Renderer::VUpdateShaderConstantBuffer(IShader* shader, void* data, const uint32_t& index)
+void DX3D11Renderer::VUpdateShaderConstantBuffer(IShaderResource* shader, void* data, const uint32_t& index)
 {
-	ID3D11Buffer** constantBuffers = static_cast<DX11Shader*>(shader)->GetConstantBuffers();
+	ID3D11Buffer** constantBuffers = static_cast<DX11ShaderResource*>(shader)->GetConstantBuffers();
 	mDeviceContext->UpdateSubresource(constantBuffers[index], 0, nullptr, data, 0, 0);
 }
 
-void DX3D11Renderer::VUpdateShaderInstanceBuffer(IShader* shader, void* data, const size_t& size, const uint32_t& index)
+void DX3D11Renderer::VUpdateShaderInstanceBuffer(IShaderResource* shader, void* data, const size_t& size, const uint32_t& index)
 {
-	ID3D11Buffer** instanceBuffers = static_cast<DX11Shader*>(shader)->GetInstanceBuffers();
+	ID3D11Buffer** instanceBuffers = static_cast<DX11ShaderResource*>(shader)->GetInstanceBuffers();
 
 	D3D11_MAPPED_SUBRESOURCE mappedSubresource;
 	ZeroMemory(&mappedSubresource, sizeof(D3D11_MAPPED_SUBRESOURCE));
@@ -1171,9 +1196,69 @@ void DX3D11Renderer::VUpdateShaderInstanceBuffer(IShader* shader, void* data, co
 	mDeviceContext->Unmap(mappedBuffer, 0);
 }
 
+void DX3D11Renderer::VSetVertexShaderConstantBuffers(IShaderResource* shaderResource)
+{
+	DX11ShaderResource* resource = static_cast<DX11ShaderResource*>(shaderResource);
+
+	uint8_t constBufferCount = resource->GetConstantBufferCount();
+	if (constBufferCount)
+	{
+		mDeviceContext->VSSetConstantBuffers(0, constBufferCount, resource->GetConstantBuffers());
+	}
+}
+
+void DX3D11Renderer::VSetPixelShaderConstantBuffers(IShaderResource* shaderResource)
+{
+	DX11ShaderResource* resource = static_cast<DX11ShaderResource*>(shaderResource);
+
+	uint8_t constBufferCount = resource->GetConstantBufferCount();
+	if (constBufferCount)
+	{
+		mDeviceContext->PSSetConstantBuffers(0, constBufferCount, resource->GetConstantBuffers());
+	}
+}
+
+void DX3D11Renderer::VSetVertexShaderInstanceBuffers(IShaderResource* shaderResource)
+{
+	DX11ShaderResource* resource = static_cast<DX11ShaderResource*>(shaderResource);
+
+	uint8_t instanceBufferCount = resource->GetInstanceBufferCount();
+	if (instanceBufferCount)
+	{
+		mDeviceContext->IASetVertexBuffers(1, instanceBufferCount, resource->GetInstanceBuffers(), resource->GetInstanceBufferStrides(), resource->GetInstanceBufferOffsets());
+	}
+}
+
+void DX3D11Renderer::VSetPixelShaderResourceViews(IShaderResource* shaderResource)
+{
+	DX11ShaderResource* resource = static_cast<DX11ShaderResource*>(shaderResource);
+
+	uint8_t srvCount = resource->GetShaderResourceViewCount();
+	if (srvCount)
+	{
+		mDeviceContext->PSSetShaderResources(0, srvCount, resource->GetShaderResourceViews());
+	}
+}
+
+void DX3D11Renderer::VSetPixelShaderSamplerStates(IShaderResource* shaderResource)
+{
+	DX11ShaderResource* resource = static_cast<DX11ShaderResource*>(shaderResource);
+
+	uint8_t samplerStateCount = resource->GetSamplerStateCount();
+	if (samplerStateCount)
+	{
+		mDeviceContext->VSSetSamplers(0, samplerStateCount, resource->GetSamplerStates());
+	}
+}
+
 #pragma endregion 
 
-#pragma region Shader Resource
+#pragma region Render Context
+
+void DX3D11Renderer::VCreateRenderContext(IRenderContext** renderContext, LinearAllocator* allocator)
+{
+	RIG_NEW(DX11RenderContext, allocator, *renderContext);
+}
 
 void DX3D11Renderer::VCreateContextDepthStencilTarget(IRenderContext* renderContext)
 {

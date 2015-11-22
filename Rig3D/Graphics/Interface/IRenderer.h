@@ -16,6 +16,7 @@ namespace Rig3D
 	class IScene;
 	class IMesh;
 	class IShader;
+	class IShaderResource;
 	class IRenderContext;
 
 	enum InputClass
@@ -148,35 +149,50 @@ namespace Rig3D
 		virtual void	VLoadPixelShader(IShader* pixelShader, const char* filename) = 0;
 
 		virtual void	VSetInputLayout(IShader* vertexShader) = 0;
-		virtual void	VSetInstanceBuffers(IShader* vertexShader) = 0;
 		virtual void	VSetVertexShaderInputLayout(IShader* vertexShader) = 0;
 		virtual void	VSetVertexShader(IShader* shader) = 0;
-		
 		virtual void	VSetPixelShader(IShader* shader) = 0;
-
-		virtual void	VSetShaderResources(IShader* shader) = 0;
-
-		// Resource View will be bound to GPU registers in the order they are arranged starting at input slot 0
-		virtual void	VLoadShaderTextures2D(IShader* shader, const char** filenames, const uint32_t count) = 0;
-		virtual void	VLoadShaderTextureCubes(IShader* shader, const char** filenames, const uint32_t count) = 0;
-
-		virtual void	VCreateShaderResourceViews(IShader* shader, void** resourceViews, const uint32_t& count) = 0;
-
-		// Constant buffers will be bound to GPU registers in the order they are arranged starting at input slot 0.
-		virtual void	VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) = 0;
-
-		// Instance buffers will be bound to GPU registers in the order they are arranged starting at input slot 1.
-		virtual void	VCreateShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) = 0;
-		virtual void	VCreateStaticShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) = 0;
-		virtual void	VCreateDynamicShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) = 0;
-
-		// Index is result of the order the instance buffers were arranged when setting the shader.
-		virtual void	VUpdateShaderConstantBuffer(IShader* shader, void* data, const uint32_t& index) = 0;
-		virtual void	VUpdateShaderInstanceBuffer(IShader* shader, void* data, const size_t& size, const uint32_t& index) = 0;
 
 #pragma endregion
 
+#pragma region Shader Resources
+
+		virtual void	VCreateShaderResource(IShaderResource** shaderResouce, LinearAllocator* allocator) = 0;
+
+		// Resource View will be bound to GPU registers in the order they are arranged starting at input slot 0
+		virtual void	VCreateShaderTextures2D(IShaderResource* shader, const char** filenames, const uint32_t count) = 0;
+		virtual void	VCreateShaderContextTextures2D(IShaderResource* shader, IRenderContext* context) = 0;
+
+		virtual void	VAddShaderTextures2D(IShaderResource* shader, const char** filenames, const uint32_t count) = 0;
+		virtual void	VAddShaderContextTextures2D(IShaderResource* shader, IRenderContext* context) = 0;
+
+		virtual void	VCreateShaderTextureCubes(IShaderResource* shader, const char** filenames, const uint32_t count) = 0;
+
+		// Constant buffers will be bound to GPU registers in the order they are arranged starting at input slot 0.
+		virtual void	VCreateShaderConstantBuffers(IShaderResource* shader, void** data, size_t* sizes, const uint32_t& count) = 0;
+
+		// Instance buffers will be bound to GPU registers in the order they are arranged starting at input slot 1.
+		virtual void	VCreateShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) = 0;
+		virtual void	VCreateStaticShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) = 0;
+		virtual void	VCreateDynamicShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) = 0;
+
+		// Index is result of the order the instance buffers were arranged when setting the shader.
+		virtual void	VUpdateShaderConstantBuffer(IShaderResource* shader, void* data, const uint32_t& index) = 0;
+		virtual void	VUpdateShaderInstanceBuffer(IShaderResource* shader, void* data, const size_t& size, const uint32_t& index) = 0;
+
+		virtual void	VSetVertexShaderConstantBuffers(IShaderResource* shaderResource) = 0;
+		virtual void	VSetPixelShaderConstantBuffers(IShaderResource* shaderResource) = 0;
+
+		virtual void	VSetVertexShaderInstanceBuffers(IShaderResource* shaderResource) = 0;
+
+		virtual void	VSetPixelShaderResourceViews(IShaderResource* shaderResource) = 0;
+		virtual void	VSetPixelShaderSamplerStates(IShaderResource* shaderResource) = 0;
+
+#pragma endregion 
+
 #pragma region Render Context
+		
+		virtual void VCreateRenderContext(IRenderContext** renderContext, LinearAllocator* allocator) = 0;
 
 		virtual void VCreateContextDepthStencilTarget(IRenderContext* renderContext) = 0;
 		virtual void VCreateContextTargets(IRenderContext* renderContext, const uint32_t& count) = 0;
@@ -187,6 +203,7 @@ namespace Rig3D
 		virtual void VSetRenderContext(IRenderContext* renderContext) = 0;
 
 #pragma endregion 
+
 		virtual void    VSwapBuffers() = 0;
 
 		void SetWindowCaption(const char* caption);

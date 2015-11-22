@@ -122,29 +122,46 @@ namespace Rig3D
 		void	VLoadPixelShader(IShader* pixelShader, const char* filename) override;
 
 		void	VSetInputLayout(IShader* vertexShader) override;
-		void	VSetInstanceBuffers(IShader* vertexShader) override;
 		void	VSetVertexShaderInputLayout(IShader* vertexShader) override;
 		void	VSetVertexShader(IShader* shader) override;
-
 		void	VSetPixelShader(IShader* shader) override;
-
-		void	VSetShaderResources(IShader* vertexShader) override;
-
-		void	VLoadShaderTextures2D(IShader* shader, const char** filenames, const uint32_t count) override;
-		void	VLoadShaderTextureCubes(IShader* shader, const char** filenames, const uint32_t count) override;
-
-		void	VCreateShaderConstantBuffers(IShader* shader, void** data, size_t* sizes, const uint32_t& count) override;
-		
-		void	VCreateShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) override;
-		void	VCreateStaticShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) override;
-		void	VCreateDynamicShaderInstanceBuffers(IShader* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) override;
-
-		void	VUpdateShaderConstantBuffer(IShader* shader, void* data, const uint32_t& index) override;
-		void	VUpdateShaderInstanceBuffer(IShader* shader, void* data, const size_t& size, const uint32_t& index) override;
 
 #pragma endregion 
 
 #pragma region Shader Resource
+
+		void	VCreateShaderResource(IShaderResource** shaderResouce, LinearAllocator* allocator) override;
+
+		void	VCreateShaderTextures2D(IShaderResource* shader, const char** filenames, const uint32_t count) override;
+		void	VCreateShaderContextTextures2D(IShaderResource* shader, IRenderContext* context) override;
+
+		void	VAddShaderTextures2D(IShaderResource* shader, const char** filenames, const uint32_t count) override;
+		void	VAddShaderContextTextures2D(IShaderResource* shader, IRenderContext* context) override;
+
+		void	VCreateShaderTextureCubes(IShaderResource* shader, const char** filenames, const uint32_t count) override;
+
+		void	VCreateShaderConstantBuffers(IShaderResource* shader, void** data, size_t* sizes, const uint32_t& count) override;
+
+		void	VCreateShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) override;
+		void	VCreateStaticShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) override;
+		void	VCreateDynamicShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) override;
+
+		void	VUpdateShaderConstantBuffer(IShaderResource* shader, void* data, const uint32_t& index) override;
+		void	VUpdateShaderInstanceBuffer(IShaderResource* shader, void* data, const size_t& size, const uint32_t& index) override;
+
+		void	VSetVertexShaderConstantBuffers(IShaderResource* shaderResource) override;
+		void	VSetPixelShaderConstantBuffers(IShaderResource* shaderResource) override;
+
+		void	VSetVertexShaderInstanceBuffers(IShaderResource* shaderResource) override;
+
+		void	VSetPixelShaderResourceViews(IShaderResource* shaderResource) override;
+		void	VSetPixelShaderSamplerStates(IShaderResource* shaderResource) override;
+
+#pragma endregion 
+
+#pragma region Render Context
+
+		void VCreateRenderContext(IRenderContext** renderContext, LinearAllocator* allocator) override;
 
 		void VCreateContextDepthStencilTarget(IRenderContext* renderContext) override;
 		void VCreateContextTargets(IRenderContext* renderContext, const uint32_t& count) override;

@@ -2,6 +2,7 @@
 #include "Rig3D\Engine.h"
 #include "Rig3D\Graphics\Interface\IScene.h"
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
+#include "Rig3D\Graphics\Interface\IRenderContext.h"
 #include "Rig3D\Graphics\Interface\IMesh.h"
 #include "Rig3D\Common\Transform.h"
 #include "Memory\Memory\Memory.h"
@@ -93,6 +94,10 @@ public:
 	MeshLibrary<LinearAllocator>	mMeshLibrary;
 	IMesh*							mCubeMesh;
 	IMesh*							mQuadMesh;
+
+	IRenderContext*					mRenderContext;
+	IShader*						iVertexShader;
+	IShader*						iPixelShader;
 
 	DX3D11Renderer*			mRenderer;
 	ID3D11Device*			mDevice;
@@ -191,6 +196,8 @@ public:
 
 		mDevice = mRenderer->GetDevice();
 		mDeviceContext = mRenderer->GetDeviceContext(); 
+
+		mRenderer->VCreateRenderContext(&mRenderContext, &mAllocator);
 
 		VOnResize();
 
@@ -704,6 +711,14 @@ public:
 
 	void VOnResize() override
 	{
+		mRenderContext->VClearRenderTargetViews();
+		mRenderContext->VClearRenderTextures();
+		
+		mRenderer->VCreateContextResourceTargets(mRenderContext, 2);
+		mRenderer->VCreateContextDepthResourceTarget(mRenderContext);
+
+
+
 		ReleaseMacro(mBlurTexture2D);
 		ReleaseMacro(mSceneTexture2D);
 

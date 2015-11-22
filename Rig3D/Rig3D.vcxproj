@@ -80,6 +80,7 @@
     <ClInclude Include="Graphics\DirectX11\DX11RenderContext.h" />
     <ClInclude Include="Graphics\DirectX11\DX11Shader.h" />
     <ClInclude Include="Graphics\DirectX11\DX11ShaderReflection.h" />
+    <ClInclude Include="Graphics\DirectX11\DX11ShaderResource.h" />
     <ClInclude Include="Graphics\DirectX11\DX3D11Renderer.h" />
     <ClInclude Include="Graphics\DirectX11\dxerr.h" />
     <ClInclude Include="Graphics\Interface\IMesh.h" />
@@ -87,6 +88,7 @@
     <ClInclude Include="Graphics\Interface\IScene.h" />
     <ClInclude Include="Graphics\Interface\IShader.h" />
     <ClInclude Include="Graphics\Interface\IRenderContext.h" />
+    <ClInclude Include="Graphics\Interface\IShaderResource.h" />
     <ClInclude Include="Graphics\MeshLibrary.h" />
     <ClInclude Include="Graphics\rig_graphics_api_conversions.h" />
     <ClInclude Include="Intersection.h" />
@@ -106,12 +108,12 @@
     <ClCompile Include="Graphics\DirectX11\DX11RenderContext.cpp" />
     <ClCompile Include="Graphics\DirectX11\DX11Shader.cpp" />
     <ClCompile Include="Graphics\DirectX11\DX11ShaderReflection.cpp" />
+    <ClCompile Include="Graphics\DirectX11\DX11ShaderResource.cpp" />
     <ClCompile Include="Graphics\DirectX11\DX3D11Renderer.cpp" />
     <ClCompile Include="Graphics\DirectX11\dxerr.cpp" />
     <ClCompile Include="Graphics\Interface\IMesh.cpp" />
     <ClCompile Include="Graphics\Interface\IRenderer.cpp" />
     <ClCompile Include="Graphics\Interface\IScene.cpp" />
-    <ClCompile Include="Graphics\Interface\IShader.cpp" />
     <ClCompile Include="Options.h" />
     <ClCompile Include="TaskDispatch\TaskDispatcher.cpp" />
   </ItemGroup>

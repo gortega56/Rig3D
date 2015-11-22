@@ -14,5 +14,8 @@ namespace Rig3D
 		{
 			
 		}
+
+		virtual void VClearRenderTargetViews() = 0;
+		virtual void VClearRenderTextures() = 0;
 	};
 }

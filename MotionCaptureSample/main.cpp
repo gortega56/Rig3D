@@ -8,6 +8,7 @@
 #include "Rig3D\Graphics\MeshLibrary.h"
 #include <d3d11.h>
 #include "Rig3D\Graphics\Interface\IShader.h"
+#include "Rig3D\Graphics\Interface\IShaderResource.h"
 #include "BVHResource.h"
 #include <vector>
 #include <utility>
@@ -69,6 +70,9 @@ public:
 	IShader*					mPlaneVertexShader;
 	IShader*					mPlanePixelShader;
 
+	IShaderResource*			mVertexShaderResource;
+	IShaderResource*			mPlaneVertexShaderResource;
+
 	ID3D11Buffer*				mLineVertexBuffer;
 	ID3D11ShaderResourceView*	mCheckerboardSRV;
 	ID3D11SamplerState*			mSamplerState;
@@ -103,7 +107,7 @@ public:
 };
 
 MotionCaptureSample::MotionCaptureSample() : 
-	mAllocator(8000),
+	mAllocator(10240),
 	mJointWorldMatrices(nullptr),
 	mLineVertices(nullptr),
 	mTransforms(nullptr), 
@@ -116,6 +120,8 @@ MotionCaptureSample::MotionCaptureSample() :
 	mLinePixelShader(nullptr),
 	mPlaneVertexShader(nullptr),
 	mPlanePixelShader(nullptr),
+	mVertexShaderResource(nullptr),
+	mPlaneVertexShaderResource(nullptr),
 	mLineVertexBuffer(nullptr),
 	mCheckerboardSRV(nullptr),
 	mSamplerState(nullptr),
@@ -205,12 +211,12 @@ void MotionCaptureSample::VRender()
 
 	mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
 	mRenderer->VSetInputLayout(mVertexShader);
-	mRenderer->VSetInstanceBuffers(mVertexShader);
+	mRenderer->VSetVertexShaderInstanceBuffers(mVertexShaderResource);
 	mRenderer->VSetVertexShader(mVertexShader);
 	mRenderer->VSetPixelShader(mPixelShader);
 
-	mRenderer->VUpdateShaderConstantBuffer(mVertexShader, &mViewProjection, 0);
-	mRenderer->VSetShaderResources(mVertexShader);
+	mRenderer->VUpdateShaderConstantBuffer(mVertexShaderResource, &mViewProjection, 0);
+	mRenderer->VSetVertexShaderConstantBuffers(mVertexShaderResource);
 	mRenderer->VBindMesh(mCubeMesh);
 	deviceContext->DrawIndexedInstanced(mCubeMesh->GetIndexCount(), mTransformCount, 0, 0, 0);
 
@@ -218,9 +224,9 @@ void MotionCaptureSample::VRender()
 	mRenderer->VSetVertexShader(mPlaneVertexShader);
 	mRenderer->VSetPixelShader(mPlanePixelShader);
 
-	mRenderer->VUpdateShaderConstantBuffer(mPlaneVertexShader, &mViewProjection, 0);
-	mRenderer->VUpdateShaderConstantBuffer(mPlaneVertexShader, &mPlaneWorldMatrix, 1);
-	mRenderer->VSetShaderResources(mPlaneVertexShader);
+	mRenderer->VUpdateShaderConstantBuffer(mPlaneVertexShaderResource, &mViewProjection, 0);
+	mRenderer->VUpdateShaderConstantBuffer(mPlaneVertexShaderResource, &mPlaneWorldMatrix, 1);
+	mRenderer->VSetVertexShaderConstantBuffers(mPlaneVertexShaderResource);
 
 	deviceContext->PSSetShaderResources(0, 1, &mCheckerboardSRV);
 	deviceContext->PSSetSamplers(0, 1, &mSamplerState);
@@ -253,6 +259,8 @@ void MotionCaptureSample::VShutdown()
 	mLinePixelShader->~IShader();
 	mPlaneVertexShader->~IShader();
 	mPlanePixelShader->~IShader();
+	mVertexShaderResource->~IShaderResource();
+	mPlaneVertexShaderResource->~IShaderResource();
 	mAllocator.Free();
 }
 
@@ -377,15 +385,17 @@ void MotionCaptureSample::InitializeShaders()
 	mRenderer->VCreateShader(&mPixelShader, &mAllocator);
 	mRenderer->VLoadPixelShader(mPixelShader, "MCPixelShader.cso");
 
+	mRenderer->VCreateShaderResource(&mVertexShaderResource, &mAllocator);
+
 	void*	constantBufferData[]	= { &mViewProjection };
 	size_t	constantBufferSizes[]	= { sizeof(ModelViewProjection) };
-	mRenderer->VCreateShaderConstantBuffers(mVertexShader, constantBufferData, constantBufferSizes, 1);
+	mRenderer->VCreateShaderConstantBuffers(mVertexShaderResource, constantBufferData, constantBufferSizes, 1);
 
 	void*	instanceBufferData[]	= { mJointWorldMatrices };
 	size_t	instanceBufferSizes[]	= { sizeof(mat4f) * mTransformCount };
 	size_t	instanceBufferStrides[] = { sizeof(mat4f) };
 	size_t	instanceBufferOffsets[] = { 0 };
-	mRenderer->VCreateDynamicShaderInstanceBuffers(mVertexShader, instanceBufferData, instanceBufferSizes, instanceBufferStrides, instanceBufferOffsets, 1);
+	mRenderer->VCreateDynamicShaderInstanceBuffers(mVertexShaderResource, instanceBufferData, instanceBufferSizes, instanceBufferStrides, instanceBufferOffsets, 1);
 
 	// ==== Line Shaders ====
 
@@ -411,9 +421,11 @@ void MotionCaptureSample::InitializeShaders()
 	mRenderer->VCreateShader(&mPlanePixelShader, &mAllocator);
 	mRenderer->VLoadPixelShader(mPlanePixelShader, "MCPlanePixelShader.cso");
 
+	mRenderer->VCreateShaderResource(&mPlaneVertexShaderResource, &mAllocator);
+
 	void*	planeConstantBufferData[] = { &mViewProjection, &mPlaneWorldMatrix };
 	size_t	planeConstantBufferSizes[] = { sizeof(ModelViewProjection), sizeof(mat4f) };
-	mRenderer->VCreateShaderConstantBuffers(mPlaneVertexShader, planeConstantBufferData, planeConstantBufferSizes, 2);
+	mRenderer->VCreateShaderConstantBuffers(mPlaneVertexShaderResource, planeConstantBufferData, planeConstantBufferSizes, 2);
 
 	ID3D11Device* device = static_cast<DX3D11Renderer*>(mRenderer)->GetDevice();
 	DirectX::CreateWICTextureFromFile(device, L"Textures\\checkerboard.jpg", nullptr, &mCheckerboardSRV);
@@ -561,7 +573,7 @@ void MotionCaptureSample::UpdateJointWorldMatrices(mat4f* jointWorldMatrices, Tr
 		mJointWorldMatrices[i] = transforms[i].GetWorldMatrix().transpose();
 	}
 
-	mRenderer->VUpdateShaderInstanceBuffer(mVertexShader, mJointWorldMatrices, sizeof(mat4f) * count, 0);
+	mRenderer->VUpdateShaderInstanceBuffer(mVertexShaderResource, mJointWorldMatrices, sizeof(mat4f) * count, 0);
 }
 
 void MotionCaptureSample::UpdateLineVertices(vec3f* lineVertices, PairVector* pairVector, mat4f* jointWorldMatrices)
