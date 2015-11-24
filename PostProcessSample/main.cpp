@@ -93,6 +93,7 @@ public:
 	LinearAllocator			mAllocator;
 
 	MeshLibrary<LinearAllocator>	mMeshLibrary;
+	IRenderer*						mRenderer;
 	IMesh*							mCubeMesh;
 	IMesh*							mQuadMesh;
 
@@ -100,47 +101,32 @@ public:
 	IShaderResource*				mBlurShaderResource;
 	IShaderResource*				mSphereShaderResource;
 
-	DX3D11Renderer*			mRenderer;
-	ID3D11Device*			mDevice;
-	ID3D11DeviceContext*	mDeviceContext;
-
-	ID3D11Buffer*			mConstantBuffer;
-	ID3D11InputLayout*		mSceneInputLayout;
-	ID3D11InputLayout*		mPostProcessInputLayout;
 	IShader*				mVertexShader;
 	IShader*				mPixelShader;
-
 	IShader*				mSCPixelShader;
-	ID3D11Buffer*			mColorBuffer;
+	IShader*				mQuadVertexShader;
+	IShader*				mQuadBlurPixelShader;
+	IShader*				mMotionBlurPixelShader;
 
-	// Use for blur
-	ID3D11RenderTargetView*		mSceneRTV;
-	ID3D11ShaderResourceView*	mSceneSRV;
-	ID3D11Texture2D*			mSceneTexture2D;
+	ID3D11SamplerState*		mSamplerState;
 
-	ID3D11RenderTargetView*		mBlurRTV;
-	ID3D11ShaderResourceView*	mBlurSceneSRV;
-	ID3D11Texture2D*			mBlurTexture2D;
-
-	ID3D11ShaderResourceView*	mLavaSRV;
-	ID3D11Texture2D*			mLavaTexture2D;
-
-	ID3D11ShaderResourceView*	mWaterSRV;
-	ID3D11Texture2D*			mWaterTexture2D;
-
-	ID3D11SamplerState*			mSamplerState;
-
-	IShader*					mQuadVertexShader;
-	IShader*					mQuadBlurPixelShader;
-	ID3D11Buffer*				mBlurBuffer;
-
-	IShader*					mMotionBlurPixelShader;
-	ID3D11Buffer*				mMotionBlurBuffer;
-	ID3D11Texture2D*			mDepthTexture2D;
-	ID3D11DepthStencilView*     mDepthDSV;
-	ID3D11ShaderResourceView*	mDepthSRV;
-
-	Rig3DSampleScene() : mAllocator(2048), mMouseX(0.0f), mMouseY(0.0f), mCubeMesh(nullptr), mQuadMesh(nullptr)
+	Rig3DSampleScene() : 
+		mMouseX(0.0f),
+		mMouseY(0.0f),
+		mAllocator(2048), 
+		mRenderer(nullptr),
+		mCubeMesh(nullptr), 
+		mQuadMesh(nullptr), 
+		mRenderContext(nullptr),
+		mBlurShaderResource(nullptr),
+		mSphereShaderResource(nullptr),
+		mVertexShader(nullptr),
+		mPixelShader(nullptr),
+		mSCPixelShader(nullptr),
+		mQuadVertexShader(nullptr),
+		mQuadBlurPixelShader(nullptr),
+		mMotionBlurPixelShader(nullptr),
+		mSamplerState(nullptr)
 	{
 		mOptions.mWindowCaption	= "Rig3D Sample";
 		mOptions.mWindowWidth	= 800;
@@ -154,42 +140,13 @@ public:
 
 	~Rig3DSampleScene()
 	{
-		ReleaseMacro(mConstantBuffer);
-		ReleaseMacro(mSceneInputLayout);
-		ReleaseMacro(mPostProcessInputLayout);
-		ReleaseMacro(mColorBuffer);
-
-		ReleaseMacro(mSceneRTV);
-		ReleaseMacro(mSceneSRV);
-		ReleaseMacro(mSceneTexture2D);
-
-		ReleaseMacro(mBlurRTV);
-		ReleaseMacro(mBlurSceneSRV);
-		ReleaseMacro(mBlurTexture2D);
-
-		ReleaseMacro(mLavaTexture2D);
-		ReleaseMacro(mLavaSRV);
-
-		ReleaseMacro(mWaterTexture2D);
-		ReleaseMacro(mWaterSRV);
-
 		ReleaseMacro(mSamplerState);
-
-		ReleaseMacro(mBlurBuffer);
-
-		ReleaseMacro(mMotionBlurBuffer);
-		ReleaseMacro(mDepthTexture2D);
-		ReleaseMacro(mDepthDSV);
-		ReleaseMacro(mDepthSRV);
 	}
 
 	void VInitialize() override
 	{
 		mRenderer = &DX3D11Renderer::SharedInstance();
 		mRenderer->SetDelegate(this);
-
-		mDevice = mRenderer->GetDevice();
-		mDeviceContext = mRenderer->GetDeviceContext(); 
 
 		mRenderer->VCreateRenderContext(&mRenderContext, &mAllocator);
 
@@ -289,7 +246,8 @@ public:
 			samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
 			samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-			mDevice->CreateSamplerState(&samplerDesc, &mSamplerState);
+			ID3D11Device* device = static_cast<DX3D11Renderer*>(mRenderer)->GetDevice();
+			device->CreateSamplerState(&samplerDesc, &mSamplerState);
 		}
 
 		// Blur shaders
@@ -311,7 +269,7 @@ public:
 
 			mRenderer->VCreateShaderResource(&mBlurShaderResource, &mAllocator);
 
-			void* data[] = { &mMBMatrixBuffer, nullptr };
+			void* data[] = { &mMBMatrixBuffer, &mBlurH };
 			size_t sizes[] = { sizeof(MBMatrixBuffer), sizeof(BlurBuffer) };
 			mRenderer->VCreateShaderConstantBuffers(mBlurShaderResource, data, sizes, 2);
 		}
@@ -387,7 +345,10 @@ public:
 	{
 		// Set up the input assembler
 		mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
-		mDeviceContext->RSSetViewports(1, &mRenderer->GetViewport());
+
+		DX3D11Renderer* dxRenderer = static_cast<DX3D11Renderer*>(mRenderer);
+		ID3D11DeviceContext* deviceContext = dxRenderer->GetDeviceContext();
+		deviceContext->RSSetViewports(1, &dxRenderer->GetViewport());
 
 		switch (mBlurType)
 		{
@@ -432,9 +393,9 @@ public:
 
 		DrawScene();
 
-		mRenderer->VSetRenderContextTarget(mRenderContext, 1);
-
+		// Horizontal Pass
 		// Only clear rtv here leave depth alone
+		mRenderer->VSetRenderContextTarget(mRenderContext, 1);
 		mRenderer->VClearContextTarget(mRenderContext, 1, reinterpret_cast<const float*>(&mClearColor));
 
 		mRenderer->VSetInputLayout(mQuadVertexShader);
@@ -447,10 +408,10 @@ public:
 		mRenderer->VSetPixelShaderResourceView(mRenderContext, 0, 0);
 		mRenderer->VSetPixelShaderDepthResourceView(mRenderContext, 1);
 
-		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
+		ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
+		deviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
 		mRenderer->VBindMesh(mQuadMesh);
-
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
 		// Final Pass
@@ -463,13 +424,10 @@ public:
 		mRenderer->VSetPixelShaderResourceView(mRenderContext, 1, 0);
 		mRenderer->VSetPixelShaderDepthResourceView(mRenderContext, 1);
 
-		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
-
-		mRenderer->VBindMesh(mQuadMesh);
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
 		ID3D11ShaderResourceView* nullSRV[2] = { 0, 0 };
-		mDeviceContext->PSSetShaderResources(0, 2, nullSRV);
+		deviceContext->PSSetShaderResources(0, 2, nullSRV);
 	}
 
 	void RenderMotionBlur()
@@ -497,13 +455,14 @@ public:
 		mRenderer->VSetPixelShaderResourceView(mRenderContext, 0, 0);
 		mRenderer->VSetPixelShaderDepthResourceView(mRenderContext, 1);
 
-		mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
+		ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
+		deviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
 		mRenderer->VBindMesh(mQuadMesh);
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
 		ID3D11ShaderResourceView* nullSRV[2] = { 0, 0 };
-		mDeviceContext->PSSetShaderResources(0, 2, nullSRV);
+		deviceContext->PSSetShaderResources(0, 2, nullSRV);
 	}
 
 	void DrawScene()
@@ -518,7 +477,8 @@ public:
 			mRenderer->VSetPixelShaderConstantBuffer(mSphereShaderResource, 1, 0);
 			mRenderer->VSetPixelShaderResourceView(mSphereShaderResource, 0, 0);
 
-			mDeviceContext->PSSetSamplers(0, 1, &mSamplerState);
+			ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
+			deviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
 			mRenderer->VBindMesh(mSceneNodes[i].mMesh);
 			mRenderer->VDrawIndexed(0, mSceneNodes[i].mMesh->GetIndexCount());
@@ -535,87 +495,6 @@ public:
 		// RTV1 : BlurRTV
 		mRenderer->VCreateContextResourceTargets(mRenderContext, 2);
 		mRenderer->VCreateContextDepthResourceTarget(mRenderContext);
-
-		//ReleaseMacro(mBlurTexture2D);
-		//ReleaseMacro(mSceneTexture2D);
-
-		//ReleaseMacro(mBlurRTV);
-		//ReleaseMacro(mSceneRTV);
-
-		//ReleaseMacro(mBlurSceneSRV);
-		//ReleaseMacro(mSceneSRV);
-
-		//ReleaseMacro(mDepthTexture2D);
-		//ReleaseMacro(mDepthDSV);
-		//ReleaseMacro(mDepthSRV);
-
-		//// Scene and Blur Texture2D, RTV, SRV
-		//{
-		//	D3D11_TEXTURE2D_DESC sceneTextureDesc;
-		//	sceneTextureDesc.Width = mRenderer->GetWindowWidth();
-		//	sceneTextureDesc.Height = mRenderer->GetWindowHeight();
-		//	sceneTextureDesc.ArraySize = 1;
-		//	sceneTextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-		//	sceneTextureDesc.CPUAccessFlags = 0;
-		//	sceneTextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		//	sceneTextureDesc.MipLevels = 1;
-		//	sceneTextureDesc.MiscFlags = 0;
-		//	sceneTextureDesc.SampleDesc.Count = 1;
-		//	sceneTextureDesc.SampleDesc.Quality = 0;
-		//	sceneTextureDesc.Usage = D3D11_USAGE_DEFAULT;
-
-		//	mDevice->CreateTexture2D(&sceneTextureDesc, 0, &mBlurTexture2D);
-		//	mDevice->CreateTexture2D(&sceneTextureDesc, 0, &mSceneTexture2D);
-
-		//	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
-		//	rtvDesc.Format = sceneTextureDesc.Format;
-		//	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-		//	rtvDesc.Texture2D.MipSlice = 0;
-
-		//	mRenderer->GetDevice()->CreateRenderTargetView(mBlurTexture2D, 0, &mBlurRTV);
-		//	mRenderer->GetDevice()->CreateRenderTargetView(mSceneTexture2D, 0, &mSceneRTV);
-
-		//	D3D11_SHADER_RESOURCE_VIEW_DESC sceneSRVDesc;
-		//	sceneSRVDesc.Format = sceneTextureDesc.Format;
-		//	sceneSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-		//	sceneSRVDesc.Texture2D.MipLevels = 1;
-		//	sceneSRVDesc.Texture2D.MostDetailedMip = 0;
-
-		//	mDevice->CreateShaderResourceView(mBlurTexture2D, &sceneSRVDesc, &mBlurSceneSRV);
-		//	mDevice->CreateShaderResourceView(mSceneTexture2D, &sceneSRVDesc, &mSceneSRV);
-		//}
-		//
-		//// Depth Texture2D, DSV, SRV
-		//{
-		//	D3D11_TEXTURE2D_DESC depthTextureDesc;
-		//	depthTextureDesc.Width = mRenderer->GetWindowWidth();
-		//	depthTextureDesc.Height = mRenderer->GetWindowHeight();
-		//	depthTextureDesc.MipLevels = 1;
-		//	depthTextureDesc.ArraySize = 1;
-		//	depthTextureDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
-		//	depthTextureDesc.CPUAccessFlags = 0;
-		//	depthTextureDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
-		//	depthTextureDesc.MiscFlags = 0;
-		//	depthTextureDesc.SampleDesc.Count = 1;
-		//	depthTextureDesc.SampleDesc.Quality = 0;
-		//	depthTextureDesc.Usage = D3D11_USAGE_DEFAULT;
-		//	mDevice->CreateTexture2D(&depthTextureDesc, 0, &mDepthTexture2D);
-
-		//	D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc;
-		//	dsvDesc.Flags = 0;
-		//	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-		//	dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-		//	dsvDesc.Texture2D.MipSlice = 0;
-		//	mDevice->CreateDepthStencilView(mDepthTexture2D, &dsvDesc, &mDepthDSV);
-
-		//	D3D11_SHADER_RESOURCE_VIEW_DESC depthSRVDesc;
-		//	depthSRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-		//	depthSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-		//	depthSRVDesc.Texture2D.MipLevels = depthTextureDesc.MipLevels;
-		//	depthSRVDesc.Texture2D.MostDetailedMip = 0;
-		//	mDevice->CreateShaderResourceView(mDepthTexture2D, &depthSRVDesc, &mDepthSRV);
-		//}
-		
 	}
 
 	void VShutdown() override

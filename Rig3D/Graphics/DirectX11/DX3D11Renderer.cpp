@@ -194,10 +194,10 @@ void DX3D11Renderer::VRenderScene()
 void DX3D11Renderer::VShutdown()
 {
 	// Useful for debugging COM trash left behind
-	//ID3D11Debug* DebugDevice;
-	//HRESULT Result = mDevice->QueryInterface(__uuidof(ID3D11Debug), reinterpret_cast<void**>(&DebugDevice));
-	//DebugDevice->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
-	//ReleaseMacro(DebugDevice);
+	ID3D11Debug* DebugDevice;
+	HRESULT Result = mDevice->QueryInterface(__uuidof(ID3D11Debug), reinterpret_cast<void**>(&DebugDevice));
+	DebugDevice->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
+	ReleaseMacro(DebugDevice);
 
 	ReleaseMacro(mDevice);
 	ReleaseMacro(mDeviceContext);
@@ -1471,7 +1471,7 @@ void DX3D11Renderer::VSetVertexShaderResourceView(IRenderContext* renderContext,
 void DX3D11Renderer::VSetPixelShaderResourceView(IRenderContext* renderContext, const uint32_t& atIndex, const uint32_t& toBindingIndex)
 {
 	ID3D11ShaderResourceView** SRVs = static_cast<DX11RenderContext*>(renderContext)->GetShaderResourceViews();
-	mDeviceContext->VSSetShaderResources(toBindingIndex, 1, &SRVs[atIndex]);
+	mDeviceContext->PSSetShaderResources(toBindingIndex, 1, &SRVs[atIndex]);
 }
 
 #pragma endregion 

@@ -13,11 +13,13 @@ DX11RenderContext::~DX11RenderContext()
 	if (mDepthStencilView)
 	{
 		mDepthStencilView->Release();
+		mDepthStencilView = nullptr;
 	}
 
 	if (mDepthStencilResourceView)
 	{
 		mDepthStencilResourceView->Release();
+		mDepthStencilResourceView = nullptr;
 	}
 
 	for (ID3D11RenderTargetView* rtv : mRenderTargetViews)
@@ -93,11 +95,23 @@ uint32_t DX11RenderContext::GetShaderResourceViewCount() const
 
 void DX11RenderContext::SetDepthStencilView(ID3D11DepthStencilView* depthStencilView)
 {
+	if (mDepthStencilView)
+	{
+		mDepthStencilView->Release();
+		mDepthStencilView = nullptr;
+	}
+
 	mDepthStencilView = depthStencilView;
 }
 
 void DX11RenderContext::SetDepthStencilResourceView(ID3D11ShaderResourceView* depthStencilResourceView)
 {
+	if (mDepthStencilResourceView)
+	{
+		mDepthStencilResourceView->Release();
+		mDepthStencilResourceView = nullptr;
+	}
+
 	mDepthStencilResourceView = depthStencilResourceView;
 }
 
