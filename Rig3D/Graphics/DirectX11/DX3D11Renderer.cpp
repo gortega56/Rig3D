@@ -593,7 +593,7 @@ void DX3D11Renderer::VCreateDepthResourceTexture2D(void * texture2D)
 	texture2DDesc.ArraySize = 1;
 	texture2DDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 	texture2DDesc.CPUAccessFlags = 0;
-	texture2DDesc.Format = DXGI_FORMAT_R8_UNORM;
+	texture2DDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
 	texture2DDesc.MipLevels = 1;
 	texture2DDesc.MiscFlags = 0;
 	texture2DDesc.SampleDesc.Count = 1;
@@ -1080,30 +1080,6 @@ void DX3D11Renderer::VAddShaderTextures2D(IShaderResource* shader, const char** 
 	reinterpret_cast<DX11ShaderResource*>(shader)->AddShaderResourceViews(SRVs);
 }
 
-void DX3D11Renderer::VAddShaderContextTextures2D(IShaderResource* shader, IRenderContext* context)
-{
-	DX11RenderContext* dx11RenderContext = reinterpret_cast<DX11RenderContext*>(context);
-	ID3D11Texture2D** textures = dx11RenderContext->GetRenderTextures();
-
-	std::vector<ID3D11ShaderResourceView*> SRVs(dx11RenderContext->GetRenderTextureCount());
-
-	for (uint32_t i = 0; i < dx11RenderContext->GetRenderTextureCount(); i++)
-	{
-		D3D11_TEXTURE2D_DESC texture2DDesc;
-		textures[i]->GetDesc(&texture2DDesc);
-
-		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
-		SRVDesc.Format = texture2DDesc.Format;
-		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-		SRVDesc.Texture2D.MipLevels = 1;
-		SRVDesc.Texture2D.MostDetailedMip = 0;
-
-		mDevice->CreateShaderResourceView(textures[i], &SRVDesc, &SRVs[i]);
-	}
-
-	reinterpret_cast<DX11ShaderResource*>(shader)->AddShaderResourceViews(SRVs);
-}
-
 void DX3D11Renderer::VCreateShaderTextureCubes(IShaderResource* shader, const char** filenames, const uint32_t count)
 {
 	std::vector<ID3D11ShaderResourceView*> SRVs(count);
@@ -1207,6 +1183,12 @@ void DX3D11Renderer::VSetVertexShaderConstantBuffers(IShaderResource* shaderReso
 	}
 }
 
+void DX3D11Renderer::VSetVertexShaderConstantBuffer(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex)
+{
+	ID3D11Buffer** constantBuffers = static_cast<DX11ShaderResource*>(shaderResource)->GetConstantBuffers();
+	mDeviceContext->VSSetConstantBuffers(toBindingIndex, 1, &constantBuffers[atIndex]);
+}
+
 void DX3D11Renderer::VSetPixelShaderConstantBuffers(IShaderResource* shaderResource)
 {
 	DX11ShaderResource* resource = static_cast<DX11ShaderResource*>(shaderResource);
@@ -1216,6 +1198,12 @@ void DX3D11Renderer::VSetPixelShaderConstantBuffers(IShaderResource* shaderResou
 	{
 		mDeviceContext->PSSetConstantBuffers(0, constBufferCount, resource->GetConstantBuffers());
 	}
+}
+
+void DX3D11Renderer::VSetPixelShaderConstantBuffer(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex)
+{
+	ID3D11Buffer** constantBuffers = static_cast<DX11ShaderResource*>(shaderResource)->GetConstantBuffers();
+	mDeviceContext->PSSetConstantBuffers(toBindingIndex, 1, &constantBuffers[atIndex]);
 }
 
 void DX3D11Renderer::VSetVertexShaderInstanceBuffers(IShaderResource* shaderResource)
@@ -1238,6 +1226,12 @@ void DX3D11Renderer::VSetPixelShaderResourceViews(IShaderResource* shaderResourc
 	{
 		mDeviceContext->PSSetShaderResources(0, srvCount, resource->GetShaderResourceViews());
 	}
+}
+
+void DX3D11Renderer::VSetPixelShaderResourceView(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex)
+{
+	ID3D11ShaderResourceView** SRVs = static_cast<DX11ShaderResource*>(shaderResource)->GetShaderResourceViews();
+	mDeviceContext->PSSetShaderResources(toBindingIndex, 1, &SRVs[atIndex]);
 }
 
 void DX3D11Renderer::VSetPixelShaderSamplerStates(IShaderResource* shaderResource)
@@ -1307,21 +1301,35 @@ void DX3D11Renderer::VCreateContextDepthResourceTarget(IRenderContext* renderCon
 	ID3D11Texture2D* texture2D;
 	VCreateDepthResourceTexture2D(&texture2D);
 
-	D3D11_TEXTURE2D_DESC textureDesc;
-	texture2D->GetDesc(&textureDesc);
+	D3D11_DEPTH_STENCIL_VIEW_DESC DSVDesc;
+	DSVDesc.Flags = 0;
+	DSVDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	DSVDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	DSVDesc.Texture2D.MipSlice = 0;
 
 	ID3D11DepthStencilView* DSV;
 
-	mDevice->CreateDepthStencilView(texture2D, nullptr, &DSV);
+	mDevice->CreateDepthStencilView(texture2D, &DSVDesc, &DSV);
 
-	reinterpret_cast<DX11RenderContext*>(renderContext)->SetDepthStencilView(DSV);
+	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
+	SRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	SRVDesc.Texture2D.MipLevels = 1;
+	SRVDesc.Texture2D.MostDetailedMip = 0;
 
+	ID3D11ShaderResourceView* SRV;
+	mDevice->CreateShaderResourceView(texture2D, &SRVDesc, &SRV);
+
+	DX11RenderContext* context = static_cast<DX11RenderContext*>(renderContext);
+	context->SetDepthStencilView(DSV);
+	context->SetDepthStencilResourceView(SRV);
 	ReleaseMacro(texture2D);
 }
 
 void DX3D11Renderer::VCreateContextResourceTargets(IRenderContext* renderContext, const uint32_t& count)
 {
 	std::vector<ID3D11RenderTargetView*> RTVs(count);
+	std::vector<ID3D11ShaderResourceView*> SRVs(count);
 
 	for (uint32_t i = 0; i < count; i++)
 	{
@@ -1338,16 +1346,132 @@ void DX3D11Renderer::VCreateContextResourceTargets(IRenderContext* renderContext
 
 		mDevice->CreateRenderTargetView(texture2D, &rtvDesc, &RTVs[i]);
 
+		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
+		SRVDesc.Format = textureDesc.Format;
+		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		SRVDesc.Texture2D.MipLevels = 1;
+		SRVDesc.Texture2D.MostDetailedMip = 0;
+
+		mDevice->CreateShaderResourceView(texture2D, &SRVDesc, &SRVs[i]);
+
 		ReleaseMacro(texture2D);
 	}
 
-	reinterpret_cast<DX11RenderContext*>(renderContext)->SetRenderTargetViews(RTVs);
+	DX11RenderContext* context = static_cast<DX11RenderContext*>(renderContext);
+	context->SetRenderTargetViews(RTVs);
+	context->SetShaderResourceViews(SRVs);
 }
 
-void DX3D11Renderer::VSetRenderContext(IRenderContext* renderContext)
+void DX3D11Renderer::VSetContextTarget()
+{
+	mDeviceContext->OMSetRenderTargets(1, &mRenderTargetView, nullptr);
+}
+
+void DX3D11Renderer::VSetContextTargetWithDepth()
+{
+	mDeviceContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
+}
+
+void DX3D11Renderer::VSetRenderContextTargets(IRenderContext* renderContext)
+{
+	DX11RenderContext* dx11RenderContext = reinterpret_cast<DX11RenderContext*>(renderContext);
+	mDeviceContext->OMSetRenderTargets(dx11RenderContext->GetRenderTargetViewCount(), dx11RenderContext->GetRenderTargetViews(), nullptr);
+}
+
+void DX3D11Renderer::VSetRenderContextTargetsWithDepth(IRenderContext* renderContext)
 {
 	DX11RenderContext* dx11RenderContext = reinterpret_cast<DX11RenderContext*>(renderContext);
 	mDeviceContext->OMSetRenderTargets(dx11RenderContext->GetRenderTargetViewCount(), dx11RenderContext->GetRenderTargetViews(), dx11RenderContext->GetDepthStencilView());
+}
+
+void DX3D11Renderer::VSetRenderContextTarget(IRenderContext* renderContext, const uint32_t& atIndex)
+{
+	ID3D11RenderTargetView** RTVs = static_cast<DX11RenderContext*>(renderContext)->GetRenderTargetViews();
+	mDeviceContext->OMSetRenderTargets(1, &RTVs[atIndex], nullptr);
+}
+
+void DX3D11Renderer::VSetRenderContextTargetWithDepth(IRenderContext* renderContext, const uint32_t& atIndex)
+{
+	DX11RenderContext* context = static_cast<DX11RenderContext*>(renderContext);
+	ID3D11RenderTargetView** RTVs = context->GetRenderTargetViews();
+	mDeviceContext->OMSetRenderTargets(1, &RTVs[atIndex], context->GetDepthStencilView());
+}
+
+void DX3D11Renderer::VClearContext(const float* color, float depth, uint8_t stencil)
+{
+	mDeviceContext->ClearRenderTargetView(mRenderTargetView, color);
+	mDeviceContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, depth, stencil);
+}
+
+void DX3D11Renderer::VClearContext(IRenderContext* renderContext, const float* color, float depth, uint8_t stencil)
+{
+	DX11RenderContext* context = static_cast<DX11RenderContext*>(renderContext);
+	ID3D11RenderTargetView** RTVs = context->GetRenderTargetViews();
+	uint32_t RTVCount = context->GetRenderTargetViewCount();
+	
+	for (uint32_t i = 0; i < RTVCount; i++)
+	{
+		mDeviceContext->ClearRenderTargetView(RTVs[i], color);
+	}
+
+	mDeviceContext->ClearDepthStencilView(context->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, depth, stencil);
+}
+
+void DX3D11Renderer::VClearContextTarget(const float* color)
+{
+	mDeviceContext->ClearRenderTargetView(mRenderTargetView, color);
+}
+
+void DX3D11Renderer::VClearContextTarget(IRenderContext* renderContext, const uint32_t& atIndex, const float* color)
+{
+	ID3D11RenderTargetView** RTVs = static_cast<DX11RenderContext*>(renderContext)->GetRenderTargetViews();
+	mDeviceContext->ClearRenderTargetView(RTVs[atIndex], color);
+}
+
+void DX3D11Renderer::VClearDepthStencil(float depth, uint8_t stencil)
+{
+	mDeviceContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, depth, stencil);
+}
+
+void DX3D11Renderer::VClearDepthStencil(IRenderContext* renderContext, float depth, uint8_t stencil)
+{
+	mDeviceContext->ClearDepthStencilView(static_cast<DX11RenderContext*>(renderContext)->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, depth, stencil);
+}
+
+void DX3D11Renderer::VSetVertexShaderDepthResourceView(IRenderContext* renderContext, const uint32_t& toBindingIndex)
+{
+	ID3D11ShaderResourceView* SRVs[] = { static_cast<DX11RenderContext*>(renderContext)->GetDepthStencilResourceView() };
+	mDeviceContext->VSSetShaderResources(toBindingIndex, 1, SRVs);
+}
+
+void DX3D11Renderer::VSetPixelShaderDepthResourceView(IRenderContext* renderContext, const uint32_t& toBindingIndex)
+{
+	ID3D11ShaderResourceView* SRVs[] = { static_cast<DX11RenderContext*>(renderContext)->GetDepthStencilResourceView() };
+	mDeviceContext->PSSetShaderResources(toBindingIndex, 1, SRVs);
+}
+
+void DX3D11Renderer::VSetVertexShaderResourceViews(IRenderContext* renderContext)
+{
+	DX11RenderContext* context = static_cast<DX11RenderContext*>(renderContext);
+	mDeviceContext->VSSetShaderResources(0, context->GetShaderResourceViewCount(), context->GetShaderResourceViews());
+}
+
+void DX3D11Renderer::VSetPixelShaderResourceViews(IRenderContext* renderContext)
+{
+	DX11RenderContext* context = static_cast<DX11RenderContext*>(renderContext);
+	mDeviceContext->PSSetShaderResources(0, context->GetShaderResourceViewCount(), context->GetShaderResourceViews());
+}
+
+void DX3D11Renderer::VSetVertexShaderResourceView(IRenderContext* renderContext, const uint32_t& atIndex, const uint32_t& toBindingIndex)
+{
+	ID3D11ShaderResourceView** SRVs = static_cast<DX11RenderContext*>(renderContext)->GetShaderResourceViews();
+	mDeviceContext->VSSetShaderResources(toBindingIndex, 1, &SRVs[atIndex]);
+}
+
+void DX3D11Renderer::VSetPixelShaderResourceView(IRenderContext* renderContext, const uint32_t& atIndex, const uint32_t& toBindingIndex)
+{
+	ID3D11ShaderResourceView** SRVs = static_cast<DX11RenderContext*>(renderContext)->GetShaderResourceViews();
+	mDeviceContext->VSSetShaderResources(toBindingIndex, 1, &SRVs[atIndex]);
 }
 
 #pragma endregion 

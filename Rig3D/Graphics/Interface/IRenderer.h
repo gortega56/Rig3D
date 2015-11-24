@@ -159,19 +159,15 @@ namespace Rig3D
 
 		virtual void	VCreateShaderResource(IShaderResource** shaderResouce, LinearAllocator* allocator) = 0;
 
-		// Resource View will be bound to GPU registers in the order they are arranged starting at input slot 0
 		virtual void	VCreateShaderTextures2D(IShaderResource* shader, const char** filenames, const uint32_t count) = 0;
 		virtual void	VCreateShaderContextTextures2D(IShaderResource* shader, IRenderContext* context) = 0;
 
 		virtual void	VAddShaderTextures2D(IShaderResource* shader, const char** filenames, const uint32_t count) = 0;
-		virtual void	VAddShaderContextTextures2D(IShaderResource* shader, IRenderContext* context) = 0;
 
 		virtual void	VCreateShaderTextureCubes(IShaderResource* shader, const char** filenames, const uint32_t count) = 0;
 
-		// Constant buffers will be bound to GPU registers in the order they are arranged starting at input slot 0.
 		virtual void	VCreateShaderConstantBuffers(IShaderResource* shader, void** data, size_t* sizes, const uint32_t& count) = 0;
 
-		// Instance buffers will be bound to GPU registers in the order they are arranged starting at input slot 1.
 		virtual void	VCreateShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) = 0;
 		virtual void	VCreateStaticShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) = 0;
 		virtual void	VCreateDynamicShaderInstanceBuffers(IShaderResource* shader, void** data, size_t* sizes, size_t* strides, size_t* offsets, const uint32_t& count) = 0;
@@ -180,27 +176,74 @@ namespace Rig3D
 		virtual void	VUpdateShaderConstantBuffer(IShaderResource* shader, void* data, const uint32_t& index) = 0;
 		virtual void	VUpdateShaderInstanceBuffer(IShaderResource* shader, void* data, const size_t& size, const uint32_t& index) = 0;
 
+		// Constant buffers will be bound to GPU registers in the order they are arranged starting at input slot 0.
 		virtual void	VSetVertexShaderConstantBuffers(IShaderResource* shaderResource) = 0;
-		virtual void	VSetPixelShaderConstantBuffers(IShaderResource* shaderResource) = 0;
+		virtual void	VSetVertexShaderConstantBuffer(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex) = 0;
 
+		virtual void	VSetPixelShaderConstantBuffers(IShaderResource* shaderResource) = 0;
+		virtual void	VSetPixelShaderConstantBuffer(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex) = 0;
+
+		// Instance buffers will be bound to GPU registers in the order they are arranged starting at input slot 1.
 		virtual void	VSetVertexShaderInstanceBuffers(IShaderResource* shaderResource) = 0;
 
+		// Resource View will be bound to GPU registers in the order they are arranged starting at input slot 0
 		virtual void	VSetPixelShaderResourceViews(IShaderResource* shaderResource) = 0;
+
+		// Resource View wiil at index will be bound to binding index.
+		virtual void	VSetPixelShaderResourceView(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex) = 0;
+
 		virtual void	VSetPixelShaderSamplerStates(IShaderResource* shaderResource) = 0;
 
 #pragma endregion 
 
 #pragma region Render Context
 		
-		virtual void VCreateRenderContext(IRenderContext** renderContext, LinearAllocator* allocator) = 0;
+		// Creates a Render Context can hold render targets, textures, and shader resource views
+		virtual void	VCreateRenderContext(IRenderContext** renderContext, LinearAllocator* allocator) = 0;
 
-		virtual void VCreateContextDepthStencilTarget(IRenderContext* renderContext) = 0;
-		virtual void VCreateContextTargets(IRenderContext* renderContext, const uint32_t& count) = 0;
+		// Creates a Depth Stencil View
+		virtual void	VCreateContextDepthStencilTarget(IRenderContext* renderContext) = 0;
+		
+		// Creates Render Target Views
+		virtual void	VCreateContextTargets(IRenderContext* renderContext, const uint32_t& count) = 0;
 
-		virtual void VCreateContextDepthResourceTarget(IRenderContext* renderContext) = 0;
-		virtual void VCreateContextResourceTargets(IRenderContext* renderContext, const uint32_t& count) = 0;
+		// Creates a Depth Stencil View with a bindable Shader Resource
+		virtual void	VCreateContextDepthResourceTarget(IRenderContext* renderContext) = 0;
 
-		virtual void VSetRenderContext(IRenderContext* renderContext) = 0;
+		// Creates Render Target Views with bindable Shader Resources
+		virtual void	VCreateContextResourceTargets(IRenderContext* renderContext, const uint32_t& count) = 0;
+
+		// Set all Render Target Views with or without depth
+		// If no context is passed the renderers default context is set.
+		virtual void	VSetContextTarget() = 0;
+		virtual void	VSetContextTargetWithDepth() = 0;
+
+		virtual void	VSetRenderContextTargets(IRenderContext* renderContext) = 0;
+		virtual void	VSetRenderContextTargetsWithDepth(IRenderContext* renderContext) = 0;
+
+		// Set all Render Target View at index with or without depth
+		virtual void	VSetRenderContextTarget(IRenderContext* renderContext, const uint32_t& atIndex) = 0;
+		virtual void	VSetRenderContextTargetWithDepth(IRenderContext* renderContext, const uint32_t& atIndex) = 0;
+
+		// Clears Context Render target views and depth stencil views. 
+		// If no context is passed the renderers default context is cleared.
+		virtual void	VClearContext(const float* color, float depth, uint8_t stencil) = 0;
+		virtual void	VClearContext(IRenderContext* renderContext, const float* color, float depth, uint8_t stencil) = 0;
+		
+		virtual void	VClearContextTarget(const float* color) = 0;
+		virtual void	VClearContextTarget(IRenderContext* renderContext, const uint32_t& atIndex, const float* color) = 0;
+
+		virtual void	VClearDepthStencil(float depth, uint8_t stencil) = 0;
+		virtual void	VClearDepthStencil(IRenderContext* renderContext, float depth, uint8_t stencil) = 0;
+
+		virtual void	VSetVertexShaderDepthResourceView(IRenderContext* renderContext, const uint32_t& toBindingIndex) = 0;
+		virtual void	VSetPixelShaderDepthResourceView(IRenderContext* renderContext, const uint32_t& toBindingIndex) = 0;
+
+		virtual void	VSetVertexShaderResourceViews(IRenderContext* renderContext) = 0;
+		virtual void	VSetPixelShaderResourceViews(IRenderContext* renderContext) = 0;
+
+		virtual void	VSetVertexShaderResourceView(IRenderContext* renderContext, const uint32_t& atIndex, const uint32_t& toBindingIndex) = 0;
+		virtual void	VSetPixelShaderResourceView(IRenderContext* renderContext, const uint32_t& atIndex, const uint32_t& toBindingIndex) = 0;
 
 #pragma endregion 
 

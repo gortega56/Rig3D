@@ -136,7 +136,6 @@ namespace Rig3D
 		void	VCreateShaderContextTextures2D(IShaderResource* shader, IRenderContext* context) override;
 
 		void	VAddShaderTextures2D(IShaderResource* shader, const char** filenames, const uint32_t count) override;
-		void	VAddShaderContextTextures2D(IShaderResource* shader, IRenderContext* context) override;
 
 		void	VCreateShaderTextureCubes(IShaderResource* shader, const char** filenames, const uint32_t count) override;
 
@@ -150,26 +149,55 @@ namespace Rig3D
 		void	VUpdateShaderInstanceBuffer(IShaderResource* shader, void* data, const size_t& size, const uint32_t& index) override;
 
 		void	VSetVertexShaderConstantBuffers(IShaderResource* shaderResource) override;
+		void	VSetVertexShaderConstantBuffer(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex) override;
+
 		void	VSetPixelShaderConstantBuffers(IShaderResource* shaderResource) override;
+		void	VSetPixelShaderConstantBuffer(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex) override;
 
 		void	VSetVertexShaderInstanceBuffers(IShaderResource* shaderResource) override;
 
 		void	VSetPixelShaderResourceViews(IShaderResource* shaderResource) override;
+		void	VSetPixelShaderResourceView(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex) override;
+
 		void	VSetPixelShaderSamplerStates(IShaderResource* shaderResource) override;
 
 #pragma endregion 
 
 #pragma region Render Context
 
-		void VCreateRenderContext(IRenderContext** renderContext, LinearAllocator* allocator) override;
+		void	VCreateRenderContext(IRenderContext** renderContext, LinearAllocator* allocator) override;
 
-		void VCreateContextDepthStencilTarget(IRenderContext* renderContext) override;
-		void VCreateContextTargets(IRenderContext* renderContext, const uint32_t& count) override;
+		void	VCreateContextDepthStencilTarget(IRenderContext* renderContext) override;
+		void	VCreateContextTargets(IRenderContext* renderContext, const uint32_t& count) override;
 		
-		void VCreateContextDepthResourceTarget(IRenderContext* renderContext) override;
-		void VCreateContextResourceTargets(IRenderContext* renderContext, const uint32_t& count) override;
+		void	VCreateContextDepthResourceTarget(IRenderContext* renderContext) override;
+		void	VCreateContextResourceTargets(IRenderContext* renderContext, const uint32_t& count) override;
 
-		void VSetRenderContext(IRenderContext* renderContext) override;
+		void	VSetContextTarget() override;
+		void	VSetContextTargetWithDepth() override;
+		void	VSetRenderContextTargets(IRenderContext* renderContext) override;
+		void	VSetRenderContextTargetsWithDepth(IRenderContext* renderContext) override;
+
+		void	VSetRenderContextTarget(IRenderContext* renderContext, const uint32_t& atIndex) override;
+		void	VSetRenderContextTargetWithDepth(IRenderContext* renderContext, const uint32_t& atIndex) override;
+
+		void	VClearContext(const float* color, float depth, uint8_t stencil) override;
+		void	VClearContext(IRenderContext* renderContext, const float* color, float depth, uint8_t stencil) override;
+
+		void	VClearContextTarget(const float* color) override;
+		void	VClearContextTarget(IRenderContext* renderContext, const uint32_t& atIndex, const float* color) override;
+
+		void	VClearDepthStencil(float depth, uint8_t stencil) override;
+		void	VClearDepthStencil(IRenderContext* renderContext, float depth, uint8_t stencil) override;
+
+		void	VSetVertexShaderDepthResourceView(IRenderContext* renderContext, const uint32_t& toBindingIndex) override;
+		void	VSetPixelShaderDepthResourceView(IRenderContext* renderContext, const uint32_t& toBindingIndex) override;
+
+		void	VSetVertexShaderResourceViews(IRenderContext* renderContext) override;
+		void	VSetPixelShaderResourceViews(IRenderContext* renderContext) override;
+
+		void	VSetVertexShaderResourceView(IRenderContext* renderContext, const uint32_t& atIndex, const uint32_t& toBindingIndex) override;
+		void	VSetPixelShaderResourceView(IRenderContext* renderContext, const uint32_t& atIndex, const uint32_t& toBindingIndex) override;
 
 #pragma endregion 
 
