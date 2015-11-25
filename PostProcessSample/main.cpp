@@ -61,7 +61,7 @@ public:
 
 	struct BlurBuffer
 	{
-		vec2f uvOffsets[OFFSET_COUNT];
+		vec4f uvOffsets[OFFSET_COUNT];
 	};
 
 	struct MBMatrixBuffer
@@ -108,8 +108,6 @@ public:
 	IShader*				mQuadBlurPixelShader;
 	IShader*				mMotionBlurPixelShader;
 
-	ID3D11SamplerState*		mSamplerState;
-
 	Rig3DSampleScene() : 
 		mMouseX(0.0f),
 		mMouseY(0.0f),
@@ -125,8 +123,7 @@ public:
 		mSCPixelShader(nullptr),
 		mQuadVertexShader(nullptr),
 		mQuadBlurPixelShader(nullptr),
-		mMotionBlurPixelShader(nullptr),
-		mSamplerState(nullptr)
+		mMotionBlurPixelShader(nullptr)
 	{
 		mOptions.mWindowCaption	= "Rig3D Sample";
 		mOptions.mWindowWidth	= 800;
@@ -140,7 +137,7 @@ public:
 
 	~Rig3DSampleScene()
 	{
-		ReleaseMacro(mSamplerState);
+
 	}
 
 	void VInitialize() override
@@ -237,17 +234,6 @@ public:
 			};
 
 			mRenderer->VCreateShaderTextures2D(mSphereShaderResource, filenames, 2);
-
-			//D3D11_SAMPLER_DESC samplerDesc;
-			//ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
-			//samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-			//samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-			//samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-			//samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-			//samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
-
-			//ID3D11Device* device = static_cast<DX3D11Renderer*>(mRenderer)->GetDevice();
-			//device->CreateSamplerState(&samplerDesc, &mSamplerState);
 		}
 
 		// Blur shaders
@@ -295,8 +281,8 @@ public:
 		
 		int offset = OFFSET_COUNT / 2;
 		for (int i = 0; i < OFFSET_COUNT; i++) {
-			mBlurH.uvOffsets[i] = { mPixelSize.x * (i - offset) , 0.0f };
-			mBlurV.uvOffsets[i] = { 0.0f, mPixelSize.y * (i - offset) };
+			mBlurH.uvOffsets[i] = { mPixelSize.x * (i - offset) , 0.0f, 0.0f, 0.0f };
+			mBlurV.uvOffsets[i] = { 0.0f, mPixelSize.y * (i - offset), 0.0f, 0.0f };
 		}
 
 		ScreenPoint mousePosition = Input::SharedInstance().mousePosition;
@@ -411,9 +397,6 @@ public:
 		mRenderer->VSetPixelShaderDepthResourceView(mRenderContext, 1);
 		mRenderer->VSetPixelShaderSamplerStates(mBlurShaderResource);
 
-		ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
-		//deviceContext->PSSetSamplers(0, 1, &mSamplerState);
-
 		mRenderer->VBindMesh(mQuadMesh);
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
@@ -429,6 +412,7 @@ public:
 
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
+		ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
 		ID3D11ShaderResourceView* nullSRV[2] = { 0, 0 };
 		deviceContext->PSSetShaderResources(0, 2, nullSRV);
 	}
@@ -459,12 +443,10 @@ public:
 		mRenderer->VSetPixelShaderDepthResourceView(mRenderContext, 1);
 		mRenderer->VSetPixelShaderSamplerStates(mBlurShaderResource);
 
-		ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
-		//deviceContext->PSSetSamplers(0, 1, &mSamplerState);
-
 		mRenderer->VBindMesh(mQuadMesh);
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
+		ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
 		ID3D11ShaderResourceView* nullSRV[2] = { 0, 0 };
 		deviceContext->PSSetShaderResources(0, 2, nullSRV);
 	}
@@ -480,9 +462,7 @@ public:
 			mRenderer->VSetVertexShaderConstantBuffer(mSphereShaderResource, 0, 0);
 			mRenderer->VSetPixelShaderConstantBuffer(mSphereShaderResource, 1, 0);
 			mRenderer->VSetPixelShaderResourceView(mSphereShaderResource, 0, 0);
-
-			ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
-			deviceContext->PSSetSamplers(0, 1, &mSamplerState);
+			mRenderer->VSetPixelShaderSamplerStates(mBlurShaderResource);
 
 			mRenderer->VBindMesh(mSceneNodes[i].mMesh);
 			mRenderer->VDrawIndexed(0, mSceneNodes[i].mMesh->GetIndexCount());

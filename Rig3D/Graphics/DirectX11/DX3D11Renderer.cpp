@@ -1316,7 +1316,7 @@ void DX3D11Renderer::VSetPixelShaderSamplerStates(IShaderResource* shaderResourc
 	uint8_t samplerStateCount = resource->GetSamplerStateCount();
 	if (samplerStateCount)
 	{
-		mDeviceContext->VSSetSamplers(0, samplerStateCount, resource->GetSamplerStates());
+		mDeviceContext->PSSetSamplers(0, samplerStateCount, resource->GetSamplerStates());
 	}
 }
 
