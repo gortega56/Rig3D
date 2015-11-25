@@ -238,16 +238,16 @@ public:
 
 			mRenderer->VCreateShaderTextures2D(mSphereShaderResource, filenames, 2);
 
-			D3D11_SAMPLER_DESC samplerDesc;
-			ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
-			samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-			samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-			samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-			samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-			samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+			//D3D11_SAMPLER_DESC samplerDesc;
+			//ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
+			//samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+			//samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+			//samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+			//samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+			//samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
-			ID3D11Device* device = static_cast<DX3D11Renderer*>(mRenderer)->GetDevice();
-			device->CreateSamplerState(&samplerDesc, &mSamplerState);
+			//ID3D11Device* device = static_cast<DX3D11Renderer*>(mRenderer)->GetDevice();
+			//device->CreateSamplerState(&samplerDesc, &mSamplerState);
 		}
 
 		// Blur shaders
@@ -272,6 +272,8 @@ public:
 			void* data[] = { &mMBMatrixBuffer, &mBlurH };
 			size_t sizes[] = { sizeof(MBMatrixBuffer), sizeof(BlurBuffer) };
 			mRenderer->VCreateShaderConstantBuffers(mBlurShaderResource, data, sizes, 2);
+
+			mRenderer->VAddShaderLinearSamplerState(mBlurShaderResource, SAMPLER_STATE_ADDRESS_CLAMP);
 		}
 	}
 
@@ -407,9 +409,10 @@ public:
 
 		mRenderer->VSetPixelShaderResourceView(mRenderContext, 0, 0);
 		mRenderer->VSetPixelShaderDepthResourceView(mRenderContext, 1);
+		mRenderer->VSetPixelShaderSamplerStates(mBlurShaderResource);
 
 		ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
-		deviceContext->PSSetSamplers(0, 1, &mSamplerState);
+		//deviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
 		mRenderer->VBindMesh(mQuadMesh);
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
@@ -454,9 +457,10 @@ public:
 
 		mRenderer->VSetPixelShaderResourceView(mRenderContext, 0, 0);
 		mRenderer->VSetPixelShaderDepthResourceView(mRenderContext, 1);
+		mRenderer->VSetPixelShaderSamplerStates(mBlurShaderResource);
 
 		ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
-		deviceContext->PSSetSamplers(0, 1, &mSamplerState);
+		//deviceContext->PSSetSamplers(0, 1, &mSamplerState);
 
 		mRenderer->VBindMesh(mQuadMesh);
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());

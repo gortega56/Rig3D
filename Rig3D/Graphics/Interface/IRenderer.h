@@ -50,9 +50,11 @@ namespace Rig3D
 		InputClass	InputSlotClass;
 	};
 
-	enum TextureFormat
+	enum SamplerStateAddressType
 	{
-
+		SAMPLER_STATE_ADDRESS_CLAMP,
+		SAMPLER_STATE_ADDRESS_WRAP,
+		SAMPLER_STATE_ADDRESS_BORDER,
 	};
 
 	class RIG3D IRendererDelegate
@@ -118,6 +120,14 @@ namespace Rig3D
 		// 4 Channel (32 Bit) Texture.
 		virtual void VCreateRenderTexture2D(void* texture2D) = 0;
 		virtual void VCreateRenderResourceTexture2D(void * texture2D) = 0;
+
+#pragma endregion 
+
+#pragma region SamplerState
+
+		virtual void VCreateLinearClampSamplerState(void* samplerState) = 0;
+		virtual void VCreateLinearWrapSamplerState(void* samplerState) = 0;
+		virtual void VCreateLinearBorderSamplerState(void* samplerState, float* color) = 0;
 
 #pragma endregion 
 
@@ -192,6 +202,8 @@ namespace Rig3D
 		// Resource View wiil at index will be bound to binding index.
 		virtual void	VSetPixelShaderResourceView(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex) = 0;
 
+		virtual void	VAddShaderLinearSamplerState(IShaderResource* shaderResource, SamplerStateAddressType addressType, float* color = nullptr) = 0;
+		
 		virtual void	VSetPixelShaderSamplerStates(IShaderResource* shaderResource) = 0;
 
 #pragma endregion 

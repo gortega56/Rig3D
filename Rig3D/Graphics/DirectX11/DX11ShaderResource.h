@@ -29,6 +29,7 @@ namespace Rig3D
 		void SetInstanceBuffers(std::vector<ID3D11Buffer*>& buffers, std::vector<UINT>& strides, std::vector<UINT>& offsets);
 
 		void AddShaderResourceViews(std::vector<ID3D11ShaderResourceView*>& shaderResourceViews);
+		void AddSamplerState(ID3D11SamplerState* samplerState);
 
 		void VClearConstantBuffers() override;
 		void VClearInstanceBuffers() override;

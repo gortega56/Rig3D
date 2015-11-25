@@ -126,6 +126,11 @@ void DX11ShaderResource::AddShaderResourceViews(std::vector<ID3D11ShaderResource
 	mShaderResourceViews.insert(std::end(mShaderResourceViews), std::begin(shaderResourceViews), std::end(shaderResourceViews));
 }
 
+void DX11ShaderResource::AddSamplerState(ID3D11SamplerState* samplerState)
+{
+	mSamplerStates.push_back(samplerState);
+}
+
 void DX11ShaderResource::VClearShaderResourceViews()
 {
 	for (uint32_t i = 0; i < mShaderResourceViews.size(); i++)

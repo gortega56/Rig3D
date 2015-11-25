@@ -95,6 +95,14 @@ namespace Rig3D
 
 #pragma endregion 
 
+#pragma region SamplerState
+
+		void VCreateLinearClampSamplerState(void* samplerState) override;
+		void VCreateLinearWrapSamplerState(void* samplerState) override;
+		void VCreateLinearBorderSamplerState(void* samplerState, float* color) override;
+
+#pragma endregion 
+
 #pragma region Mesh
 
 		void	VSetMeshVertexBuffer(IMesh* mesh, void* vertices, const size_t& size, const size_t& stride) override;
@@ -159,6 +167,9 @@ namespace Rig3D
 		void	VSetPixelShaderResourceViews(IShaderResource* shaderResource) override;
 		void	VSetPixelShaderResourceView(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex) override;
 
+
+		void	VAddShaderLinearSamplerState(IShaderResource* shaderResource, SamplerStateAddressType addressType, float* color = nullptr) override;
+		
 		void	VSetPixelShaderSamplerStates(IShaderResource* shaderResource) override;
 
 #pragma endregion 

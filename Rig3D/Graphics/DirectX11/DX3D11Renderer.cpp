@@ -194,10 +194,10 @@ void DX3D11Renderer::VRenderScene()
 void DX3D11Renderer::VShutdown()
 {
 	// Useful for debugging COM trash left behind
-	ID3D11Debug* DebugDevice;
-	HRESULT Result = mDevice->QueryInterface(__uuidof(ID3D11Debug), reinterpret_cast<void**>(&DebugDevice));
-	DebugDevice->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
-	ReleaseMacro(DebugDevice);
+	//ID3D11Debug* DebugDevice;
+	//HRESULT Result = mDevice->QueryInterface(__uuidof(ID3D11Debug), reinterpret_cast<void**>(&DebugDevice));
+	//DebugDevice->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
+	//ReleaseMacro(DebugDevice);
 
 	ReleaseMacro(mDevice);
 	ReleaseMacro(mDeviceContext);
@@ -695,6 +695,53 @@ void DX3D11Renderer::VCreateRenderResourceTexture2D(void * texture2D)
 	texture2DDesc.Usage = D3D11_USAGE_DEFAULT;
 
 	mDevice->CreateTexture2D(&texture2DDesc, nullptr, reinterpret_cast<ID3D11Texture2D**>(texture2D));
+}
+
+#pragma endregion 
+
+#pragma region SamplerState
+
+void DX3D11Renderer::VCreateLinearClampSamplerState(void* samplerState)
+{
+	D3D11_SAMPLER_DESC samplerDesc;
+	ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+	mDevice->CreateSamplerState(&samplerDesc, reinterpret_cast<ID3D11SamplerState**>(samplerState));
+}
+
+void DX3D11Renderer::VCreateLinearWrapSamplerState(void* samplerState)
+{
+	D3D11_SAMPLER_DESC samplerDesc;
+	ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+	mDevice->CreateSamplerState(&samplerDesc, reinterpret_cast<ID3D11SamplerState**>(samplerState));
+}
+
+void DX3D11Renderer::VCreateLinearBorderSamplerState(void* samplerState, float* color)
+{
+	D3D11_SAMPLER_DESC samplerDesc;
+	ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	samplerDesc.BorderColor[0] = color[0];
+	samplerDesc.BorderColor[1] = color[1];
+	samplerDesc.BorderColor[2] = color[2];
+	samplerDesc.BorderColor[3] = color[3];
+	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+	mDevice->CreateSamplerState(&samplerDesc, reinterpret_cast<ID3D11SamplerState**>(samplerState));
 }
 
 #pragma endregion 
@@ -1232,6 +1279,34 @@ void DX3D11Renderer::VSetPixelShaderResourceView(IShaderResource* shaderResource
 {
 	ID3D11ShaderResourceView** SRVs = static_cast<DX11ShaderResource*>(shaderResource)->GetShaderResourceViews();
 	mDeviceContext->PSSetShaderResources(toBindingIndex, 1, &SRVs[atIndex]);
+}
+
+void DX3D11Renderer::VAddShaderLinearSamplerState(IShaderResource* shaderResource, SamplerStateAddressType addressType, float* color)
+{
+	ID3D11SamplerState* samplerState = nullptr;
+
+	switch(addressType)
+	{
+	case SAMPLER_STATE_ADDRESS_CLAMP:
+	{
+		VCreateLinearClampSamplerState(&samplerState);
+		break;
+	}
+	case SAMPLER_STATE_ADDRESS_WRAP:
+	{
+		VCreateLinearWrapSamplerState(&samplerState);
+		break;
+	}
+	case SAMPLER_STATE_ADDRESS_BORDER:
+	{
+		VCreateLinearBorderSamplerState(&samplerState, color);
+		break;
+	}
+	default:
+		break;
+	}
+
+	static_cast<DX11ShaderResource*>(shaderResource)->AddSamplerState(samplerState);
 }
 
 void DX3D11Renderer::VSetPixelShaderSamplerStates(IShaderResource* shaderResource)
