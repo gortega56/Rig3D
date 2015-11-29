@@ -1,7 +1,7 @@
 #pragma once
 #include "GraphicsMath/cgm.h"
 #include "Rig3D/Parametric.h"
-#include <stdint.h>
+#include <vector>
 
 namespace Rig3D
 {

@@ -68,6 +68,8 @@ public:
 	float				mMouseX;
 	float				mMouseY;
 
+	ID3D11DepthStencilState*	mDepthStencilState;
+
 	PhysicallyBasedLightingSample();
 	~PhysicallyBasedLightingSample();
 
@@ -97,7 +99,8 @@ PhysicallyBasedLightingSample::PhysicallyBasedLightingSample() :
 	mPBLSkyboxShaderResource(nullptr),
 	mPBLModelShaderResource(nullptr),
 	mMouseX(0.0f),
-	mMouseY(0.0f)
+	mMouseY(0.0f),
+	mDepthStencilState(nullptr)
 {
 	mOptions.mWindowCaption = "Physically Based Lighting Sample";
 	mOptions.mWindowWidth = 1200;
@@ -108,7 +111,7 @@ PhysicallyBasedLightingSample::PhysicallyBasedLightingSample() :
 
 PhysicallyBasedLightingSample::~PhysicallyBasedLightingSample()
 {
-
+	ReleaseMacro(mDepthStencilState);
 }
 
 void PhysicallyBasedLightingSample::VInitialize()
@@ -145,21 +148,10 @@ void PhysicallyBasedLightingSample::VRender()
 	mRenderer->VClearContext(color, 1.0f, 0);
 	deviceContext->RSSetViewports(1, &renderer->GetViewport());
 
+	deviceContext->OMSetDepthStencilState(nullptr, 1);
+
 	mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
-	mRenderer->VSetInputLayout(mPBLSkyboxVertexShader);
 	
-	mRenderer->VSetVertexShader(mPBLSkyboxVertexShader);
-	mRenderer->VSetPixelShader(mPBLSkyboxPixelShader);
-	
-	mRenderer->VUpdateShaderConstantBuffer(mPBLSkyboxShaderResource, &mSkyboxData, 0);
-	mRenderer->VSetVertexShaderConstantBuffer(mPBLSkyboxShaderResource, 0, 0);
-
-	mRenderer->VSetPixelShaderResourceViews(mPBLSkyboxShaderResource);
-	mRenderer->VSetPixelShaderSamplerStates(mPBLSkyboxShaderResource);
-
-	mRenderer->VBindMesh(mSkyboxMesh);
-	mRenderer->VDrawIndexed(0, mSkyboxMesh->GetIndexCount());
-
 	mRenderer->VSetInputLayout(mPBLModelVertexShader);
 	mRenderer->VSetVertexShader(mPBLModelVertexShader);
 	mRenderer->VSetPixelShader(mPBLModelPixelShader);
@@ -171,6 +163,22 @@ void PhysicallyBasedLightingSample::VRender()
 	mRenderer->VSetVertexShaderInstanceBuffers(mPBLModelShaderResource);
 
 	deviceContext->DrawIndexedInstanced(mIcosphereMesh->GetIndexCount(), INSTANCE_COUNT, 0, 0, 0);
+
+	deviceContext->OMSetDepthStencilState(mDepthStencilState, 1);
+
+	mRenderer->VSetInputLayout(mPBLSkyboxVertexShader);
+
+	mRenderer->VSetVertexShader(mPBLSkyboxVertexShader);
+	mRenderer->VSetPixelShader(mPBLSkyboxPixelShader);
+
+	mRenderer->VUpdateShaderConstantBuffer(mPBLSkyboxShaderResource, &mSkyboxData, 0);
+	mRenderer->VSetVertexShaderConstantBuffer(mPBLSkyboxShaderResource, 0, 0);
+
+	mRenderer->VSetPixelShaderResourceViews(mPBLSkyboxShaderResource);
+	mRenderer->VSetPixelShaderSamplerStates(mPBLSkyboxShaderResource);
+
+	mRenderer->VBindMesh(mSkyboxMesh);
+	mRenderer->VDrawIndexed(0, mSkyboxMesh->GetIndexCount());
 
 	mRenderer->VSwapBuffers();
 }
@@ -268,6 +276,29 @@ void PhysicallyBasedLightingSample::InitializeShaderResources()
 	UINT offsets[] = { 0 };
 	void* data[] = { &mSphereWorldMatrices };
 	mRenderer->VCreateShaderInstanceBuffers(mPBLModelShaderResource, data, instanceBufferSizes, strides, offsets, 1);
+
+	D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
+	depthStencilDesc.DepthEnable = true;
+	depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+	depthStencilDesc.StencilEnable = true;
+	depthStencilDesc.StencilReadMask = 0xFF;
+	depthStencilDesc.StencilWriteMask = 0xFF;
+
+	// Stencil operations if pixel is front-facing
+	depthStencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+	depthStencilDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+	// Stencil operations if pixel is back-facing
+	depthStencilDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+	depthStencilDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+	ID3D11Device* device = reinterpret_cast<DX3D11Renderer *>(mRenderer)->GetDevice();
+	device->CreateDepthStencilState(&depthStencilDesc, &mDepthStencilState);
 }
 
 void PhysicallyBasedLightingSample::HandleInput(Input& input)

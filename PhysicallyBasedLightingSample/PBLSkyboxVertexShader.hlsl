@@ -27,6 +27,7 @@ Pixel main( Vertex vertex )
 
 	Pixel pixel;
 	pixel.position = mul(vertexPosition, clip);
+	pixel.position.z = pixel.position.w;
 	pixel.texCoord = vertex.position;
 	return pixel;
 }
