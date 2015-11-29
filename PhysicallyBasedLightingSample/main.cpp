@@ -7,6 +7,7 @@
 #include "Memory\Memory\Memory.h"
 #include "Rig3D\Graphics\MeshLibrary.h"
 #include "Rig3D\Graphics\Interface\IShader.h"
+#include "Rig3D\Graphics\Interface\IShaderResource.h"
 #include "Rig3D/Graphics/Camera.h"
 #include <d3d11.h>
 #include <Rig3D\Graphics\DirectX11\DirectXTK\Inc\DDSTextureLoader.h>
@@ -61,9 +62,8 @@ public:
 	IShader*					mPBLSkyboxPixelShader;
 	IShader*					mPBLModelVertexShader;
 	IShader*					mPBLModelPixelShader;
-
-	ID3D11ShaderResourceView*	mSkyboxSRV;
-	ID3D11SamplerState*			mSamplerState;
+	IShaderResource*			mPBLSkyboxShaderResource;
+	IShaderResource*			mPBLModelShaderResource;
 
 	float				mMouseX;
 	float				mMouseY;
@@ -94,8 +94,8 @@ PhysicallyBasedLightingSample::PhysicallyBasedLightingSample() :
 	mPBLSkyboxPixelShader(nullptr),
 	mPBLModelVertexShader(nullptr),
 	mPBLModelPixelShader(nullptr),
-	mSkyboxSRV(nullptr),
-	mSamplerState(nullptr),
+	mPBLSkyboxShaderResource(nullptr),
+	mPBLModelShaderResource(nullptr),
 	mMouseX(0.0f),
 	mMouseY(0.0f)
 {
@@ -108,8 +108,7 @@ PhysicallyBasedLightingSample::PhysicallyBasedLightingSample() :
 
 PhysicallyBasedLightingSample::~PhysicallyBasedLightingSample()
 {
-	ReleaseMacro(mSkyboxSRV);
-	ReleaseMacro(mSamplerState);
+
 }
 
 void PhysicallyBasedLightingSample::VInitialize()
@@ -142,20 +141,21 @@ void PhysicallyBasedLightingSample::VRender()
 	DX3D11Renderer*	renderer			= reinterpret_cast<DX3D11Renderer*>(mRenderer);
 
 	float color[4] = { 1.0f, 1.0, 1.0f, 1.0f };
-	deviceContext->OMSetRenderTargets(1, renderer->GetRenderTargetView(), renderer->GetDepthStencilView());
-	deviceContext->ClearRenderTargetView(*renderer->GetRenderTargetView(), color);
-	deviceContext->ClearDepthStencilView(renderer->GetDepthStencilView(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	mRenderer->VSetContextTargetWithDepth();
+	mRenderer->VClearContext(color, 1.0f, 0);
 	deviceContext->RSSetViewports(1, &renderer->GetViewport());
 
 	mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
 	mRenderer->VSetInputLayout(mPBLSkyboxVertexShader);
+	
 	mRenderer->VSetVertexShader(mPBLSkyboxVertexShader);
 	mRenderer->VSetPixelShader(mPBLSkyboxPixelShader);
-	mRenderer->VUpdateShaderConstantBuffer(mPBLSkyboxVertexShader, &mSkyboxData, 0);
-	mRenderer->VSetShaderResources(mPBLSkyboxVertexShader);
+	
+	mRenderer->VUpdateShaderConstantBuffer(mPBLSkyboxShaderResource, &mSkyboxData, 0);
+	mRenderer->VSetVertexShaderConstantBuffer(mPBLSkyboxShaderResource, 0, 0);
 
-	deviceContext->PSSetShaderResources(0, 1, &mSkyboxSRV);
-	deviceContext->PSSetSamplers(0, 1, &mSamplerState);
+	mRenderer->VSetPixelShaderResourceViews(mPBLSkyboxShaderResource);
+	mRenderer->VSetPixelShaderSamplerStates(mPBLSkyboxShaderResource);
 
 	mRenderer->VBindMesh(mSkyboxMesh);
 	mRenderer->VDrawIndexed(0, mSkyboxMesh->GetIndexCount());
@@ -163,11 +163,12 @@ void PhysicallyBasedLightingSample::VRender()
 	mRenderer->VSetInputLayout(mPBLModelVertexShader);
 	mRenderer->VSetVertexShader(mPBLModelVertexShader);
 	mRenderer->VSetPixelShader(mPBLModelPixelShader);
-	mRenderer->VUpdateShaderConstantBuffer(mPBLModelVertexShader, &mModelData, 0);
-	mRenderer->VSetShaderResources(mPBLModelVertexShader);
+
+	mRenderer->VUpdateShaderConstantBuffer(mPBLModelShaderResource, &mModelData, 0);
+	mRenderer->VSetVertexShaderConstantBuffer(mPBLModelShaderResource, 0, 0);
 
 	mRenderer->VBindMesh(mIcosphereMesh);
-	mRenderer->VSetInstanceBuffers(mPBLModelVertexShader);
+	mRenderer->VSetVertexShaderInstanceBuffers(mPBLModelShaderResource);
 
 	deviceContext->DrawIndexedInstanced(mIcosphereMesh->GetIndexCount(), INSTANCE_COUNT, 0, 0, 0);
 
@@ -182,6 +183,8 @@ void PhysicallyBasedLightingSample::VShutdown()
 	mPBLModelPixelShader->~IShader();
 	mPBLSkyboxVertexShader->~IShader();
 	mPBLSkyboxPixelShader->~IShader();
+	mPBLSkyboxShaderResource->~IShaderResource();
+	mPBLModelShaderResource->~IShaderResource();
 	mAllocator.Free();
 }
 
@@ -240,32 +243,31 @@ void PhysicallyBasedLightingSample::InitializeShaders()
 
 void PhysicallyBasedLightingSample::InitializeShaderResources()
 {
+	mRenderer->VCreateShaderResource(&mPBLSkyboxShaderResource, &mAllocator);
+
 	size_t	skyboxConstantBufferSizes[] = { sizeof(SkyboxData) };
 	void*	skyboxData[]				= { &mSkyboxData };
-	mRenderer->VCreateShaderConstantBuffers(mPBLSkyboxVertexShader, skyboxData, skyboxConstantBufferSizes, 1);
+	mRenderer->VCreateShaderConstantBuffers(mPBLSkyboxShaderResource, skyboxData, skyboxConstantBufferSizes, 1);
 
-	size_t	modelConstantBufferSizes[]	= { sizeof(ModelData) };
-	void*	modelData[]					= { &mModelData };
-	mRenderer->VCreateShaderConstantBuffers(mPBLModelVertexShader, modelData, modelConstantBufferSizes, 1);
+	const char* skyboxes[] =
+	{
+		"Textures\\Skybox.dds"
+	};
 
-	ID3D11Device* device = static_cast<DX3D11Renderer*>(mRenderer)->GetDevice();
-	DirectX::CreateDDSTextureFromFile(device, L"Textures\\Skybox.dds", nullptr, &mSkyboxSRV);
+	mRenderer->VCreateShaderTextureCubes(mPBLSkyboxShaderResource, skyboxes, 1);
+	mRenderer->VAddShaderLinearSamplerState(mPBLSkyboxShaderResource, SAMPLER_STATE_ADDRESS_WRAP);
 
-	D3D11_SAMPLER_DESC samplerDesc;
-	ZeroMemory(&samplerDesc, sizeof(D3D11_SAMPLER_DESC));
-	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+	mRenderer->VCreateShaderResource(&mPBLModelShaderResource, &mAllocator);
 
-	device->CreateSamplerState(&samplerDesc, &mSamplerState);
+	size_t	modelConstantBufferSizes[] = { sizeof(ModelData) };
+	void*	modelData[] = { &mModelData };
+	mRenderer->VCreateShaderConstantBuffers(mPBLModelShaderResource, modelData, modelConstantBufferSizes, 1);
 
 	size_t instanceBufferSizes[] = { sizeof(mat4f) * INSTANCE_COUNT };
 	UINT strides[] = { sizeof(mat4f) };
 	UINT offsets[] = { 0 };
 	void* data[] = { &mSphereWorldMatrices };
-	mRenderer->VCreateShaderInstanceBuffers(mPBLModelVertexShader, data, instanceBufferSizes, strides, offsets, 1);
+	mRenderer->VCreateShaderInstanceBuffers(mPBLModelShaderResource, data, instanceBufferSizes, strides, offsets, 1);
 }
 
 void PhysicallyBasedLightingSample::HandleInput(Input& input)
