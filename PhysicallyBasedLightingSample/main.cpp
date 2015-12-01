@@ -34,7 +34,6 @@ struct SkyboxData
 	mat4f	Model;
 	mat4f	View;
 	mat4f	Projection;
-	vec4f	CameraPosition;
 };
 
 struct ModelData
@@ -133,7 +132,6 @@ void PhysicallyBasedLightingSample::VUpdate(double milliseconds)
 	mSkyboxData.Model = mat4f::translate(mCamera.mTransform.GetPosition()).transpose();
 	mSkyboxData.Projection = mModelData.Projection = mCamera.GetProjectionMatrix().transpose();
 	mSkyboxData.View = mModelData.View = mCamera.GetViewMatrix().transpose();
-	mSkyboxData.CameraPosition = mCamera.mTransform.GetPosition();
 
 	//mRenderer->VUpdateShaderInstanceBuffer(mPBLModelVertexShader, &mSphereWorldMatrices, sizeof(mat4f) * INSTANCE_COUNT, 0);
 }

@@ -11,7 +11,6 @@
 #include "Rig3D\Graphics\MeshLibrary.h"
 #include "Rig3D\Visibility.h"
 #include <d3d11.h>
-#include <d3dcompiler.h>
 #include <random>
 #include <ctime>
 
@@ -83,7 +82,6 @@ public:
 	MBMatrixBuffer			mMBMatrixBuffer;
 	BlurBuffer				mBlurH;
 	BlurBuffer				mBlurV;
-	SphereCollider*			mSphereColliders;
 	SceneNode				mSceneNodes[NODE_COUNT];
 	Transform				mCamera;
 	Frustum					mFrustum;
@@ -112,6 +110,8 @@ public:
 	IShader*				mQuadBlurPixelShader;
 	IShader*				mMotionBlurPixelShader;
 
+	SphereCollider*			mSphereColliders;
+
 	Rig3DSampleScene() : 
 		mMouseX(0.0f),
 		mMouseY(0.0f),
@@ -127,7 +127,8 @@ public:
 		mSCPixelShader(nullptr),
 		mQuadVertexShader(nullptr),
 		mQuadBlurPixelShader(nullptr),
-		mMotionBlurPixelShader(nullptr)
+		mMotionBlurPixelShader(nullptr),
+		mSphereColliders(nullptr)
 	{
 		mOptions.mWindowCaption	= "Rig3D Sample";
 		mOptions.mWindowWidth	= 800;
