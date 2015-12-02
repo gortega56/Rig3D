@@ -43,4 +43,21 @@ float4 main(Pixel pixel) : SV_TARGET
 	float4 diffuse = saturate(cosL);
 
 	return diffuse + ((D(h) * F(d) * G(l, v)) / (4.0f * cosL * cosV);
+
+	// Direct Diffuse = N dot L / PI
+
+	// Have to calculate Fresnel - F0 to use with DS and IDS.
+
+	// Direct Specular = Cook Torrance Microfacet 
+		// - Roughness
+		// - Metalness
+	
+	// Indirect Diffuse = Spherical Harmonics  = Another Cubemap
+		// 
+
+
+	// Indirect Specular = Create cubemap
+		// - Environment BRDF
+		// - Roughness
+		// - Metalness
 }
