@@ -21,19 +21,19 @@
 #define CAMERA_SPEED				0.1f
 #define CAMERA_ROTATION_SPEED		0.1f
 #define RADIAN						3.1415926535f / 180.0f
-#define INSTANCE_COUNT				10
+#define INSTANCE_COUNT				4
 #define SCENE_MEMORY				10240
 #define BOID_COLLIDER_RADIUS		1.5f
 #define OBSTACLE_AVOIDANCE_WEIGHT	0.2f
 #define BOID_INVERSE_MASS			0.2f
-#define PHYSICS_TIME_STEP			0.1f			// ms
+#define PHYSICS_TIME_STEP			0.001f			// ms
 #define MAX_ACCELERATION_MAGNITUDE  2.0f
 
 using namespace Rig3D;
 
-static float gSeparationWeight	= 0.001f;
-static float gAlignmentWeight	= 0.001f;
-static float gCohesionWeight	= 0.001f;
+static float gSeparationWeight	= 0.5f;
+static float gAlignmentWeight	= 0.5f;
+static float gCohesionWeight	= 0.5f;
 
 uint8_t gSceneMemory[SCENE_MEMORY];
 
@@ -245,8 +245,8 @@ void GroupMotionSample::VUpdate(double milliseconds)
 
 	UpdateBoidNeighbors();
 	UpdateBoidBehaviors();
-	//UpdateBoidForces();
-	IntegrateBoids(static_cast<float>(milliseconds));
+	UpdateBoidForces();
+	IntegrateBoids(static_cast<float>(milliseconds) * 0.001f);	// Convert to seconds
 
 	UpdateShaderResources();	
 
@@ -445,24 +445,45 @@ void GroupMotionSample::UpdateBoidForces()
 {
 	for (int i = 0; i < INSTANCE_COUNT; i++)
 	{
-		Boid* boid = &mBoids[i];
+		//Boid* boid = &mBoids[i];
 
-		vec3f obstacleAvoidance = 0.0f;
-		for (int j = 0; j < 6; j++)
+		//vec3f obstacleAvoidance = 0.0f;
+		//for (int j = 0; j < 6; j++)
+		//{
+		//	float d = cliqCity::graphicsMath::dot(mPlanes[j].normal, boid->collider->origin) - mPlanes[j].distance;
+		//	obstacleAvoidance += (mPlanes[j].normal * (1.0f / d));
+		//}
+
+		//boid->rigidBody->forces += obstacleAvoidance * (1.0f / 6.0f);
+
+		vec3f position = mBoids[i].transform->GetPosition();
+		vec3f velocity = mBoids[i].rigidBody->velocity;
+
+		float p = 5;
+		if ((position.x < -p && velocity.x < 0.0f) || (position.x > p && velocity.x > 0.0f))
 		{
-			float d = cliqCity::graphicsMath::dot(mPlanes[j].normal, boid->collider->origin) - mPlanes[j].distance;
-			obstacleAvoidance += (mPlanes[j].normal * (1.0f / d));
+			velocity.x = -velocity.x;
 		}
 
-		boid->rigidBody->forces += obstacleAvoidance * (1.0f / 6.0f);
+		if ((position.y < -p && velocity.y < 0.0f) || (position.y > p && velocity.y > 0.0f))
+		{
+			velocity.y = -velocity.y;
+		}
+
+		if ((position.z < -p && velocity.z < 0.0f) || (position.z > p && velocity.z > 0.0f))
+		{
+			velocity.z = -velocity.z;
+		}
+
+		mBoids[i].rigidBody->velocity = velocity;
 	}
 }
 
 void GroupMotionSample::IntegrateBoids(float deltaTime)
 {
-	if (deltaTime > 16.67f)
+	if (deltaTime > 0.01667f)
 	{
-		deltaTime = 16.67f;
+		deltaTime = 0.01667f;
 	}
 
 	static float accumulator = 0.0f;
@@ -475,20 +496,12 @@ void GroupMotionSample::IntegrateBoids(float deltaTime)
 		for (int i = 0; i < INSTANCE_COUNT; i++)
 		{
 			Boid* boid = &mBoids[i];
-			vec3f acceleration = boid->rigidBody->forces * BOID_INVERSE_MASS;
 			vec3f velocity = boid->rigidBody->velocity;
 			vec3f position = boid->transform->GetPosition();
 			vec3f rotation = boid->transform->GetRollPitchYaw();
 
-			velocity += acceleration * deltaTime;
-			float speed = cliqCity::graphicsMath::magnitude(velocity);
-			if (speed > 0.001f)
-			{
-				velocity = (velocity / speed) * 0.001f;
-			}
-
 			position += velocity * deltaTime;
-			rotation = { 0.0f, 0.0f, atan2(velocity.y, velocity.x) };
+			rotation = { -PI * 0.5f, 0.0f, atan2(velocity.y, velocity.x) };
 
 			boid->rigidBody->velocity = velocity;
 			boid->transform->SetPosition(position);
@@ -509,11 +522,10 @@ void GroupMotionSample::ResetBoids()
 	for (int i = 0; i < INSTANCE_COUNT; i++)
 	{
 		vec3f scale = { 1.0f, 1.0f, 1.0f };
-		vec3f position = { cos(angle * i), 0.0f, sin(angle*  i) };
+		vec3f position = { cos(angle * i), sin(angle*  i), 0.0f };
 		quatf rotation = { 1.0f, 0.0f, 0.0f, 0.0f };
-		vec3f velocity = { static_cast<float>(RAND(1, 0.002f)), static_cast<float>(RAND(1, 0.001f), 0.0f) };
-		//vec3f velocity = { 0.001f, 0.0f, 0.001f };
-
+		//vec3f velocity = { static_cast<float>(RAND(2, 0.2f)), static_cast<float>(RAND(3, 0.1f), 0.0f) };
+		vec3f velocity = vec3f(5.0f);
 
 		mBoidTransforms[i].SetPosition(position);
 		mBoidTransforms[i].SetScale(scale);
