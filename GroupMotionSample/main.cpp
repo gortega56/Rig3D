@@ -21,18 +21,19 @@
 #define CAMERA_SPEED				0.1f
 #define CAMERA_ROTATION_SPEED		0.1f
 #define RADIAN						3.1415926535f / 180.0f
-#define INSTANCE_COUNT				5
-#define SCENE_MEMORY				4096
-#define BOID_COLLIDER_RADIUS		2.0f
-#define OBSTACLE_AVOIDANCE_WEIGHT	0.0035f
-#define COLLISION_AVOIDANCE_WEIGHT	0.0035f
-#define VELOCITY_MATCHING_WEIGHT	0.002f
-#define FLOCK_CENTERING_WEIGHT		0.001f
+#define INSTANCE_COUNT				10
+#define SCENE_MEMORY				10240
+#define BOID_COLLIDER_RADIUS		1.5f
+#define OBSTACLE_AVOIDANCE_WEIGHT	0.2f
 #define BOID_INVERSE_MASS			0.2f
 #define PHYSICS_TIME_STEP			0.1f			// ms
-
+#define MAX_ACCELERATION_MAGNITUDE  2.0f
 
 using namespace Rig3D;
+
+static float gSeparationWeight	= 0.001f;
+static float gAlignmentWeight	= 0.001f;
+static float gCohesionWeight	= 0.001f;
 
 uint8_t gSceneMemory[SCENE_MEMORY];
 
@@ -51,6 +52,7 @@ struct RigidBody
 
 struct Boid
 {
+	vec3f			nPositions[3];
 	vec3f			nDirections[3];
 	float			nDistances[3];
 	uint32_t		nIndices[3];
@@ -108,6 +110,13 @@ public:
 	void UpdateShaderResources();
 	void UpdateInput(Input& input);
 	void UpdateCamera();
+
+	void UpdateBoidNeighbors();
+	void UpdateBoidBehaviors();
+	void UpdateBoidForces();
+	
+	void IntegrateBoids(float deltaTime);
+	void ResetBoids();
 };
 
 GroupMotionSample::GroupMotionSample() : 
@@ -142,6 +151,10 @@ void GroupMotionSample::VInitialize()
 	mRenderer = &DX3D11Renderer::SharedInstance();
 	mRenderer->SetDelegate(this);
 
+	time_t now;
+	time(&now);
+	srand(static_cast<unsigned>(now));
+
 	InitializeGeometry();
 	InitializePhysics();
 	InitializeShaders();
@@ -168,7 +181,7 @@ void GroupMotionSample::InitializeGeometry()
 
 	for (int i = 0; i < 6; i++)
 	{
-		mPlanes[i].distance = 10.0f;
+		mPlanes[i].distance = 20.0f;
 	}
 }
 
@@ -180,26 +193,7 @@ void GroupMotionSample::InitializePhysics()
 	mBoidColliders		= reinterpret_cast<SphereCollider*>(mLinearAllocator.Allocate(sizeof(SphereCollider) * INSTANCE_COUNT, alignof(SphereCollider), 0));
 	mBoids				= reinterpret_cast<Boid*>(mLinearAllocator.Allocate(sizeof(Boid) * INSTANCE_COUNT, alignof(Boid), 0));
 
-	float angle = 2.0f * PI / INSTANCE_COUNT;
-	for (int i = 0; i < INSTANCE_COUNT; i++)
-	{
-		mBoidTransforms[i].SetPosition(cos(angle * i), 0.0f, sin(angle*  i));
-		mBoidTransforms[i].SetScale(vec3f(1.0f));
-		mBoidTransforms[i].SetRotation(vec3f(0.0f));
-
-		mBoidRigidBodies[i].velocity = { static_cast<float>(RAND(2, 0.9995f)), 0.0f, static_cast<float>(RAND(2, 0.9995f)) };
-		mBoidRigidBodies[i].forces = vec3f(0.0f);
-		mBoidColliders[i].origin = mBoidTransforms->GetPosition();
-		mBoidColliders[i].radius = BOID_COLLIDER_RADIUS;
-
-		mBoids[i].transform = &mBoidTransforms[i];
-		mBoids[i].rigidBody = &mBoidRigidBodies[i];
-		mBoids[i].collider = &mBoidColliders[i];
-
-		mBoids[i].nDistances[0] = FLT_MAX;
-		mBoids[i].nDistances[1] = FLT_MAX;
-		mBoids[i].nDistances[2] = FLT_MAX;
-	}
+	ResetBoids();
 }
 
 void GroupMotionSample::InitializeShaders()
@@ -246,122 +240,28 @@ void GroupMotionSample::UpdateCamera()
 
 void GroupMotionSample::VUpdate(double milliseconds)
 {
-
-	char str[256];
-	sprintf_s(str, "Group Motion Sample DT: %f", milliseconds);
-	mRenderer->SetWindowCaption(str);
-
 	UpdateInput(Input::SharedInstance());
 	UpdateCamera();
 
-	// For each bird
-	for (int i = 0; i < INSTANCE_COUNT; i++)
-	{
-		Transform* transform = &mBoidTransforms[i];
-		Boid* boid = &mBoids[i];
-		for (int j = 1; j < INSTANCE_COUNT; j++)
-		{
-			vec3f toNeighbor = mBoids[j].transform->GetPosition() - boid->transform->GetPosition();
-			float distanceSquared = cliqCity::graphicsMath::magnitudeSquared(toNeighbor);
-			
-
-			if (distanceSquared < boid->nDistances[0])
-			{
-				boid->nDirections[2] = boid->nDirections[1];
-				boid->nDirections[1] = boid->nDirections[0];
-				boid->nDirections[0] = toNeighbor * (1.0f / sqrt(distanceSquared));
-
-				boid->nDistances[2] = boid->nDistances[1];
-				boid->nDistances[1] = boid->nDistances[0];
-				boid->nDistances[0] = distanceSquared;
-
-				boid->nIndices[2] = boid->nIndices[1];
-				boid->nIndices[1] = boid->nIndices[0];
-				boid->nIndices[0] = j;
-			}
-			else if (distanceSquared < boid->nDistances[1])
-			{
-				boid->nDirections[2] = boid->nDirections[1];
-				boid->nDirections[1] = toNeighbor * (1.0f / sqrt(distanceSquared));
-
-				boid->nDistances[2] = boid->nDistances[1];
-				boid->nDistances[1] = distanceSquared;
-
-				boid->nIndices[2] = boid->nIndices[1];
-				boid->nIndices[1] = j;
-			}
-			else if (distanceSquared < boid->nDistances[2])
-			{
-				boid->nDirections[2] = toNeighbor * (1.0f / sqrt(distanceSquared));
-
-				boid->nDistances[2] = distanceSquared;
-
-				boid->nIndices[2] = j;
-			}
-		}
-
-		vec3f obstacleAvoidance		= 0.0f;
-		vec3f collisionAvoidance	= 0.0f;
-		vec3f averageVelocity		= 0.0f;
-		vec3f directionToCenter		= 0.0f;
-		for (int j = 0; j < 3; j++)
-		{
-			if (IntersectSphereSphere(*boid->collider, *mBoids[boid->nIndices[j]].collider))
-			{
-				collisionAvoidance += boid->nDirections[j];
-			}
-
-			averageVelocity += mBoids[boid->nIndices[j]].rigidBody->velocity;
-			directionToCenter += boid->nDirections[j];
-		}
-
-		collisionAvoidance	*= 0.33333333333f;
-		averageVelocity		*= 0.33333333333f;
-		directionToCenter	*= 0.33333333333f;
-
-		boid->rigidBody->forces += (cliqCity::graphicsMath::normalize(collisionAvoidance) * COLLISION_AVOIDANCE_WEIGHT);
-		boid->rigidBody->forces += (cliqCity::graphicsMath::normalize(averageVelocity) * VELOCITY_MATCHING_WEIGHT);
-		boid->rigidBody->forces += (cliqCity::graphicsMath::normalize(directionToCenter) * FLOCK_CENTERING_WEIGHT);
-	
-		for (int j = 0; j < 6; j++)
-		{
-			float d = cliqCity::graphicsMath::dot(mPlanes[j].normal, boid->collider->origin) - mPlanes[j].distance;
-			obstacleAvoidance +=  mPlanes[j].normal * (1.0f / d);
-		}
-
-		boid->rigidBody->forces += (cliqCity::graphicsMath::normalize(obstacleAvoidance) * OBSTACLE_AVOIDANCE_WEIGHT);
-
-		
-		{
-			float frameTime = static_cast<float>(milliseconds);
-			if (frameTime > 16.67f)
-			{
-				frameTime = 16.67f;
-			}
-
-			static float accumulator = 0.0f;
-			accumulator += frameTime;
-
-			while (accumulator >= PHYSICS_TIME_STEP)
-			{
-				vec3f acceleration = boid->rigidBody->forces * BOID_INVERSE_MASS;
-
-				boid->rigidBody->velocity += (acceleration * frameTime);
-				boid->transform->SetPosition(boid->transform->GetPosition() + (boid->rigidBody->velocity * frameTime));
-				boid->rigidBody->forces = vec3f(0.0f);
-				accumulator -= PHYSICS_TIME_STEP;
-			}
-		}
-		
-	}
+	UpdateBoidNeighbors();
+	UpdateBoidBehaviors();
+	//UpdateBoidForces();
+	IntegrateBoids(static_cast<float>(milliseconds));
 
 	UpdateShaderResources();	
+
+	Boid* b = &mBoids[1];
+	vec3f p = b->transform->GetPosition();
+	char str[256];
+	sprintf_s(str, "Group Motion Sample  S: %f  A: %f  C: %f", gSeparationWeight, gAlignmentWeight, gCohesionWeight);
+	mRenderer->SetWindowCaption(str);
 }
 
 void GroupMotionSample::UpdateInput(Input& input)
 {
 	ScreenPoint mousePosition = Input::SharedInstance().mousePosition;
-	if (input.GetMouseButton(MOUSEBUTTON_LEFT)) {
+	if (input.GetMouseButton(MOUSEBUTTON_LEFT)) 
+	{
 		mCamera.mTransform.RotatePitch(-(mousePosition.y - mMouseY) * RADIAN * CAMERA_ROTATION_SPEED);
 		mCamera.mTransform.RotateYaw(-(mousePosition.x - mMouseX) * RADIAN * CAMERA_ROTATION_SPEED);
 	}
@@ -370,24 +270,267 @@ void GroupMotionSample::UpdateInput(Input& input)
 	mMouseY = mousePosition.y;
 
 	vec3f position = mCamera.mTransform.GetPosition();
-	if (input.GetKey(KEYCODE_W)) {
+	if (input.GetKey(KEYCODE_W)) 
+	{
 		position += mCamera.mTransform.GetForward() * CAMERA_SPEED;
 		mCamera.mTransform.SetPosition(position);
 	}
 
-	if (input.GetKey(KEYCODE_A)) {
+	if (input.GetKey(KEYCODE_A)) 
+	{
 		position += mCamera.mTransform.GetRight() * -CAMERA_SPEED;
 		mCamera.mTransform.SetPosition(position);
 	}
 
-	if (input.GetKey(KEYCODE_D)) {
+	if (input.GetKey(KEYCODE_D)) 
+	{
 		position += mCamera.mTransform.GetRight() * CAMERA_SPEED;
 		mCamera.mTransform.SetPosition(position);
 	}
 
-	if (input.GetKey(KEYCODE_S)) {
+	if (input.GetKey(KEYCODE_S)) 
+	{
 		position += mCamera.mTransform.GetForward() * -CAMERA_SPEED;
 		mCamera.mTransform.SetPosition(position);
+	}
+
+	if (input.GetKey(KEYCODE_R))
+	{
+		ResetBoids();
+	}
+
+	float step = 0.005f;
+	if (input.GetKey(KEYCODE_C) && input.GetKeyDown(KEYCODE_UP))
+	{
+		gCohesionWeight += step;
+	}
+
+	if (input.GetKey(KEYCODE_C) && input.GetKeyDown(KEYCODE_DOWN))
+	{
+		gCohesionWeight -= step;
+	}
+
+	if (input.GetKey(KEYCODE_V) && input.GetKeyDown(KEYCODE_UP))
+	{
+		gAlignmentWeight += step;
+	}
+
+	if (input.GetKey(KEYCODE_V) && input.GetKeyDown(KEYCODE_DOWN))
+	{
+		gAlignmentWeight -= step;
+	}
+
+	if (input.GetKey(KEYCODE_O) && input.GetKeyDown(KEYCODE_UP))
+	{
+		gSeparationWeight += step;
+	}
+
+	if (input.GetKey(KEYCODE_O) && input.GetKeyDown(KEYCODE_DOWN))
+	{
+		gSeparationWeight -= step;
+	}
+}
+
+void GroupMotionSample::UpdateBoidNeighbors()
+{
+	for (int i = 0; i < INSTANCE_COUNT; i++)
+	{
+		Boid* boid = &mBoids[i];
+		for (int j = 0; j < INSTANCE_COUNT; j++)
+		{
+			if (i == j)
+			{
+				continue;
+			}
+
+			vec3f nPosition		= mBoids[j].transform->GetPosition();
+			vec3f toNeighbor	= nPosition - boid->transform->GetPosition();
+			float distance		= cliqCity::graphicsMath::magnitude(toNeighbor);
+
+			if (distance < boid->nDistances[0])
+			{
+				boid->nPositions[2] = boid->nPositions[1];
+				boid->nPositions[1] = boid->nPositions[0];
+				boid->nPositions[0] = nPosition;
+
+				boid->nDirections[2] = boid->nDirections[1];
+				boid->nDirections[1] = boid->nDirections[0];
+				boid->nDirections[0] = toNeighbor;
+
+				boid->nDistances[2] = boid->nDistances[1];
+				boid->nDistances[1] = boid->nDistances[0];
+				boid->nDistances[0] = distance;
+
+				boid->nIndices[2] = boid->nIndices[1];
+				boid->nIndices[1] = boid->nIndices[0];
+				boid->nIndices[0] = j;
+			}
+			else if (distance < boid->nDistances[1])
+			{
+				boid->nPositions[2] = boid->nPositions[1];
+				boid->nPositions[1] = nPosition;
+
+				boid->nDirections[2] = boid->nDirections[1];
+				boid->nDirections[1] = toNeighbor;
+
+				boid->nDistances[2] = boid->nDistances[1];
+				boid->nDistances[1] = distance;
+
+				boid->nIndices[2] = boid->nIndices[1];
+				boid->nIndices[1] = j;
+			}
+			else if (distance < boid->nDistances[2])
+			{
+				boid->nPositions[2] = nPosition;
+
+				boid->nDirections[2] = toNeighbor;
+
+				boid->nDistances[2] = distance;
+
+				boid->nIndices[2] = j;
+			}
+		}
+	}
+}
+
+void GroupMotionSample::UpdateBoidBehaviors()
+{
+	for (int i = 0; i < INSTANCE_COUNT; i++)
+	{
+		Boid* boid = &mBoids[i];
+
+		vec3f collisionAvoidance = 0.0f;
+		vec3f averageVelocity = 0.0f;
+		vec3f flockDirection = 0.0f;
+
+		float cAccu = 0.0f;
+		float oAccu = 0.0f;
+		float vAccu = 0.0f;
+		float fAccu = 0.0f;
+
+		float collisionCount = 0;
+
+		for (int j = 0; j < 3; j++)
+		{
+			if (IntersectSphereSphere(*boid->collider, *mBoids[boid->nIndices[j]].collider))
+			{
+				collisionAvoidance -= boid->nDirections[j];
+				collisionCount++;
+			}
+
+			averageVelocity += mBoids[boid->nIndices[j]].rigidBody->velocity;
+			flockDirection += boid->nPositions[j];
+		}
+
+		collisionAvoidance	/= collisionCount;
+		averageVelocity		*= 0.33333333333f;
+		flockDirection		*= 0.33333333333f;
+
+		flockDirection = flockDirection - boid->transform->GetPosition();
+	//	averageVelocity = averageVelocity - boid->rigidBody->velocity;
+
+		collisionAvoidance	= cliqCity::graphicsMath::normalize(collisionAvoidance);
+		averageVelocity		= cliqCity::graphicsMath::normalize(averageVelocity);
+		flockDirection		= cliqCity::graphicsMath::normalize(flockDirection);
+
+		collisionAvoidance	*= gSeparationWeight;
+		averageVelocity		*= gAlignmentWeight;
+		flockDirection		*= gCohesionWeight;
+
+		boid->rigidBody->velocity = collisionAvoidance + averageVelocity + flockDirection;
+	}
+}
+
+void GroupMotionSample::UpdateBoidForces()
+{
+	for (int i = 0; i < INSTANCE_COUNT; i++)
+	{
+		Boid* boid = &mBoids[i];
+
+		vec3f obstacleAvoidance = 0.0f;
+		for (int j = 0; j < 6; j++)
+		{
+			float d = cliqCity::graphicsMath::dot(mPlanes[j].normal, boid->collider->origin) - mPlanes[j].distance;
+			obstacleAvoidance += (mPlanes[j].normal * (1.0f / d));
+		}
+
+		boid->rigidBody->forces += obstacleAvoidance * (1.0f / 6.0f);
+	}
+}
+
+void GroupMotionSample::IntegrateBoids(float deltaTime)
+{
+	if (deltaTime > 16.67f)
+	{
+		deltaTime = 16.67f;
+	}
+
+	static float accumulator = 0.0f;
+	accumulator += deltaTime;
+
+	while (accumulator >= PHYSICS_TIME_STEP)
+	{
+		static const vec3f zero = vec3f(0.0f);
+
+		for (int i = 0; i < INSTANCE_COUNT; i++)
+		{
+			Boid* boid = &mBoids[i];
+			vec3f acceleration = boid->rigidBody->forces * BOID_INVERSE_MASS;
+			vec3f velocity = boid->rigidBody->velocity;
+			vec3f position = boid->transform->GetPosition();
+			vec3f rotation = boid->transform->GetRollPitchYaw();
+
+			velocity += acceleration * deltaTime;
+			float speed = cliqCity::graphicsMath::magnitude(velocity);
+			if (speed > 0.001f)
+			{
+				velocity = (velocity / speed) * 0.001f;
+			}
+
+			position += velocity * deltaTime;
+			rotation = { 0.0f, 0.0f, atan2(velocity.y, velocity.x) };
+
+			boid->rigidBody->velocity = velocity;
+			boid->transform->SetPosition(position);
+			boid->transform->SetRotation(rotation);
+			boid->collider->origin = position;
+			boid->rigidBody->forces = zero;
+		}
+
+		accumulator -= PHYSICS_TIME_STEP;
+	}
+
+
+}
+
+void GroupMotionSample::ResetBoids()
+{
+	float angle = 2.0f * PI / INSTANCE_COUNT;
+	for (int i = 0; i < INSTANCE_COUNT; i++)
+	{
+		vec3f scale = { 1.0f, 1.0f, 1.0f };
+		vec3f position = { cos(angle * i), 0.0f, sin(angle*  i) };
+		quatf rotation = { 1.0f, 0.0f, 0.0f, 0.0f };
+		vec3f velocity = { static_cast<float>(RAND(1, 0.002f)), static_cast<float>(RAND(1, 0.001f), 0.0f) };
+		//vec3f velocity = { 0.001f, 0.0f, 0.001f };
+
+
+		mBoidTransforms[i].SetPosition(position);
+		mBoidTransforms[i].SetScale(scale);
+		mBoidTransforms[i].SetRotation(rotation);
+
+		mBoidRigidBodies[i].velocity = velocity;
+
+		mBoidColliders[i].origin = position;
+		mBoidColliders[i].radius = BOID_COLLIDER_RADIUS;
+
+		mBoids[i].transform = &mBoidTransforms[i];
+		mBoids[i].rigidBody = &mBoidRigidBodies[i];
+		mBoids[i].collider = &mBoidColliders[i];
+
+		mBoids[i].nDistances[0] = FLT_MAX;
+		mBoids[i].nDistances[1] = FLT_MAX;
+		mBoids[i].nDistances[2] = FLT_MAX;
 	}
 }
 
