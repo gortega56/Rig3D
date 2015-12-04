@@ -10,7 +10,6 @@
 #include "Rig3D\Graphics\Interface\IShaderResource.h"
 #include "Rig3D/Graphics/Camera.h"
 #include <d3d11.h>
-#include <Rig3D\Graphics\DirectX11\DirectXTK\Inc\DDSTextureLoader.h>
 
 #define PI						3.1415926535f
 #define CAMERA_SPEED			0.1f
