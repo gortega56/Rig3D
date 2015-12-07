@@ -1275,6 +1275,12 @@ void DX3D11Renderer::VSetPixelShaderResourceViews(IShaderResource* shaderResourc
 	}
 }
 
+void DX3D11Renderer::VSetVertexShaderResourceView(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex)
+{
+	ID3D11ShaderResourceView** SRVs = static_cast<DX11ShaderResource*>(shaderResource)->GetShaderResourceViews();
+	mDeviceContext->VSSetShaderResources(toBindingIndex, 1, &SRVs[atIndex]);
+}
+
 void DX3D11Renderer::VSetPixelShaderResourceView(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex)
 {
 	ID3D11ShaderResourceView** SRVs = static_cast<DX11ShaderResource*>(shaderResource)->GetShaderResourceViews();
@@ -1307,6 +1313,17 @@ void DX3D11Renderer::VAddShaderLinearSamplerState(IShaderResource* shaderResourc
 	}
 
 	static_cast<DX11ShaderResource*>(shaderResource)->AddSamplerState(samplerState);
+}
+
+void DX3D11Renderer::VSetVertexShaderSamplerStates(IShaderResource* shaderResource)
+{
+	DX11ShaderResource* resource = static_cast<DX11ShaderResource*>(shaderResource);
+
+	uint8_t samplerStateCount = resource->GetSamplerStateCount();
+	if (samplerStateCount)
+	{
+		mDeviceContext->VSSetSamplers(0, samplerStateCount, resource->GetSamplerStates());
+	}
 }
 
 void DX3D11Renderer::VSetPixelShaderSamplerStates(IShaderResource* shaderResource)

@@ -75,6 +75,7 @@
     <ClInclude Include="Common\Transform.h" />
     <ClInclude Include="Common\WMEventHandler.h" />
     <ClInclude Include="Engine.h" />
+    <ClInclude Include="Geometry.h" />
     <ClInclude Include="Graphics\Camera.h" />
     <ClInclude Include="Graphics\DirectX11\DX11Mesh.h" />
     <ClInclude Include="Graphics\DirectX11\DX11RenderContext.h" />
