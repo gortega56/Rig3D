@@ -12,10 +12,12 @@
 #include <d3d11.h>
 
 #define PI						3.1415926535f
-#define CAMERA_SPEED			0.1f
-#define CAMERA_ROTATION_SPEED	0.1f
+#define CAMERA_SPEED			0.01f
+#define CAMERA_ROTATION_SPEED	0.01f
 #define RADIAN					3.1415926535f / 180.0f
-#define INSTANCE_COUNT			1
+#define INSTANCE_ROWS			10
+#define INSTANCE_COLUMNS		10
+#define RADIUS					0.75f
 
 using namespace Rig3D;
 
@@ -41,12 +43,19 @@ struct ModelData
 	mat4f Projection;
 };
 
+struct LightData
+{
+	vec4f LightDirection;
+	vec4f CameraPosition;
+};
+
 class PhysicallyBasedLightingSample : public IScene, public virtual IRendererDelegate
 {
 public:
-	mat4f						mSphereWorldMatrices[INSTANCE_COUNT];
+	mat4f						mSphereWorldMatrices[INSTANCE_ROWS * INSTANCE_COLUMNS];
 	SkyboxData					mSkyboxData;
 	ModelData					mModelData;
+	LightData					mLightData;
 
 	Camera						mCamera;
 	LinearAllocator				mAllocator;
@@ -63,8 +72,10 @@ public:
 	IShaderResource*			mPBLSkyboxShaderResource;
 	IShaderResource*			mPBLModelShaderResource;
 
-	float				mMouseX;
-	float				mMouseY;
+	vec2f						mSphereMaterials[INSTANCE_ROWS * INSTANCE_COLUMNS];
+	float						mMouseX;
+	float						mMouseY;
+	uint32_t					mInstanceCount;
 
 	ID3D11DepthStencilState*	mDepthStencilState;
 
@@ -78,6 +89,7 @@ public:
 	void VOnResize() override;
 
 	void InitializeGeometry();
+	void InitializeLighting();
 	void InitializeShaders();
 	void InitializeShaderResources();
 
@@ -98,6 +110,7 @@ PhysicallyBasedLightingSample::PhysicallyBasedLightingSample() :
 	mPBLModelShaderResource(nullptr),
 	mMouseX(0.0f),
 	mMouseY(0.0f),
+	mInstanceCount(INSTANCE_ROWS * INSTANCE_COLUMNS),
 	mDepthStencilState(nullptr)
 {
 	mOptions.mWindowCaption = "Physically Based Lighting Sample";
@@ -117,7 +130,10 @@ void PhysicallyBasedLightingSample::VInitialize()
 	mRenderer = &DX3D11Renderer::SharedInstance();
 	mRenderer->SetDelegate(this);
 
+	mCamera.mTransform.SetPosition(0.0f, 0.0f, -15.0f);
+
 	InitializeGeometry();
+	InitializeLighting();
 	InitializeShaders();
 	InitializeShaderResources();
 
@@ -132,7 +148,7 @@ void PhysicallyBasedLightingSample::VUpdate(double milliseconds)
 	mSkyboxData.Projection = mModelData.Projection = mCamera.GetProjectionMatrix().transpose();
 	mSkyboxData.View = mModelData.View = mCamera.GetViewMatrix().transpose();
 
-	//mRenderer->VUpdateShaderInstanceBuffer(mPBLModelVertexShader, &mSphereWorldMatrices, sizeof(mat4f) * INSTANCE_COUNT, 0);
+	mLightData.CameraPosition = mCamera.mTransform.GetPosition();
 }
 
 void PhysicallyBasedLightingSample::VRender()
@@ -154,12 +170,14 @@ void PhysicallyBasedLightingSample::VRender()
 	mRenderer->VSetPixelShader(mPBLModelPixelShader);
 
 	mRenderer->VUpdateShaderConstantBuffer(mPBLModelShaderResource, &mModelData, 0);
+	mRenderer->VUpdateShaderConstantBuffer(mPBLModelShaderResource, &mLightData, 1);
 	mRenderer->VSetVertexShaderConstantBuffer(mPBLModelShaderResource, 0, 0);
+	mRenderer->VSetPixelShaderConstantBuffer(mPBLModelShaderResource, 1, 0);
 
 	mRenderer->VBindMesh(mIcosphereMesh);
 	mRenderer->VSetVertexShaderInstanceBuffers(mPBLModelShaderResource);
 
-	deviceContext->DrawIndexedInstanced(mIcosphereMesh->GetIndexCount(), INSTANCE_COUNT, 0, 0, 0);
+	deviceContext->DrawIndexedInstanced(mIcosphereMesh->GetIndexCount(), mInstanceCount, 0, 0, 0);
 
 	deviceContext->OMSetDepthStencilState(mDepthStencilState, 1);
 
@@ -207,10 +225,28 @@ void PhysicallyBasedLightingSample::InitializeGeometry()
 	meshLibrary.LoadMesh(&mSkyboxMesh, mRenderer, skyboxResource);
 	meshLibrary.LoadMesh(&mIcosphereMesh, mRenderer, icosahedronResource);
 
-	for (uint32_t i = 0; i < INSTANCE_COUNT; i++)
+	float width = (RADIUS + RADIUS) * INSTANCE_ROWS;
+	float height = (RADIUS + RADIUS) * INSTANCE_COLUMNS;
+
+	float halfWidth = (width - RADIUS) * 0.5f;
+	float halfHeight = (height - RADIUS) * 0.5f;
+
+	float rows = static_cast<float>(INSTANCE_ROWS);
+	float cols = static_cast<float>(INSTANCE_COLUMNS);
+
+	for (uint32_t y = 0; y < INSTANCE_COLUMNS; y++)
 	{
-		mSphereWorldMatrices[i] = (mat4f::scale(0.2f) * mat4f::translate(0.2f)).transpose();
+		for (uint32_t x = 0; x < INSTANCE_ROWS; x++)
+		{
+			mSphereWorldMatrices[(y * INSTANCE_ROWS) + x] = mat4f::translate({ x * (RADIUS + RADIUS) - halfWidth, halfHeight - (y * (RADIUS + RADIUS)) , 0.0f }).transpose();
+			mSphereMaterials[(y * INSTANCE_ROWS) + x] = { (x + 1) / rows, (y + 1) / cols };
+		}
 	}
+}
+
+void PhysicallyBasedLightingSample::InitializeLighting()
+{
+	mLightData.LightDirection = cliqCity::graphicsMath::normalize(vec4f(1.0f, - 1.0f, 1.0f, 0.0f));
 }
 
 void PhysicallyBasedLightingSample::InitializeShaders()
@@ -236,11 +272,12 @@ void PhysicallyBasedLightingSample::InitializeShaders()
 		{ "WORLD",		0, 1, 0, 1, RGBA_FLOAT32, INPUT_CLASS_PER_INSTANCE },
 		{ "WORLD",		1, 1, 16, 1, RGBA_FLOAT32, INPUT_CLASS_PER_INSTANCE },
 		{ "WORLD",		2, 1, 32, 1, RGBA_FLOAT32, INPUT_CLASS_PER_INSTANCE },
-		{ "WORLD",		3, 1, 48, 1, RGBA_FLOAT32, INPUT_CLASS_PER_INSTANCE }
+		{ "WORLD",		3, 1, 48, 1, RGBA_FLOAT32, INPUT_CLASS_PER_INSTANCE },
+		{ "TEXCOORD",   1, 2, 0, 1, RG_FLOAT32, INPUT_CLASS_PER_INSTANCE }
 	};
 
 	mRenderer->VCreateShader(&mPBLModelVertexShader, &mAllocator);
-	mRenderer->VLoadVertexShader(mPBLModelVertexShader, "PBLInstanceVertexShader.cso", sphereInputElements, 7);
+	mRenderer->VLoadVertexShader(mPBLModelVertexShader, "PBLInstanceVertexShader.cso", sphereInputElements, 8);
 
 	mRenderer->VCreateShader(&mPBLModelPixelShader, &mAllocator);
 	mRenderer->VLoadPixelShader(mPBLModelPixelShader, "PBLInstancePixelShader.cso");
@@ -264,15 +301,17 @@ void PhysicallyBasedLightingSample::InitializeShaderResources()
 
 	mRenderer->VCreateShaderResource(&mPBLModelShaderResource, &mAllocator);
 
-	size_t	modelConstantBufferSizes[] = { sizeof(ModelData) };
-	void*	modelData[] = { &mModelData };
-	mRenderer->VCreateShaderConstantBuffers(mPBLModelShaderResource, modelData, modelConstantBufferSizes, 1);
+	size_t	modelConstantBufferSizes[] = { sizeof(ModelData), sizeof(LightData) };
+	void*	modelData[] = { &mModelData, &mLightData };
+	mRenderer->VCreateShaderConstantBuffers(mPBLModelShaderResource, modelData, modelConstantBufferSizes, 2);
 
-	size_t instanceBufferSizes[] = { sizeof(mat4f) * INSTANCE_COUNT };
-	UINT strides[] = { sizeof(mat4f) };
-	UINT offsets[] = { 0 };
-	void* data[] = { &mSphereWorldMatrices };
-	mRenderer->VCreateShaderInstanceBuffers(mPBLModelShaderResource, data, instanceBufferSizes, strides, offsets, 1);
+	size_t instanceBufferSizes[] = { sizeof(mat4f) * mInstanceCount, sizeof(vec2f) * mInstanceCount };
+	UINT strides[] = { sizeof(mat4f), sizeof(vec2f) };
+	UINT offsets[] = { 0, 0 };
+	void* data[] = { &mSphereWorldMatrices, &mSphereMaterials };
+	mRenderer->VCreateDynamicShaderInstanceBuffers(mPBLModelShaderResource, data, instanceBufferSizes, strides, offsets, 2);
+	mRenderer->VUpdateShaderInstanceBuffer(mPBLModelShaderResource, mSphereWorldMatrices, instanceBufferSizes[0], 0);
+	mRenderer->VUpdateShaderInstanceBuffer(mPBLModelShaderResource, mSphereMaterials, instanceBufferSizes[1], 1);
 
 	D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
 	depthStencilDesc.DepthEnable = true;
@@ -327,6 +366,16 @@ void PhysicallyBasedLightingSample::HandleInput(Input& input)
 
 	if (input.GetKey(KEYCODE_S)) {
 		position += mCamera.mTransform.GetForward() * -CAMERA_SPEED;
+		mCamera.mTransform.SetPosition(position);
+	}
+
+	if (input.GetKey(KEYCODE_UP)) {
+		position += mCamera.mTransform.GetUp() * CAMERA_SPEED;
+		mCamera.mTransform.SetPosition(position);
+	}
+
+	if (input.GetKey(KEYCODE_DOWN)) {
+		position += mCamera.mTransform.GetUp() * -CAMERA_SPEED;
 		mCamera.mTransform.SetPosition(position);
 	}
 }

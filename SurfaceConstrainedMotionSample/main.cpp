@@ -160,9 +160,6 @@ void SurfaceConstrainedMotionSample::InitializeGeometry()
 	{
 		for (uint32_t x = 0; x < TERRAIN_PATCH_WIDTH_COUNT; x++)
 		{
-			vec3f f = { x * patchWidth - halfWidth, 0.0f, z * patchDepth - halfDepth };
-	/*		mTerrainWorldMatrices[(z * TERRAIN_PATCH_WIDTH_COUNT) + x] = (mat4f::scale(2.0f) * 
-				mat4f::translate({ x * patchWidth - halfWidth, 0.0f, z * patchDepth - halfDepth })).transpose();*/
 			mTerrainWorldMatrices[(z * TERRAIN_PATCH_WIDTH_COUNT) + x] = 
 				mat4f::translate({ x * patchWidth - halfWidth, 0.0f, z * patchDepth - halfDepth }).transpose();
 		}
