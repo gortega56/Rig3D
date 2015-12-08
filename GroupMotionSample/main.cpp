@@ -21,19 +21,24 @@
 #define CAMERA_SPEED				0.1f
 #define CAMERA_ROTATION_SPEED		0.1f
 #define RADIAN						3.1415926535f / 180.0f
-#define INSTANCE_COUNT				4
+#define INSTANCE_COUNT				20
 #define SCENE_MEMORY				10240
-#define BOID_COLLIDER_RADIUS		1.5f
+#define BOID_NEIGHBOR_RADIUS		2.5f
+#define BOID_SEPARATION_RADIUS		(BOID_NEIGHBOR_RADIUS * 0.6f)
 #define OBSTACLE_AVOIDANCE_WEIGHT	0.2f
 #define BOID_INVERSE_MASS			0.2f
 #define PHYSICS_TIME_STEP			0.001f			// ms
-#define MAX_ACCELERATION_MAGNITUDE  2.0f
+#define MAX_BOID_SPEED				7.0f
 
 using namespace Rig3D;
 
-static float gSeparationWeight	= 0.5f;
-static float gAlignmentWeight	= 0.5f;
-static float gCohesionWeight	= 0.5f;
+static vec4f gBoidColor  = { 0.0f, 0.6f, 0.4f, 1.0f};
+static vec4f gPlaneColor = { 0.5f, 0.5f, 0.5f, 1.0f };
+
+
+static float gSeparationWeight	= 0.4f;
+static float gAlignmentWeight	= 0.1f;
+static float gCohesionWeight	= 0.1f;
 
 uint8_t gSceneMemory[SCENE_MEMORY];
 
@@ -72,6 +77,7 @@ class GroupMotionSample : public IScene, public IRendererDelegate
 {
 public:
 	ViewProjection		mViewProjection;
+	mat4f				mPlaneWorldMatrix;
 	Camera				mCamera;
 	Plane<vec3f>		mPlanes[6];
 	float				mMouseX;
@@ -91,6 +97,7 @@ public:
 	IShader*			mBoidPixelShader;
 	IShaderResource*	mBoidShaderResouce;
 	IMesh*				mBoidMesh;
+	IMesh*				mPlaneMesh;
 
 	GroupMotionSample();
 	~GroupMotionSample();
@@ -111,7 +118,6 @@ public:
 	void UpdateInput(Input& input);
 	void UpdateCamera();
 
-	void UpdateBoidNeighbors();
 	void UpdateBoidBehaviors();
 	void UpdateBoidForces();
 	
@@ -132,7 +138,8 @@ GroupMotionSample::GroupMotionSample() :
 	mBoidVertexShader(nullptr),
 	mBoidPixelShader(nullptr),
 	mBoidShaderResouce(nullptr),
-	mBoidMesh(nullptr)
+	mBoidMesh(nullptr),
+	mPlaneMesh(nullptr)
 {
 	mOptions.mWindowCaption = "Group Motion Sample";
 	mOptions.mWindowWidth = 1200;
@@ -181,8 +188,42 @@ void GroupMotionSample::InitializeGeometry()
 
 	for (int i = 0; i < 6; i++)
 	{
-		mPlanes[i].distance = 20.0f;
+		mPlanes[i].distance = 10.0f;
 	}
+
+	// Plane
+
+	float planeHalfWidth = 400.0f;
+	float planeHalfDepth = 400.0f;
+	float planeYOffset = 10.0f;
+
+	Vertex3 vertices[4];
+	vertices[0].Position = { -planeHalfWidth, -planeYOffset, -planeHalfDepth };
+	vertices[1].Position = { -planeHalfWidth, -planeYOffset, +planeHalfDepth };
+	vertices[2].Position = { +planeHalfWidth, -planeYOffset, +planeHalfDepth };
+	vertices[3].Position = { +planeHalfWidth, -planeYOffset, -planeHalfDepth };
+
+	vertices[0].Normal = { 0.0f, 1.0f, 0.0f };
+	vertices[1].Normal = { 0.0f, 1.0f, 0.0f };
+	vertices[2].Normal = { 0.0f, 1.0f, 0.0f };
+	vertices[3].Normal = { 0.0f, 1.0f, 0.0f };
+
+	vertices[0].UV = { 0.0f, 1.0f };
+	vertices[1].UV = { 0.0f, 0.0f };
+	vertices[2].UV = { 1.0f, 0.0f };
+	vertices[3].UV = { 1.0f, 1.0f };
+
+	uint16_t indices[6] =
+	{
+		0, 1, 2,
+		2, 3, 0
+	};
+
+	meshLibrary.NewMesh(&mPlaneMesh, mRenderer);
+	mRenderer->VSetMeshVertexBuffer(mPlaneMesh, vertices, sizeof(Vertex3) * 4, sizeof(Vertex3));
+	mRenderer->VSetMeshIndexBuffer(mPlaneMesh, indices, 6);
+
+	mPlaneWorldMatrix = mat4f::translate({ 0.0f, -15.0f, 0.0f }).transpose();
 }
 
 void GroupMotionSample::InitializePhysics()
@@ -227,10 +268,10 @@ void GroupMotionSample::InitializeShaderResources()
 
 	mRenderer->VCreateDynamicShaderInstanceBuffers(mBoidShaderResouce, instanceData, instanceDataSizes, instanceDataStrides, instanceDataOffsets, 1);
 
-	void*	constantData[]		= { &mViewProjection };
-	size_t	constantDataSize[]	= { sizeof(ViewProjection) };
+	void*	constantData[]		= { &mViewProjection, nullptr };
+	size_t	constantDataSize[]	= { sizeof(ViewProjection), sizeof(vec4f) };
 
-	mRenderer->VCreateShaderConstantBuffers(mBoidShaderResouce, constantData, constantDataSize, 1);
+	mRenderer->VCreateShaderConstantBuffers(mBoidShaderResouce, constantData, constantDataSize, 2);
 }
 
 void GroupMotionSample::UpdateCamera()
@@ -243,17 +284,19 @@ void GroupMotionSample::VUpdate(double milliseconds)
 	UpdateInput(Input::SharedInstance());
 	UpdateCamera();
 
-	UpdateBoidNeighbors();
 	UpdateBoidBehaviors();
 	UpdateBoidForces();
 	IntegrateBoids(static_cast<float>(milliseconds) * 0.001f);	// Convert to seconds
 
 	UpdateShaderResources();	
 
-	Boid* b = &mBoids[1];
+	Boid* b = &mBoids[0];
+	Boid* b1 = &mBoids[1];
+
 	vec3f p = b->transform->GetPosition();
 	char str[256];
-	sprintf_s(str, "Group Motion Sample  S: %f  A: %f  C: %f", gSeparationWeight, gAlignmentWeight, gCohesionWeight);
+	sprintf_s(str, "Group Motion Sample  S: %f  A: %f  C: %f  B0: %f %f %f B1: %f %f %f", gSeparationWeight, gAlignmentWeight, gCohesionWeight, b->rigidBody->velocity.x, b->rigidBody->velocity.y, b->rigidBody->velocity.z,
+		b1->rigidBody->velocity.x, b1->rigidBody->velocity.y, b1->rigidBody->velocity.z);
 	mRenderer->SetWindowCaption(str);
 }
 
@@ -299,7 +342,7 @@ void GroupMotionSample::UpdateInput(Input& input)
 		ResetBoids();
 	}
 
-	float step = 0.005f;
+	float step = 0.05f;
 	if (input.GetKey(KEYCODE_C) && input.GetKeyDown(KEYCODE_UP))
 	{
 		gCohesionWeight += step;
@@ -331,11 +374,24 @@ void GroupMotionSample::UpdateInput(Input& input)
 	}
 }
 
-void GroupMotionSample::UpdateBoidNeighbors()
+void GroupMotionSample::UpdateBoidBehaviors()
 {
 	for (int i = 0; i < INSTANCE_COUNT; i++)
 	{
 		Boid* boid = &mBoids[i];
+
+		vec3f separation = vec3f(0.0f);
+		vec3f alignment = vec3f(0.0f);
+		vec3f cohesion = vec3f(0.0f);
+
+		float separationCount = 0.0f;
+		float alignmentCount = 0.0f;
+		float cohesionCount = 0.0f;
+
+		float separationMagnitude = 0.0f;
+		float alignmentMagnitude = 0.0f;
+		float cohesionMagnitude = 0.0f;
+
 		for (int j = 0; j < INSTANCE_COUNT; j++)
 		{
 			if (i == j)
@@ -343,101 +399,77 @@ void GroupMotionSample::UpdateBoidNeighbors()
 				continue;
 			}
 
-			vec3f nPosition		= mBoids[j].transform->GetPosition();
-			vec3f toNeighbor	= nPosition - boid->transform->GetPosition();
-			float distance		= cliqCity::graphicsMath::magnitude(toNeighbor);
+			vec3f nPosition = mBoids[j].transform->GetPosition();
+			vec3f toNeighbor = nPosition - boid->transform->GetPosition();
+			float distance = cliqCity::graphicsMath::magnitude(toNeighbor);
 
-			if (distance < boid->nDistances[0])
+			if (distance > FLT_EPSILON && distance < BOID_NEIGHBOR_RADIUS)
 			{
-				boid->nPositions[2] = boid->nPositions[1];
-				boid->nPositions[1] = boid->nPositions[0];
-				boid->nPositions[0] = nPosition;
+				if (distance < BOID_SEPARATION_RADIUS)
+				{
+					separation += (toNeighbor * (BOID_SEPARATION_RADIUS / -distance));
+					separationCount++;
+				}
 
-				boid->nDirections[2] = boid->nDirections[1];
-				boid->nDirections[1] = boid->nDirections[0];
-				boid->nDirections[0] = toNeighbor;
+				alignment += mBoids[j].rigidBody->velocity;
+				cohesion += nPosition;
 
-				boid->nDistances[2] = boid->nDistances[1];
-				boid->nDistances[1] = boid->nDistances[0];
-				boid->nDistances[0] = distance;
-
-				boid->nIndices[2] = boid->nIndices[1];
-				boid->nIndices[1] = boid->nIndices[0];
-				boid->nIndices[0] = j;
-			}
-			else if (distance < boid->nDistances[1])
-			{
-				boid->nPositions[2] = boid->nPositions[1];
-				boid->nPositions[1] = nPosition;
-
-				boid->nDirections[2] = boid->nDirections[1];
-				boid->nDirections[1] = toNeighbor;
-
-				boid->nDistances[2] = boid->nDistances[1];
-				boid->nDistances[1] = distance;
-
-				boid->nIndices[2] = boid->nIndices[1];
-				boid->nIndices[1] = j;
-			}
-			else if (distance < boid->nDistances[2])
-			{
-				boid->nPositions[2] = nPosition;
-
-				boid->nDirections[2] = toNeighbor;
-
-				boid->nDistances[2] = distance;
-
-				boid->nIndices[2] = j;
+				alignmentCount++;
+				cohesionCount++;
 			}
 		}
-	}
-}
 
-void GroupMotionSample::UpdateBoidBehaviors()
-{
-	for (int i = 0; i < INSTANCE_COUNT; i++)
-	{
-		Boid* boid = &mBoids[i];
-
-		vec3f collisionAvoidance = 0.0f;
-		vec3f averageVelocity = 0.0f;
-		vec3f flockDirection = 0.0f;
-
-		float cAccu = 0.0f;
-		float oAccu = 0.0f;
-		float vAccu = 0.0f;
-		float fAccu = 0.0f;
-
-		float collisionCount = 0;
-
-		for (int j = 0; j < 3; j++)
+		if (separationCount > 0.0f)
 		{
-			if (IntersectSphereSphere(*boid->collider, *mBoids[boid->nIndices[j]].collider))
-			{
-				collisionAvoidance -= boid->nDirections[j];
-				collisionCount++;
-			}
-
-			averageVelocity += mBoids[boid->nIndices[j]].rigidBody->velocity;
-			flockDirection += boid->nPositions[j];
+			separation /= separationCount;
 		}
 
-		collisionAvoidance	/= collisionCount;
-		averageVelocity		*= 0.33333333333f;
-		flockDirection		*= 0.33333333333f;
+		if (alignmentCount > 0.0f)
+		{
+			alignment /= alignmentCount;
 
-		flockDirection = flockDirection - boid->transform->GetPosition();
-	//	averageVelocity = averageVelocity - boid->rigidBody->velocity;
+			alignmentMagnitude = cliqCity::graphicsMath::magnitude(alignment);
+			if (alignmentMagnitude > 0.0f)
+			{
+				alignment /= alignmentMagnitude;
+			}
+		}
 
-		collisionAvoidance	= cliqCity::graphicsMath::normalize(collisionAvoidance);
-		averageVelocity		= cliqCity::graphicsMath::normalize(averageVelocity);
-		flockDirection		= cliqCity::graphicsMath::normalize(flockDirection);
+		if (cohesionCount > 0.0f)
+		{
+			cohesion /= cohesionCount;
+			cohesion -= boid->transform->GetPosition();
 
-		collisionAvoidance	*= gSeparationWeight;
-		averageVelocity		*= gAlignmentWeight;
-		flockDirection		*= gCohesionWeight;
+			cohesionMagnitude = cliqCity::graphicsMath::magnitude(cohesion);
 
-		boid->rigidBody->velocity = collisionAvoidance + averageVelocity + flockDirection;
+			if (cohesionMagnitude > 0)
+			{
+				cohesion /= cohesionMagnitude;
+			}
+
+			//if (cohesionMagnitude < 7.0f)
+			//{
+			//	cohesion *= 5.0f * (cohesion / 7.0f);
+			//}
+			//else
+			//{
+			//	cohesion *= 5.0f;
+			//}
+
+			cohesion -= boid->rigidBody->velocity;
+		}
+
+		separation	*= gSeparationWeight;
+		cohesion	*= gCohesionWeight;
+		alignment	*= gAlignmentWeight;
+
+		boid->rigidBody->velocity += separation + alignment + cohesion;
+
+		float speed = cliqCity::graphicsMath::magnitude(boid->rigidBody->velocity);
+		if (speed > MAX_BOID_SPEED)
+		{
+			boid->rigidBody->velocity *= (MAX_BOID_SPEED / speed);
+		}
 	}
 }
 
@@ -445,37 +477,27 @@ void GroupMotionSample::UpdateBoidForces()
 {
 	for (int i = 0; i < INSTANCE_COUNT; i++)
 	{
-		//Boid* boid = &mBoids[i];
+		Boid* boid = &mBoids[i];
 
-		//vec3f obstacleAvoidance = 0.0f;
-		//for (int j = 0; j < 6; j++)
-		//{
-		//	float d = cliqCity::graphicsMath::dot(mPlanes[j].normal, boid->collider->origin) - mPlanes[j].distance;
-		//	obstacleAvoidance += (mPlanes[j].normal * (1.0f / d));
-		//}
-
-		//boid->rigidBody->forces += obstacleAvoidance * (1.0f / 6.0f);
-
-		vec3f position = mBoids[i].transform->GetPosition();
-		vec3f velocity = mBoids[i].rigidBody->velocity;
-
-		float p = 5;
-		if ((position.x < -p && velocity.x < 0.0f) || (position.x > p && velocity.x > 0.0f))
+		vec3f obstacleAvoidance = 0.0f;
+		for (int j = 0; j < 6; j++)
 		{
-			velocity.x = -velocity.x;
+			float d = cliqCity::graphicsMath::dot(mPlanes[j].normal, boid->collider->origin) - mPlanes[j].distance;
+			if (d < 0.0f)
+			{
+				d = (5.0f / d);
+			}
+			else
+			{
+				d = -d;
+			}
+
+			obstacleAvoidance += (mPlanes[j].normal * d);
 		}
 
-		if ((position.y < -p && velocity.y < 0.0f) || (position.y > p && velocity.y > 0.0f))
-		{
-			velocity.y = -velocity.y;
-		}
+	//	obstacleAvoidance /= 6.0f;
 
-		if ((position.z < -p && velocity.z < 0.0f) || (position.z > p && velocity.z > 0.0f))
-		{
-			velocity.z = -velocity.z;
-		}
-
-		mBoids[i].rigidBody->velocity = velocity;
+		boid->rigidBody->forces += obstacleAvoidance;
 	}
 }
 
@@ -496,12 +518,19 @@ void GroupMotionSample::IntegrateBoids(float deltaTime)
 		for (int i = 0; i < INSTANCE_COUNT; i++)
 		{
 			Boid* boid = &mBoids[i];
+			vec3f acceleration = boid->rigidBody->forces * BOID_INVERSE_MASS;
 			vec3f velocity = boid->rigidBody->velocity;
 			vec3f position = boid->transform->GetPosition();
+
+
 			vec3f rotation = boid->transform->GetRollPitchYaw();
 
+			velocity += acceleration * deltaTime;
 			position += velocity * deltaTime;
-			rotation = { -PI * 0.5f, 0.0f, atan2(velocity.y, velocity.x) };
+
+			float cosAngle = cliqCity::graphicsMath::dot(boid->transform->GetForward(), cliqCity::graphicsMath::normalize(velocity)) * 0.1f;
+
+			rotation = { PI * 0.5f, acos(cosAngle), 0.0f };
 
 			boid->rigidBody->velocity = velocity;
 			boid->transform->SetPosition(position);
@@ -512,8 +541,6 @@ void GroupMotionSample::IntegrateBoids(float deltaTime)
 
 		accumulator -= PHYSICS_TIME_STEP;
 	}
-
-
 }
 
 void GroupMotionSample::ResetBoids()
@@ -522,10 +549,9 @@ void GroupMotionSample::ResetBoids()
 	for (int i = 0; i < INSTANCE_COUNT; i++)
 	{
 		vec3f scale = { 1.0f, 1.0f, 1.0f };
-		vec3f position = { cos(angle * i), sin(angle*  i), 0.0f };
+		vec3f position = { 5.0f * cos(angle * i), 5.0f * sin(angle*  i), 0.0f };
 		quatf rotation = { 1.0f, 0.0f, 0.0f, 0.0f };
-		//vec3f velocity = { static_cast<float>(RAND(2, 0.2f)), static_cast<float>(RAND(3, 0.1f), 0.0f) };
-		vec3f velocity = vec3f(5.0f);
+		vec3f velocity = { static_cast<float>(RAND(5, 0.2f)), 0.0f, static_cast<float>(RAND(6, 0.1f)) };
 
 		mBoidTransforms[i].SetPosition(position);
 		mBoidTransforms[i].SetScale(scale);
@@ -534,7 +560,7 @@ void GroupMotionSample::ResetBoids()
 		mBoidRigidBodies[i].velocity = velocity;
 
 		mBoidColliders[i].origin = position;
-		mBoidColliders[i].radius = BOID_COLLIDER_RADIUS;
+		mBoidColliders[i].radius = BOID_NEIGHBOR_RADIUS;
 
 		mBoids[i].transform = &mBoidTransforms[i];
 		mBoids[i].rigidBody = &mBoidRigidBodies[i];
@@ -544,6 +570,11 @@ void GroupMotionSample::ResetBoids()
 		mBoids[i].nDistances[1] = FLT_MAX;
 		mBoids[i].nDistances[2] = FLT_MAX;
 	}
+
+	mBoids[0].rigidBody->velocity = { -5.0f, 5.0f, 0.0f };
+	mBoids[1].rigidBody->velocity = { 5.0f, -5.0f, 0.0f };
+	mBoids[2].rigidBody->velocity = { 5.0f, 5.0f, 0.0f };
+
 }
 
 void GroupMotionSample::UpdateShaderResources()
@@ -559,7 +590,7 @@ void GroupMotionSample::UpdateShaderResources()
 
 void GroupMotionSample::VRender()
 {
-	float color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	float color[] = { 0.0f, 0.7294117647f, 1.0f, 1.0f };
 
 	mRenderer->VSetContextTargetWithDepth();
 	mRenderer->VClearContext(color, 1.0f, 0);
@@ -573,11 +604,23 @@ void GroupMotionSample::VRender()
 
 	mRenderer->VUpdateShaderInstanceBuffer(mBoidShaderResouce, mBoidWorldMatrices, sizeof(mat4f) * INSTANCE_COUNT, 0);
 	mRenderer->VUpdateShaderConstantBuffer(mBoidShaderResouce, &mViewProjection, 0);
+	mRenderer->VUpdateShaderConstantBuffer(mBoidShaderResouce, &gBoidColor, 1);
 	mRenderer->VSetVertexShaderInstanceBuffers(mBoidShaderResouce);
-	mRenderer->VSetVertexShaderConstantBuffers(mBoidShaderResouce);
+	mRenderer->VSetVertexShaderConstantBuffer(mBoidShaderResouce, 0, 0);
+	mRenderer->VSetPixelShaderConstantBuffer(mBoidShaderResouce, 1, 0);
 
 	ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
 	deviceContext->DrawIndexedInstanced(mBoidMesh->GetIndexCount(), INSTANCE_COUNT, 0, 0, 0);
+
+	mRenderer->VBindMesh(mPlaneMesh);
+
+	mRenderer->VUpdateShaderInstanceBuffer(mBoidShaderResouce, &mPlaneWorldMatrix, sizeof(mat4f), 0);
+	mRenderer->VUpdateShaderConstantBuffer(mBoidShaderResouce, &gPlaneColor, 1);
+	mRenderer->VSetVertexShaderInstanceBuffers(mBoidShaderResouce);
+	mRenderer->VSetVertexShaderConstantBuffer(mBoidShaderResouce, 0, 0);
+	mRenderer->VSetPixelShaderConstantBuffer(mBoidShaderResouce, 1, 0);
+
+	deviceContext->DrawIndexedInstanced(mPlaneMesh->GetIndexCount(), INSTANCE_COUNT, 0, 0, 0);
 
 	mRenderer->VSwapBuffers();
 }
