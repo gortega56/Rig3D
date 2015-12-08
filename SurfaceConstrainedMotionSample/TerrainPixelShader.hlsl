@@ -5,6 +5,10 @@ struct Pixel
 	float3 normal		: NORMAL;
 };
 
+// Offset by half extents of terrain
+// Normalize position with inverted Y
+// Divide by number of patches per dimension
+
 float4 main(Pixel pixel) : SV_TARGET
 {
 	return float4(pixel.positionT, 1.0f);

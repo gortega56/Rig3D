@@ -13,11 +13,11 @@
 
 #define PI						3.1415926535f
 #define CAMERA_SPEED			0.01f
-#define CAMERA_ROTATION_SPEED	0.01f
+#define CAMERA_ROTATION_SPEED	0.1f
 #define RADIAN					3.1415926535f / 180.0f
 #define INSTANCE_ROWS			10
 #define INSTANCE_COLUMNS		10
-#define RADIUS					0.75f
+#define RADIUS					0.725f
 
 using namespace Rig3D;
 
