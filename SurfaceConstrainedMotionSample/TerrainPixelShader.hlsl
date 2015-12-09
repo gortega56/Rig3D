@@ -3,11 +3,8 @@ struct Pixel
 	float4 position		: SV_POSITION;
 	float3 positionT	: POSITIONT;
 	float3 normal		: NORMAL;
+	float2 uv			: TEXCOORD;
 };
-
-// Offset by half extents of terrain
-// Normalize position with inverted Y
-// Divide by number of patches per dimension
 
 float4 main(Pixel pixel) : SV_TARGET
 {

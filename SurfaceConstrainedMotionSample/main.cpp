@@ -17,15 +17,15 @@
 #define INSTANCE_COUNT				1
 #define SCENE_MEMORY				2048
 #define PI							3.1415926535f
-#define CAMERA_SPEED				0.1f
+#define CAMERA_SPEED				0.01f
 #define CAMERA_ROTATION_SPEED		0.1f
 #define RADIAN						3.1415926535f / 180.0f
 
-#define TERRAIN_PATCH_WIDTH_COUNT	5
-#define TERRAIN_PATCH_DEPTH_COUNT	5
-#define TERRAIN_WIDTH				10.0f
-#define TERRAIN_DEPTH				10.0f
-#define TERRAIN_VERTEX_DENSITY		5
+#define TERRAIN_PATCH_WIDTH_COUNT	2
+#define TERRAIN_PATCH_DEPTH_COUNT	2
+#define TERRAIN_WIDTH				50.0f
+#define TERRAIN_DEPTH				50.0f
+#define TERRAIN_VERTEX_DENSITY		20
 
 using namespace Rig3D;
 
@@ -160,8 +160,9 @@ void SurfaceConstrainedMotionSample::InitializeGeometry()
 	{
 		for (uint32_t x = 0; x < TERRAIN_PATCH_WIDTH_COUNT; x++)
 		{
+			vec3f f = { x * patchWidth - halfWidth, 0.0f, halfDepth - z * patchDepth };
 			mTerrainWorldMatrices[(z * TERRAIN_PATCH_WIDTH_COUNT) + x] = 
-				mat4f::translate({ x * patchWidth - halfWidth, 0.0f, z * patchDepth - halfDepth }).transpose();
+				mat4f::translate({ x * patchWidth - halfWidth, 0.0f, halfDepth - z * patchDepth }).transpose();
 		}
 	}
 
