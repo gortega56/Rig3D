@@ -6,7 +6,7 @@ struct Pixel
 	float4 position		: SV_POSITION;
 	float3 positionT	: POSITIONT;
 	float3 normal		: NORMAL;
-	float2 material		: TEXCOORD;	// x - gloss, y - material
+	float2 material		: TEXCOORD;	// x - gloss, y - metal
 };
 
 TextureCube textureCube : register(t0);
@@ -78,7 +78,7 @@ float4 main(Pixel pixel) : SV_TARGET
 	// - Roughness
 	// - Metalness
 
-	return diffuse + ((D(H, N, pixel.material.x) * F(V, H, pixel.material.y) * G(-L, V, N, pixel.material.x)) / 4.0f);
+	return diffuse + ((D(H, N, pixel.material.x) * F(V, H, pixel.material.y) * G(-L, V, N, pixel.material.x)) / 4.0f;
 
 	// Indirect Diffuse = Spherical Harmonics  = Another Cubemap
 		// 

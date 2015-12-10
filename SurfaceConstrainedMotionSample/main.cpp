@@ -75,6 +75,8 @@ public:
 	IMesh*				mTerrainMesh;
 	IMesh*				mCapsuleMesh;
 
+	ID3D11GeometryShader* mGeometryShader;
+
 	SurfaceConstrainedMotionSample();
 	~SurfaceConstrainedMotionSample();
 
@@ -112,7 +114,8 @@ SurfaceConstrainedMotionSample::SurfaceConstrainedMotionSample() :
 	mCapsulePixelShader(nullptr),
 	mShaderResouce(nullptr),
 	mTerrainMesh(nullptr),
-	mCapsuleMesh(nullptr)
+	mCapsuleMesh(nullptr),
+	mGeometryShader(nullptr)
 {
 	mOptions.mWindowCaption = "Surface Constrained Motion Sample";
 	mOptions.mWindowWidth = 1200;
@@ -123,6 +126,7 @@ SurfaceConstrainedMotionSample::SurfaceConstrainedMotionSample() :
 
 SurfaceConstrainedMotionSample::~SurfaceConstrainedMotionSample()
 {
+	ReleaseMacro(mGeometryShader);
 }
 
 void SurfaceConstrainedMotionSample::VInitialize()
@@ -214,6 +218,14 @@ void SurfaceConstrainedMotionSample::InitializeShaders()
 
 	//mRenderer->VLoadVertexShader(mCapsuleVertexShader, "CapsuleVertexShader.cso", capsuleInputElements, 3);
 	//mRenderer->VLoadPixelShader(mCapsulePixelShader, "CapsulePixelShader.cso");
+
+	ID3DBlob* gsBlob;
+	D3DReadFileToBlob(L"TerrainGeometryShader.cso", &gsBlob);
+
+	ID3D11Device* device = reinterpret_cast<DX3D11Renderer*>(mRenderer)->GetDevice();
+	device->CreateGeometryShader(gsBlob->GetBufferPointer(), gsBlob->GetBufferSize(), nullptr, &mGeometryShader);
+
+	ReleaseMacro(gsBlob);
 }
 
 void SurfaceConstrainedMotionSample::InitializeShaderResources()
@@ -314,6 +326,8 @@ void SurfaceConstrainedMotionSample::Euler(Transform* transforms, uint32_t count
 
 void SurfaceConstrainedMotionSample::VRender()
 {
+	ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
+
 	float color[4] = { 0.0f, 0.7294117647f, 1.0f, 1.0f };
 
 	mRenderer->VSetContextTargetWithDepth();
@@ -322,6 +336,8 @@ void SurfaceConstrainedMotionSample::VRender()
 	mRenderer->VSetPrimitiveType(GPU_PRIMITIVE_TYPE_TRIANGLE);
 	mRenderer->VSetInputLayout(mTerrainVertexShader);
 	mRenderer->VSetVertexShader(mTerrainVertexShader);
+
+	deviceContext->GSSetShader(mGeometryShader, nullptr, 0);
 	mRenderer->VSetPixelShader(mTerrainPixelShader);
 
 	mRenderer->VBindMesh(mTerrainMesh);
@@ -332,7 +348,6 @@ void SurfaceConstrainedMotionSample::VRender()
 	mRenderer->VSetVertexShaderResourceView(mShaderResouce, 0, 0);
 	mRenderer->VSetVertexShaderSamplerStates(mShaderResouce);
 
-	ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
 	deviceContext->DrawIndexedInstanced(mTerrainMesh->GetIndexCount(), TERRAIN_PATCH_WIDTH_COUNT * TERRAIN_PATCH_DEPTH_COUNT, 0, 0, 0);
 
 	mRenderer->VSwapBuffers();

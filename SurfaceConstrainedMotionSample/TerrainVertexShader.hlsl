@@ -7,7 +7,7 @@ struct Vertex
 	uint		instanceID		: SV_InstanceID;
 };
 
-struct Pixel
+struct GVertex
 {
 	float4 position		: SV_POSITION;
 	float3 positionT	: POSITIONT;
@@ -36,7 +36,7 @@ cbuffer terrain : register (b1)
 Texture2D heightTexture : register(t0);
 SamplerState samplerState: register(s0);
 
-Pixel main(Vertex vertex)
+GVertex main(Vertex vertex)
 {
 	float3 position = float3(vertex.world[3][0], vertex.world[3][1], vertex.world[3][2]);
 	position.x -= width;
@@ -57,13 +57,13 @@ Pixel main(Vertex vertex)
 
 	matrix clip = mul(mul(vertex.world, view), projection);
 
-	Pixel pixel;
-	pixel.position = mul(vertexPosition, clip);
+	GVertex gVertex;
+	gVertex.position = mul(vertexPosition, clip);
 
 	float c = widthPatchCount * depthPatchCount;
-	pixel.positionT = mul(vertexPosition, vertex.world).xyz;
-	pixel.normal = mul(float4(vertex.normal, 0.0f), vertex.world).xyz;
-	pixel.uv = vertex.uv;
+	gVertex.positionT = mul(vertexPosition, vertex.world).xyz;
+	gVertex.normal = mul(float4(vertex.normal, 0.0f), vertex.world).xyz;
+	gVertex.uv = vertex.uv;
 
-	return pixel;
+	return gVertex;
 }

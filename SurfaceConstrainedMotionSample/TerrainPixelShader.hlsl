@@ -8,7 +8,9 @@ struct Pixel
 
 float4 main(Pixel pixel) : SV_TARGET
 {
-	return float4(pixel.positionT, 1.0f);
+	//pixel.normal = normalize(pixel.normal);
+
+	//return float4(pixel.normal, 1.0f);
 
 	float4 ambient = float4(0.1f, 0.1f, 0.1f, 1.0f);
 	float3 lightDirection = float3(-1.0f, -1.0f, 0.0f);
