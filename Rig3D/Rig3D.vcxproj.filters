@@ -75,9 +75,6 @@
     <ClInclude Include="Graphics\DirectX11\DX11Shader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Common\Traits.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Graphics\DirectX11\DX11ShaderReflection.h">
       <Filter>Header Files</Filter>
     </ClInclude>

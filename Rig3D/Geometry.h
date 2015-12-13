@@ -1,5 +1,8 @@
 #pragma once
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include <vector>
+#include <math.h>
 
 namespace Rig3D
 {
@@ -39,6 +42,53 @@ namespace Rig3D
 					indices.push_back(((z + 1) * vertexWidth) + x + 1);
 					indices.push_back((z * vertexWidth) + x + 1);
 					indices.push_back((z * vertexWidth) + x);
+				}
+			}
+		}
+
+		template <class Vertex, class Index>
+		static void Sphere(std::vector<Vertex>& vertices, std::vector<Index>& indices, uint32_t azimuthSubdivisions, uint32_t polarSubdivisions, float radius)
+		{
+			vertices.reserve(sizeof(Vertex) * azimuthSubdivisions * polarSubdivisions);
+			indices.reserve(sizeof(Index) * (azimuthSubdivisions - 1) * (polarSubdivisions - 1) * 6);
+
+			float pi = static_cast<float>(M_PI);
+
+			float phiStep = (2.0f * pi) / static_cast<float>(azimuthSubdivisions);
+			float thetaStep = pi / static_cast<float>(polarSubdivisions);
+			
+			for (float phi = 0.0f; phi <= (2.0f * pi); phi += phiStep)
+			{
+				for (float theta = 0.0f; theta <= pi; theta += thetaStep)
+				{
+					float sinTheta = sin(theta);
+					float cosTheta = cos(theta);
+					float sinPhi = sin(phi);
+					float cosPhi = cos(phi);
+
+					vec3f normal = { sinTheta * cosPhi, sinTheta * sinPhi, cosTheta };
+
+					Vertex vertex;
+					vertex.Position = radius * normal;
+					vertex.Normal = normal;
+					vertex.UV = { 0.5f + (atan2(normal.z, vertex.Normal.x) / (2.0f * pi)), 0.5f - (asin(normal.y) / pi) };
+					vertices.push_back(vertex);
+				}
+			}
+
+			for (uint32_t azimuth = 0; azimuth < azimuthSubdivisions - 1; azimuth++)
+			{
+				for (uint32_t polar = 0; polar < polarSubdivisions - 1; polar++)
+				{
+					uint32_t i0 = (azimuth * (polarSubdivisions - 1)) + polar;
+					uint32_t i1 = i0 + polarSubdivisions + 1;
+
+					indices.push_back(i0);
+					indices.push_back(i0 + 1);
+					indices.push_back(i1);
+					indices.push_back(i1);
+					indices.push_back(i0 + 1);
+					indices.push_back(i1 + 1);
 				}
 			}
 		}

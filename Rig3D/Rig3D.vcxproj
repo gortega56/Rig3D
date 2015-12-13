@@ -71,7 +71,6 @@
   <ItemGroup>
     <ClInclude Include="Common\Input.h" />
     <ClInclude Include="Common\Timer.h" />
-    <ClInclude Include="Common\Traits.h" />
     <ClInclude Include="Common\Transform.h" />
     <ClInclude Include="Common\WMEventHandler.h" />
     <ClInclude Include="Engine.h" />

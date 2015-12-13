@@ -43,16 +43,15 @@ GVertex main(Vertex vertex)
 	position.z -= depth;
 	position = normalize(position);
 	
-	float2 uv = float2(((position.x + 1.0f) * 0.5f) / widthPatchCount, ((1.0f - position.z) * 0.5f) / depthPatchCount) * vertex.uv;
-
 	uint xid = vertex.instanceID / uint(widthPatchCount);
 	uint zid = vertex.instanceID % uint(widthPatchCount);
 	float2 id = float2(zid, xid);
 
 	float x = (vertex.uv.x / widthPatchCount) + id.x * 1 / widthPatchCount;
 	float z = (vertex.uv.y / depthPatchCount) + id.y * 1 / depthPatchCount;
+	float2 uv = float2(x, z);
 
-	float y = heightTexture.SampleLevel(samplerState, float2(x, z), 0).r * 3.0f;
+	float y = heightTexture.SampleLevel(samplerState, uv, 0).r * 5.0f;
 	float4 vertexPosition = float4(vertex.position.x, y, vertex.position.z, 1.0f);
 
 	matrix clip = mul(mul(vertex.world, view), projection);
@@ -63,7 +62,7 @@ GVertex main(Vertex vertex)
 	float c = widthPatchCount * depthPatchCount;
 	gVertex.positionT = mul(vertexPosition, vertex.world).xyz;
 	gVertex.normal = mul(float4(vertex.normal, 0.0f), vertex.world).xyz;
-	gVertex.uv = vertex.uv;
+	gVertex.uv = uv;
 
 	return gVertex;
 }

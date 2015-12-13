@@ -1264,6 +1264,16 @@ void DX3D11Renderer::VSetVertexShaderInstanceBuffers(IShaderResource* shaderReso
 	}
 }
 
+void DX3D11Renderer::VSetVertexShaderInstanceBuffer(IShaderResource* shaderResource, const uint32_t& atIndex, const uint32_t& toBindingIndex)
+{
+	ID3D11Buffer** instanceBuffers = static_cast<DX11ShaderResource*>(shaderResource)->GetInstanceBuffers();
+	UINT* instanceBufferStrides = static_cast<DX11ShaderResource*>(shaderResource)->GetInstanceBufferStrides();
+	UINT* instanceBufferOffsets = static_cast<DX11ShaderResource*>(shaderResource)->GetInstanceBufferOffsets();
+
+	mDeviceContext->IASetVertexBuffers(toBindingIndex, 1, &instanceBuffers[atIndex], &instanceBufferStrides[atIndex], &instanceBufferOffsets[atIndex]);
+}
+
+
 void DX3D11Renderer::VSetPixelShaderResourceViews(IShaderResource* shaderResource)
 {
 	DX11ShaderResource* resource = static_cast<DX11ShaderResource*>(shaderResource);
