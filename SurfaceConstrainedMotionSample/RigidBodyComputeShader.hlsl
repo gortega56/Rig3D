@@ -57,8 +57,9 @@ void main( uint3 DTid : SV_DispatchThreadID )
 	normal = mul(normal, TBN);
 
 	Plane plane;
-	plane.normal = normalize(normal);
-	plane.distance = length(planePos);
+	//plane.normal = float3(0.0f, 1.0f, 0.0f);// normalize(normal);
+	plane.normal =  normalize(normal);
+	plane.distance = dot(planePos, plane.normal);
 
 	float d = dot(plane.normal, rb.position) - plane.distance;
 	float radius = 1.0f;
@@ -66,17 +67,15 @@ void main( uint3 DTid : SV_DispatchThreadID )
 	// Test for plane negative half space
 	if (d <= radius)
 	{
-		float3 poi = rb.position - (plane.normal * abs(d));
+		//rb.position += plane.normal * (radius - d);
+
+		float3 poi = rb.position - (plane.normal * d);
 		if (length(poi - planePos) < radius)
 		{
 			float k = CalculatePlaneSphereImpulse(rb, plane);
 			rb.velocity += k * plane.normal * rb.inverseMass;
 		}
 		
-		
-		float3 g = float3(0.0f, -0.0000098196f, 0.0f);
-		float3 n = plane.normal * dot(g, plane.normal);
-		rb.forces += n;
 	}
 
 	rigidBodies[(DTid.x * 1) + DTid.y] = rb;

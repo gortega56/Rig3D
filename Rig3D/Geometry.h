@@ -49,46 +49,89 @@ namespace Rig3D
 		template <class Vertex, class Index>
 		static void Sphere(std::vector<Vertex>& vertices, std::vector<Index>& indices, uint32_t azimuthSubdivisions, uint32_t polarSubdivisions, float radius)
 		{
-			vertices.reserve(sizeof(Vertex) * azimuthSubdivisions * polarSubdivisions);
-			indices.reserve(sizeof(Index) * (azimuthSubdivisions - 1) * (polarSubdivisions - 1) * 6);
-
+			uint32_t index = 0;
 			float pi = static_cast<float>(M_PI);
 
-			float phiStep = (2.0f * pi) / static_cast<float>(azimuthSubdivisions);
-			float thetaStep = pi / static_cast<float>(polarSubdivisions);
-			
-			for (float phi = 0.0f; phi <= (2.0f * pi); phi += phiStep)
+			for (uint32_t t = 0; t < polarSubdivisions; t++)
 			{
-				for (float theta = 0.0f; theta <= pi; theta += thetaStep)
+				float theta0 = (static_cast<float>(t) / polarSubdivisions) * pi;
+				float theta1 = (static_cast<float>(t + 1) / polarSubdivisions) * pi;
+
+				for (uint32_t p = 0; p < azimuthSubdivisions; p++)
 				{
-					float sinTheta = sin(theta);
-					float cosTheta = cos(theta);
-					float sinPhi = sin(phi);
-					float cosPhi = cos(phi);
+					float phi0 = (static_cast<float>(p) / azimuthSubdivisions) * pi * 2.0f;
+					float phi1 = (static_cast<float>(p + 1) / azimuthSubdivisions) * pi * 2.0f;
 
-					vec3f normal = { sinTheta * cosPhi, sinTheta * sinPhi, cosTheta };
 
-					Vertex vertex;
-					vertex.Position = radius * normal;
-					vertex.Normal = normal;
-					vertex.UV = { 0.5f + (atan2(normal.z, vertex.Normal.x) / (2.0f * pi)), 0.5f - (asin(normal.y) / pi) };
-					vertices.push_back(vertex);
-				}
-			}
+					float sinTheta0 = sin(theta0);
+					float cosTheta0 = cos(theta0);
+					float sinPhi0 = sin(phi0);
+					float cosPhi0 = cos(phi0);
 
-			for (uint32_t azimuth = 0; azimuth < azimuthSubdivisions - 1; azimuth++)
-			{
-				for (uint32_t polar = 0; polar < polarSubdivisions - 1; polar++)
-				{
-					uint32_t i0 = (azimuth * (polarSubdivisions - 1)) + polar;
-					uint32_t i1 = i0 + polarSubdivisions + 1;
+					float sinTheta1 = sin(theta1);
+					float cosTheta1 = cos(theta1);
+					float sinPhi1 = sin(phi1);
+					float cosPhi1 = cos(phi1);
 
-					indices.push_back(i0);
-					indices.push_back(i0 + 1);
-					indices.push_back(i1);
-					indices.push_back(i1);
-					indices.push_back(i0 + 1);
-					indices.push_back(i1 + 1);
+					vec3f n0 = { sinTheta0 * cosPhi0, cosTheta0, sinTheta0 * sinPhi0 };
+					vec3f n1 = { sinTheta0 * cosPhi1, cosTheta0, sinTheta0 * sinPhi1 };
+					vec3f n2 = { sinTheta1 * cosPhi1, cosTheta1, sinTheta1 * sinPhi1 };
+					vec3f n3 = { sinTheta1 * cosPhi0, cosTheta1, sinTheta1 * sinPhi0 };
+
+					Vertex v0, v1, v2, v3;
+					v0.Position = radius * n0;
+					v1.Position = radius * n1;
+					v2.Position = radius * n2;
+					v3.Position = radius * n3;
+
+					v0.Normal = n0;
+					v1.Normal = n1;
+					v2.Normal = n2;
+					v3.Normal = n3;
+
+					v0.UV = { 0.5f + (atan2(n0.z, n0.x) / (2.0f * pi)), 0.5f - (asin(n0.y) / pi) };
+					v0.UV = { 0.5f + (atan2(n1.z, n1.x) / (2.0f * pi)), 0.5f - (asin(n1.y) / pi) };
+					v0.UV = { 0.5f + (atan2(n2.z, n2.x) / (2.0f * pi)), 0.5f - (asin(n2.y) / pi) };
+					v0.UV = { 0.5f + (atan2(n3.z, n3.x) / (2.0f * pi)), 0.5f - (asin(n3.y) / pi) };
+
+					if (t == 0)
+					{
+						vertices.push_back(v3);
+						vertices.push_back(v2);
+						vertices.push_back(v0);
+
+						indices.push_back(index++);
+						indices.push_back(index++);
+						indices.push_back(index++);
+					}
+					else if (t + 1 == polarSubdivisions)
+					{
+						vertices.push_back(v1);
+						vertices.push_back(v0);
+						vertices.push_back(v2);
+
+						indices.push_back(index++);
+						indices.push_back(index++);
+						indices.push_back(index++);
+					}
+					else
+					{
+						vertices.push_back(v3);
+						vertices.push_back(v1);
+						vertices.push_back(v0);
+
+						vertices.push_back(v3);
+						vertices.push_back(v2);
+						vertices.push_back(v1);
+
+						indices.push_back(index++);
+						indices.push_back(index++);
+						indices.push_back(index++);
+
+						indices.push_back(index++);
+						indices.push_back(index++);
+						indices.push_back(index++);
+					}
 				}
 			}
 		}
