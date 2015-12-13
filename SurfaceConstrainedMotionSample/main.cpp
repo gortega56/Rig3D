@@ -166,8 +166,8 @@ void SurfaceConstrainedMotionSample::VInitialize()
 	mRenderer = &DX3D11Renderer::SharedInstance();
 	mRenderer->SetDelegate(this);
 
-	mCamera.mTransform.SetPosition({ 0.0f, 5.0f, -50.0f });
-	mCamera.mTransform.RotatePitch(5.0f * RADIAN);
+	mCamera.mTransform.SetPosition({ 0.0f, 50.0f, -50.0f });
+	mCamera.mTransform.RotatePitch(45.0f * RADIAN);
 
 	InitializeGeometry();
 	InitializePhysics();
@@ -214,7 +214,7 @@ void SurfaceConstrainedMotionSample::InitializeGeometry()
 	vertices.clear();
 	indices.clear();
 
-	Geometry::Sphere(vertices, indices, 10, 10, 1.0f);
+	Geometry::Sphere(vertices, indices, 10, 10, 0.5f);
 
 	meshLibrary.NewMesh(&mCapsuleMesh, mRenderer);
 	mRenderer->VSetMeshVertexBuffer(mCapsuleMesh, &vertices[0], sizeof(Vertex3) * vertices.size(), sizeof(Vertex3));
@@ -299,8 +299,10 @@ void SurfaceConstrainedMotionSample::InitializeShaderResources()
 	// Height map
 	const char* filename[] = 
 	{
-		"Textures\\mt-tarawera-15m-dem.png",
-		"Textures\\mt-tarawera-15m-bump.png"
+		//"Textures\\mt-tarawera-15m-dem.png",
+		//"Textures\\mt-tarawera-15m-bump.png"
+		"Textures\\morgulterrain.png",
+		"Textures\\morgulterrainbump.png"
 	};
 	mRenderer->VCreateShaderTextures2D(mShaderResouce, filename, 2);
 

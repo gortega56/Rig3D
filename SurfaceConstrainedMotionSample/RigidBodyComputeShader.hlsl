@@ -46,28 +46,51 @@ void main( uint3 DTid : SV_DispatchThreadID )
 	float height = heightTexture.SampleLevel(samplerState, uv, 0).r * 5.0f;
 	float3 planePos = float3(rb.position.x, height, rb.position.z);
 
-	float3x3 TBN = float3x3
-		(
-			float3(1.0f, 0.0f, 0.0f),
-			float3(0.0f, 0.0f, 1.0f),
-			float3(0.0f, 1.0f, 0.0f)
-		);
+	float scale = 10.0f;
+	float radius = 0.5f;
 
-	normal = normal * 2.0f - 1.0f;
-	normal = mul(normal, TBN);
+	float3 p0 = rb.position + float3(radius, 0.0f, radius);		// +xz
+	float3 p1 = rb.position + float3(-radius, 0.0f, -radius);	// -xz
+	float3 p2 = rb.position + float3(-radius, 0.0f, radius);		// -x+z
+	float3 p3 = rb.position + float3(radius, 0.0f, -radius);		// +x-z
+
+	float2 uv0 = float2((p0.x + (width * 0.5f)) / width, 1.0f - ((p0.z + (depth * 0.5f)) / depth));
+	float2 uv1 = float2((p1.x + (width * 0.5f)) / width, 1.0f - ((p1.z + (depth * 0.5f)) / depth));
+	float2 uv2 = float2((p2.x + (width * 0.5f)) / width, 1.0f - ((p2.z + (depth * 0.5f)) / depth));
+	float2 uv3 = float2((p3.x + (width * 0.5f)) / width, 1.0f - ((p3.z + (depth * 0.5f)) / depth));
+
+	p0.y = heightTexture.SampleLevel(samplerState, uv0, 0).r * scale;
+	p1.y = heightTexture.SampleLevel(samplerState, uv1, 0).r * scale;
+	p2.y = heightTexture.SampleLevel(samplerState, uv2, 0).r * scale;
+	p3.y = heightTexture.SampleLevel(samplerState, uv3, 0).r * scale;
+
+	float3 n0 = cross(p1 - p0, p2 - p0);
+	float3 n1 = cross(p3 - p0, p2 - p0);
+	
+	//float3x3 TBN = float3x3
+	//	(
+	//		float3(1.0f, 0.0f, 0.0f),
+	//		float3(0.0f, 0.0f, 1.0f),
+	//		float3(0.0f, 1.0f, 0.0f)
+	//	);
+
+	//normal = normal * 2.0f - 1.0f;
+	//normal = mul(normal, TBN);
 
 	Plane plane;
+	plane.normal = normalize((n0 + n1) * 0.5f);
 	//plane.normal = float3(0.0f, 1.0f, 0.0f);// normalize(normal);
-	plane.normal =  normalize(normal);
+	//plane.normal =  normalize(normal);
 	plane.distance = dot(planePos, plane.normal);
 
 	float d = dot(plane.normal, rb.position) - plane.distance;
-	float radius = 1.0f;
 
 	// Test for plane negative half space
 	if (d <= radius)
 	{
-		//rb.position += plane.normal * (radius - d);
+		rb.position += plane.normal * (radius - d);
+
+	//	if (dot(rb.velocity, plane.normal) == 0.0f)
 
 		float3 poi = rb.position - (plane.normal * d);
 		if (length(poi - planePos) < radius)
