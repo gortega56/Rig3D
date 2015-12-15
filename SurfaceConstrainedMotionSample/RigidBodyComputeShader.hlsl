@@ -49,8 +49,8 @@ void main( uint3 DTid : SV_DispatchThreadID )
 	float scale = 10.0f;
 	float radius = 0.5f;
 
-	float3 p0 = rb.position + float3(radius, 0.0f, radius);		// +xz
-	float3 p1 = rb.position + float3(-radius, 0.0f, -radius);	// -xz
+	float3 p0 = rb.position + float3(radius, 0.0f, radius);			// +xz
+	float3 p1 = rb.position + float3(-radius, 0.0f, -radius);		// -xz
 	float3 p2 = rb.position + float3(-radius, 0.0f, radius);		// -x+z
 	float3 p3 = rb.position + float3(radius, 0.0f, -radius);		// +x-z
 

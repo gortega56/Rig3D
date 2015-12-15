@@ -18,6 +18,7 @@
 #define INSTANCE_ROWS			10
 #define INSTANCE_COLUMNS		10
 #define RADIUS					0.725f
+#include <Rig3D/Graphics/DirectX11/DX11ShaderResource.h>
 
 using namespace Rig3D;
 
@@ -79,6 +80,8 @@ public:
 
 	ID3D11DepthStencilState*	mDepthStencilState;
 
+	ID3D11ComputeShader*		mSHComputeShader;
+
 	PhysicallyBasedLightingSample();
 	~PhysicallyBasedLightingSample();
 
@@ -89,9 +92,10 @@ public:
 	void VOnResize() override;
 
 	void InitializeGeometry();
-	void InitializeLighting();
 	void InitializeShaders();
 	void InitializeShaderResources();
+	void InitializeLighting();
+	void PrefilterCubeMap();
 
 	void HandleInput(Input& input);
 };
@@ -111,7 +115,8 @@ PhysicallyBasedLightingSample::PhysicallyBasedLightingSample() :
 	mMouseX(0.0f),
 	mMouseY(0.0f),
 	mInstanceCount(INSTANCE_ROWS * INSTANCE_COLUMNS),
-	mDepthStencilState(nullptr)
+	mDepthStencilState(nullptr),
+	mSHComputeShader(nullptr)
 {
 	mOptions.mWindowCaption = "Physically Based Lighting Sample";
 	mOptions.mWindowWidth = 1200;
@@ -123,6 +128,7 @@ PhysicallyBasedLightingSample::PhysicallyBasedLightingSample() :
 PhysicallyBasedLightingSample::~PhysicallyBasedLightingSample()
 {
 	ReleaseMacro(mDepthStencilState);
+	ReleaseMacro(mSHComputeShader);
 }
 
 void PhysicallyBasedLightingSample::VInitialize()
@@ -133,9 +139,9 @@ void PhysicallyBasedLightingSample::VInitialize()
 	mCamera.mTransform.SetPosition(0.0f, 0.0f, -15.0f);
 
 	InitializeGeometry();
-	InitializeLighting();
 	InitializeShaders();
 	InitializeShaderResources();
+	InitializeLighting();
 
 	VOnResize();
 }
@@ -244,10 +250,7 @@ void PhysicallyBasedLightingSample::InitializeGeometry()
 	}
 }
 
-void PhysicallyBasedLightingSample::InitializeLighting()
-{
-	mLightData.LightDirection = cliqCity::graphicsMath::normalize(vec4f(1.0f, - 1.0f, 1.0f, 0.0f));
-}
+
 
 void PhysicallyBasedLightingSample::InitializeShaders()
 {
@@ -335,6 +338,35 @@ void PhysicallyBasedLightingSample::InitializeShaderResources()
 
 	ID3D11Device* device = reinterpret_cast<DX3D11Renderer *>(mRenderer)->GetDevice();
 	device->CreateDepthStencilState(&depthStencilDesc, &mDepthStencilState);
+}
+
+void PhysicallyBasedLightingSample::InitializeLighting()
+{
+	mLightData.LightDirection = cliqCity::graphicsMath::normalize(vec4f(1.0f, -1.0f, 1.0f, 0.0f));
+
+	PrefilterCubeMap();
+}
+
+void PhysicallyBasedLightingSample::PrefilterCubeMap()
+{
+	ID3D11ShaderResourceView** SRVs = reinterpret_cast<DX11ShaderResource*>(mRenderer)->GetShaderResourceViews();
+
+	ID3D11Resource* resource;
+	SRVs[0]->GetResource(&resource);
+
+	ID3D11Texture2D* textureCube = reinterpret_cast<ID3D11Texture2D*>(resource);
+	
+	D3D11_TEXTURE2D_DESC textureDesc;
+	textureCube->GetDesc(&textureDesc);
+
+	ID3D11ShaderResourceView* nullSRV[] = { nullptr };
+	ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
+	deviceContext->CSSetShader(mSHComputeShader, nullptr, 0);
+	deviceContext->CSSetShaderResources(0, 1, &SRVs[0]);
+	deviceContext->Dispatch(6, 1, 1);
+	deviceContext->CSSetShader(nullptr, nullptr, 0);
+	deviceContext->CSSetShaderResources(0, 1, nullSRV);
+
 }
 
 void PhysicallyBasedLightingSample::HandleInput(Input& input)
