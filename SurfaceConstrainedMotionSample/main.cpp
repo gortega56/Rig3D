@@ -301,8 +301,12 @@ void SurfaceConstrainedMotionSample::InitializeShaderResources()
 	{
 		//"Textures\\mt-tarawera-15m-dem.png",
 		//"Textures\\mt-tarawera-15m-bump.png"
-		"Textures\\morgulterrain.png",
-		"Textures\\morgulterrainbump.png"
+		//"Textures\\morgulterrain.png",
+		//"Textures\\morgulterrainbump.png"
+		"Textures\\rocks0.png",
+		"Textures\\rocks0_bump.png"
+		//"Textures\\rocks1.png",
+		//"Textures\\rocks1_bump.png"
 	};
 	mRenderer->VCreateShaderTextures2D(mShaderResouce, filename, 2);
 
@@ -416,6 +420,13 @@ void SurfaceConstrainedMotionSample::UpdateInput(Input& input)
 	if (input.GetKey(KEYCODE_LEFT))
 	{
 		mRigidBodies[0].position.x -= CAMERA_SPEED;
+	}
+
+	if (input.GetKeyDown(KEYCODE_R))
+	{
+		mRigidBodies[0].position = {0.0f, 5.0f, 0.0f };
+		mRigidBodies[0].velocity = { 0.0f, 0.0f, 0.0f };
+		mRigidBodies[0].forces = { 0.0f, 0.0f, 0.0f };
 	}
 }
 
