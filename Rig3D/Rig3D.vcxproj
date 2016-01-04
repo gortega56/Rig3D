@@ -96,6 +96,7 @@
     <ClInclude Include="rig_defines.h" />
     <ClInclude Include="TaskDispatch\Task.h" />
     <ClInclude Include="TaskDispatch\TaskDispatcher.h" />
+    <ClInclude Include="TSingleton.h" />
     <ClInclude Include="Visibility.h" />
   </ItemGroup>
   <ItemGroup>
