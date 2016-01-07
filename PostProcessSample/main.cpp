@@ -1,7 +1,6 @@
 #include <Windows.h>
 #include "Rig3D\Engine.h"
 #include "Rig3D\Graphics\Interface\IScene.h"
-#include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "Rig3D\Graphics\Interface\IRenderContext.h"
 #include "Rig3D\Graphics\Interface\IMesh.h"
 #include "Rig3D\Graphics\Interface\IShader.h"
@@ -147,7 +146,7 @@ public:
 
 	void VInitialize() override
 	{
-		mRenderer = &TSingleton<IRenderer, DX3D11Renderer>::SharedInstance();
+		mRenderer = mEngine->GetRenderer();
 		mRenderer->SetDelegate(this);
 
 		mRenderer->VCreateRenderContext(&mRenderContext, &mAllocator);
@@ -168,7 +167,7 @@ public:
 	void InitializeGeometry()
 	{
 		OBJResource<Vertex4> resource ("Models\\Sphere.obj");
-		//mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, resource);
+		mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, resource);
 
 		SampleVertex qVertices[4];
 		qVertices[0].mPosition	= { -1.0f, 1.0f, 0.0f };
@@ -192,9 +191,9 @@ public:
 		qIndices[4] = 3;
 		qIndices[5] = 0;
 
-		//mMeshLibrary.NewMesh(&mQuadMesh, mRenderer);
-		//mRenderer->VSetStaticMeshVertexBuffer(mQuadMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex));
-		//mRenderer->VSetStaticMeshIndexBuffer(mQuadMesh, qIndices, 6);
+		mMeshLibrary.NewMesh(&mQuadMesh, mRenderer);
+		mRenderer->VSetStaticMeshVertexBuffer(mQuadMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex));
+		mRenderer->VSetStaticMeshIndexBuffer(mQuadMesh, qIndices, 6);
 
 		mSphereColliders = reinterpret_cast<SphereCollider*>(mAllocator.Allocate(sizeof(SphereCollider) * NODE_COUNT, alignof(SphereCollider), 0));
 
@@ -423,7 +422,7 @@ public:
 
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
-		ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
+		ID3D11DeviceContext* deviceContext = mRenderer->GetDeviceContext();
 		ID3D11ShaderResourceView* nullSRV[2] = { 0, 0 };
 		deviceContext->PSSetShaderResources(0, 2, nullSRV);
 	}
@@ -457,7 +456,7 @@ public:
 		mRenderer->VBindMesh(mQuadMesh);
 		mRenderer->VDrawIndexed(0, mQuadMesh->GetIndexCount());
 
-		ID3D11DeviceContext* deviceContext = static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
+		ID3D11DeviceContext* deviceContext = mRenderer->GetDeviceContext();
 		ID3D11ShaderResourceView* nullSRV[2] = { 0, 0 };
 		deviceContext->PSSetShaderResources(0, 2, nullSRV);
 	}

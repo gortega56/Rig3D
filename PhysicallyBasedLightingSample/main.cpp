@@ -1,7 +1,6 @@
 #include <Windows.h>
 #include "Rig3D\Engine.h"
 #include "Rig3D\Graphics\Interface\IScene.h"
-#include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "Rig3D\Graphics\Interface\IMesh.h"
 #include "Rig3D\Common\Transform.h"
 #include "Memory\Memory\Memory.h"
@@ -71,7 +70,7 @@ public:
 	IMesh*						mSkyboxMesh;
 	IMesh*						mIcosphereMesh;
 
-	IRenderer*					mRenderer;
+	TSingleton<IRenderer, DX3D11Renderer>*	mRenderer;
 	IShader*					mPBLSkyboxVertexShader;
 	IShader*					mPBLSkyboxPixelShader;
 	IShader*					mPBLModelVertexShader;
@@ -148,7 +147,7 @@ PhysicallyBasedLightingSample::~PhysicallyBasedLightingSample()
 
 void PhysicallyBasedLightingSample::VInitialize()
 {
-	mRenderer = &DX3D11Renderer::SharedInstance();
+	mRenderer = mEngine->GetRenderer();
 	mRenderer->SetDelegate(this);
 
 	mCamera.mTransform.SetPosition(0.0f, 0.0f, -15.0f);
@@ -174,15 +173,14 @@ void PhysicallyBasedLightingSample::VUpdate(double milliseconds)
 
 void PhysicallyBasedLightingSample::VRender()
 {
-	ID3D11DeviceContext* deviceContext	= static_cast<DX3D11Renderer*>(mRenderer)->GetDeviceContext();
-	DX3D11Renderer*	renderer			= reinterpret_cast<DX3D11Renderer*>(mRenderer);
+	ID3D11DeviceContext* deviceContext	= mRenderer->GetDeviceContext();
 
 	PrefilterCubeMap();
 
 	float color[4] = { 1.0f, 1.0, 1.0f, 1.0f };
 	mRenderer->VSetContextTargetWithDepth();
 	mRenderer->VClearContext(color, 1.0f, 0);
-	deviceContext->RSSetViewports(1, &renderer->GetViewport());
+	deviceContext->RSSetViewports(1, &mRenderer->GetViewport());
 
 	deviceContext->OMSetDepthStencilState(nullptr, 1);
 
