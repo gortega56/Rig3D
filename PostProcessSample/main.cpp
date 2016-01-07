@@ -95,7 +95,7 @@ public:
 	LinearAllocator			mAllocator;
 
 	MeshLibrary<LinearAllocator>	mMeshLibrary;
-	IRenderer*						mRenderer;
+	TSingleton<IRenderer, DX3D11Renderer>*						mRenderer;
 	IMesh*							mCubeMesh;
 	IMesh*							mQuadMesh;
 
@@ -147,7 +147,7 @@ public:
 
 	void VInitialize() override
 	{
-		mRenderer = &DX3D11Renderer::SharedInstance();
+		mRenderer = &TSingleton<IRenderer, DX3D11Renderer>::SharedInstance();
 		mRenderer->SetDelegate(this);
 
 		mRenderer->VCreateRenderContext(&mRenderContext, &mAllocator);
@@ -168,7 +168,7 @@ public:
 	void InitializeGeometry()
 	{
 		OBJResource<Vertex4> resource ("Models\\Sphere.obj");
-		mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, resource);
+		//mMeshLibrary.LoadMesh(&mCubeMesh, mRenderer, resource);
 
 		SampleVertex qVertices[4];
 		qVertices[0].mPosition	= { -1.0f, 1.0f, 0.0f };
@@ -192,9 +192,9 @@ public:
 		qIndices[4] = 3;
 		qIndices[5] = 0;
 
-		mMeshLibrary.NewMesh(&mQuadMesh, mRenderer);
-		mRenderer->VSetStaticMeshVertexBuffer(mQuadMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex));
-		mRenderer->VSetStaticMeshIndexBuffer(mQuadMesh, qIndices, 6);
+		//mMeshLibrary.NewMesh(&mQuadMesh, mRenderer);
+		//mRenderer->VSetStaticMeshVertexBuffer(mQuadMesh, qVertices, sizeof(SampleVertex) * 4, sizeof(SampleVertex));
+		//mRenderer->VSetStaticMeshIndexBuffer(mQuadMesh, qIndices, 6);
 
 		mSphereColliders = reinterpret_cast<SphereCollider*>(mAllocator.Allocate(sizeof(SphereCollider) * NODE_COUNT, alignof(SphereCollider), 0));
 
@@ -497,8 +497,8 @@ public:
 		
 		// RTV0 : SceneRTV
 		// RTV1 : BlurRTV
-		mRenderer->VCreateContextResourceTargets(mRenderContext, 2);
-		mRenderer->VCreateContextDepthResourceTarget(mRenderContext);
+		mRenderer->VCreateContextResourceTargets(mRenderContext, 2, mRenderer->GetWindowWidth(), mRenderer->GetWindowHeight());
+		mRenderer->VCreateContextDepthResourceTarget(mRenderContext, mRenderer->GetWindowWidth(), mRenderer->GetWindowHeight());
 	}
 
 	void VShutdown() override

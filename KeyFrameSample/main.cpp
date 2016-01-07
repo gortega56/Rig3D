@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include "Rig3D\Engine.h"
 #include "Rig3D\Graphics\Interface\IScene.h"
+#include "Rig3D\Graphics\Interface\IRenderer.h"
 #include "Rig3D\Graphics\DirectX11\DX3D11Renderer.h"
 #include "Rig3D\Graphics\Interface\IMesh.h"
 #include "Rig3D\Common\Transform.h"
@@ -10,8 +11,8 @@
 #include "Rig3D\Graphics\Interface\IShader.h"
 #include "Rig3D\Graphics\Interface\IShaderResource.h"
 
-
 #define PI 3.1415926535f
+
 
 using namespace Rig3D;
 
@@ -63,7 +64,7 @@ public:
 	IMesh*					mCubeMesh;
 	KeyFrame				mKeyFrames[KEY_FRAME_COUNT];
 
-	IRenderer*				mRenderer;
+	TSingleton<IRenderer, DX3D11Renderer>*				mRenderer;
 	IShader*				mVertexShader;
 	IShader*				mPixelShader;
 	IShaderResource*		mShaderResource;
@@ -102,7 +103,7 @@ public:
 
 	void VInitialize() override
 	{
-		mRenderer = &DX3D11Renderer::SharedInstance();
+		mRenderer = mEngine->GetRenderer();
 		mRenderer->SetDelegate(this);
 
 		VOnResize();

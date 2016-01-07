@@ -12,9 +12,6 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Memory", "Memory\Memory\Memory.vcxproj", "{09A0A24C-6BE9-44BA-9FB9-6E8D5121F404}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "KeyFrameSample", "KeyFrameSample\KeyFrameSample.vcxproj", "{9DD363FA-2329-41A0-8372-0A712E9789D6}"
-	ProjectSection(ProjectDependencies) = postProject
-		{3C394EA0-5A8B-4A6D-B8B8-F28E73A98A07} = {3C394EA0-5A8B-4A6D-B8B8-F28E73A98A07}
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sample", "Sample", "{60C00797-6723-4DEE-BF7D-718FAA7AD5E6}"
 EndProject
